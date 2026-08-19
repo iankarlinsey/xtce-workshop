@@ -31,13 +31,13 @@ app.MapPost("/api/xtce/load", async (IFormFile file) =>
 
 app.MapPost("/api/xtce/save", (SpaceSystem spaceSystem) =>
 {
-    var xml = XtceDocumentWriter.Write(spaceSystem);
+    var xml = XtceDocumentWriter.Write(XtceDocumentNormalizer.Normalize(spaceSystem));
     return Results.Text(xml, "application/xml");
 });
 
 app.MapPost("/api/xtce/validate", (SpaceSystem spaceSystem) =>
 {
-    var validationIssues = XtceValidator.Validate(spaceSystem);
+    var validationIssues = XtceValidator.Validate(XtceDocumentNormalizer.Normalize(spaceSystem));
     return Results.Ok(new { validationIssues });
 });
 

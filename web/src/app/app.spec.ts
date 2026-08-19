@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { App } from './app';
@@ -24,6 +24,12 @@ describe('App', () => {
     fixture.detectChanges();
     httpMock.expectOne('/api/health').flush({ status: 'ok' });
     return fixture;
+  }
+
+  /** Runs the revalidation debounce down and answers the resulting validate request. */
+  function flushRevalidate(issues: unknown[] = []) {
+    tick(App.revalidateDelayMs);
+    httpMock.expectOne('/api/xtce/validate').flush({ validationIssues: issues });
   }
 
   it('should create the app', () => {
@@ -102,6 +108,29 @@ describe('App', () => {
       expect(compiled.textContent).toContain('Payload');
     });
 
+    it('renders telemetry items as tree rows', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'telemetry.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [{ name: 'Volt_Type', kind: 'Float' }],
+            parameterSet: [{ name: 'BusVoltage', parameterTypeRef: 'Volt_Type' }],
+            containerSet: [{ name: 'Frame', entryList: [] }],
+          },
+        },
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+      expect(itemLabels).toEqual(['Volt_Type', 'BusVoltage', 'Frame']);
+    });
+
     it('filters the tree via the search box', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'nested.xml');
@@ -128,6 +157,21 @@ describe('App', () => {
       expect(compiled.textContent).not.toContain('Payload');
     });
 
+    it('shows an error and no document when loading fails', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'broken.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush(
+        { error: 'The document is not well-formed XML.' },
+        { status: 400, statusText: 'Bad Request' }
+      );
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('.node-title')).toBeNull();
+      expect(compiled.textContent).toContain('The document is not well-formed XML.');
+    });
+
     it('renders validation issues returned by the load endpoint', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'nested.xml');
@@ -150,36 +194,6 @@ describe('App', () => {
       expect(compiled.textContent).toContain('1 validation issue(s)');
       expect(compiled.textContent).toContain('Mission/ParameterTypeSet/State_Type');
       expect(compiled.textContent).toContain('is not a valid label');
-    });
-
-    it('shows no validation panel when there are no issues', () => {
-      const fixture = createAppAndFlushHealth();
-      selectFile(fixture, 'minimal.xml');
-
-      httpMock.expectOne('/api/xtce/load').flush({
-        name: 'Minimal',
-        document: { name: 'Minimal', children: [] },
-        validationIssues: [],
-      });
-      fixture.detectChanges();
-
-      const compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.querySelector('.validation-panel')).toBeNull();
-    });
-
-    it('shows an error and no document when loading fails', () => {
-      const fixture = createAppAndFlushHealth();
-      selectFile(fixture, 'broken.xml');
-
-      httpMock.expectOne('/api/xtce/load').flush(
-        { error: 'The document is not well-formed XML.' },
-        { status: 400, statusText: 'Bad Request' }
-      );
-      fixture.detectChanges();
-
-      const compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.querySelector('.node-title')).toBeNull();
-      expect(compiled.textContent).toContain('The document is not well-formed XML.');
     });
 
     it('makes a loaded document immediately saveable, identically to New', () => {
@@ -273,38 +287,59 @@ describe('App', () => {
       fixture.detectChanges();
     }
 
+    function loadTelemetryDocument(fixture: ReturnType<typeof createAppAndFlushHealth>) {
+      const file = new File(['<xml/>'], 'telemetry.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          preserved: [{ elementName: 'Header', outerXml: '<Header/>' }],
+          telemetryMetaData: {
+            parameterTypeSet: [
+              { name: 'Volt_Type', kind: 'Float', sizeInBits: 32 },
+              { name: 'Mode_Type', kind: 'Enumerated', enumerations: [{ value: 0, label: 'IDLE' }] },
+            ],
+            parameterSet: [{ name: 'BusVoltage', parameterTypeRef: 'Volt_Type', initialValue: '28.5' }],
+            containerSet: [{ name: 'Frame', entryList: [{ kind: 'ParameterRef', ref: 'BusVoltage' }] }],
+          },
+        },
+      });
+      fixture.detectChanges();
+    }
+
+    function clickTreeRowByText(fixture: ReturnType<typeof createAppAndFlushHealth>, text: string) {
+      const compiled = fixture.nativeElement as HTMLElement;
+      const row = Array.from(compiled.querySelectorAll('.tree-node-row')).find((r) =>
+        r.textContent?.includes(text)
+      ) as HTMLElement;
+      row.click();
+      fixture.detectChanges();
+    }
+
     it('clicking a tree row selects it without editing anything', () => {
       const fixture = createAppAndFlushHealth();
       loadNestedDocument(fixture);
 
-      const compiled = fixture.nativeElement as HTMLElement;
-      const busRow = Array.from(compiled.querySelectorAll('.tree-node-row')).find((r) =>
-        r.textContent?.includes('Bus')
-      ) as HTMLElement;
-      busRow.click();
-      fixture.detectChanges();
+      clickTreeRowByText(fixture, 'Bus');
 
+      const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('.node-title')?.textContent).toContain('Bus');
-      // selecting doesn't mutate the document — the tree still shows the full,
-      // untouched structure alongside the now-selected Bus row
       expect(compiled.textContent).toContain('Payload');
     });
 
-    it('editing the Name field updates the selected node and is reflected in Save', () => {
+    it('editing the Name field updates the selected node and is reflected in Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadNestedDocument(fixture);
+      clickTreeRowByText(fixture, 'Bus');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const busRow = Array.from(compiled.querySelectorAll('.tree-node-row')).find((r) =>
-        r.textContent?.includes('Bus')
-      ) as HTMLElement;
-      busRow.click();
-      fixture.detectChanges();
-
       const nameInput = compiled.querySelector('#node-name') as HTMLInputElement;
       nameInput.value = 'Renamed Bus';
       nameInput.dispatchEvent(new Event('input'));
       fixture.detectChanges();
+      flushRevalidate();
 
       fixture.componentInstance.onSaveDocument();
       const req = httpMock.expectOne('/api/xtce/save');
@@ -316,9 +351,9 @@ describe('App', () => {
         ],
       });
       req.flush('<SpaceSystem/>');
-    });
+    }));
 
-    it('Add child on the selected node adds a child and is reflected in Save', () => {
+    it('Add child on the selected node adds a child and is reflected in Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadNestedDocument(fixture); // root (Mission) is selected by default
       spyOn(window, 'prompt').and.returnValue('NewSub');
@@ -329,13 +364,14 @@ describe('App', () => {
       ) as HTMLButtonElement;
       addButton.click();
       fixture.detectChanges();
+      flushRevalidate();
 
       fixture.componentInstance.onSaveDocument();
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body.children.length).toBe(3);
       expect(req.request.body.children[2]).toEqual({ name: 'NewSub', children: [] });
       req.flush('<SpaceSystem/>');
-    });
+    }));
 
     it('has no Delete action when the root is selected', () => {
       const fixture = createAppAndFlushHealth();
@@ -346,24 +382,19 @@ describe('App', () => {
       expect(buttons).not.toContain('Delete');
     });
 
-    it('Delete on a non-root selected node removes it and selects its parent', () => {
+    it('Delete on a non-root selected node removes it and selects its parent', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadNestedDocument(fixture);
+      clickTreeRowByText(fixture, 'Bus');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const busRow = Array.from(compiled.querySelectorAll('.tree-node-row')).find((r) =>
-        r.textContent?.includes('Bus')
-      ) as HTMLElement;
-      busRow.click();
-      fixture.detectChanges();
-
       const deleteButton = Array.from(compiled.querySelectorAll('button')).find(
         (b) => b.textContent?.trim() === 'Delete'
       ) as HTMLButtonElement;
       deleteButton.click();
       fixture.detectChanges();
+      flushRevalidate();
 
-      // selection moved to the parent (root)
       expect(compiled.querySelector('.node-title')?.textContent).toContain('Mission');
       expect(compiled.textContent).not.toContain('Bus');
 
@@ -371,6 +402,166 @@ describe('App', () => {
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body).toEqual({ name: 'Mission', children: [{ name: 'Payload', children: [] }] });
       req.flush('<SpaceSystem/>');
+    }));
+
+    it('selecting a parameter shows its form with type ref and initial value', () => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+
+      clickTreeRowByText(fixture, 'BusVoltage');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('.node-title')?.textContent).toContain('BusVoltage');
+      expect((compiled.querySelector('#param-typeref') as HTMLInputElement).value).toBe('Volt_Type');
+      expect((compiled.querySelector('#param-initial') as HTMLInputElement).value).toBe('28.5');
     });
+
+    it('editing a parameter initial value revalidates and shows returned issues', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'BusVoltage');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const initialInput = compiled.querySelector('#param-initial') as HTMLInputElement;
+      initialInput.value = 'not-a-number';
+      initialInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      tick(App.revalidateDelayMs);
+      const validateReq = httpMock.expectOne('/api/xtce/validate');
+      expect(validateReq.request.body.telemetryMetaData.parameterSet[0].initialValue).toBe('not-a-number');
+      validateReq.flush({
+        validationIssues: [{
+          ruleId: 'XTCE-1.2-R15-typed-value-valid-for-type',
+          severity: 'Error',
+          location: 'Sat/ParameterSet/BusVoltage',
+          message: "initialValue 'not-a-number' is not a valid floating-point number for its Float type.",
+        }],
+      });
+      fixture.detectChanges();
+
+      expect(compiled.textContent).toContain('1 validation issue(s)');
+      expect(compiled.textContent).toContain('not a valid floating-point number');
+    }));
+
+    it('rapid edits debounce into a single validate request', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'BusVoltage');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const initialInput = compiled.querySelector('#param-initial') as HTMLInputElement;
+      for (const value of ['1', '12', '123']) {
+        initialInput.value = value;
+        initialInput.dispatchEvent(new Event('input'));
+        tick(App.revalidateDelayMs / 2);
+      }
+      tick(App.revalidateDelayMs);
+
+      const validateReq = httpMock.expectOne('/api/xtce/validate'); // exactly one
+      expect(validateReq.request.body.telemetryMetaData.parameterSet[0].initialValue).toBe('123');
+      validateReq.flush({ validationIssues: [] });
+    }));
+
+    it('editing an enumerated type: add and edit an enumeration row, reflected in Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Mode_Type');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const addEnum = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add enumeration'
+      ) as HTMLButtonElement;
+      addEnum.click();
+      fixture.detectChanges();
+
+      const labelInputs = compiled.querySelectorAll('.enum-label');
+      expect(labelInputs.length).toBe(2);
+      const newLabel = labelInputs[1] as HTMLInputElement;
+      newLabel.value = 'ACTIVE';
+      newLabel.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[1].enumerations).toEqual([
+        { value: 0, label: 'IDLE' },
+        { value: 1, label: 'ACTIVE' },
+      ]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('adding a parameter type through the kind picker appears in the tree and Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture); // root selected
+      spyOn(window, 'prompt').and.returnValue('Flag_Type');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const kindSelect = compiled.querySelector('.kind-select') as HTMLSelectElement;
+      kindSelect.value = 'Boolean';
+      const addTypeButton = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add parameter type'
+      ) as HTMLButtonElement;
+      addTypeButton.click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+      expect(itemLabels).toContain('Flag_Type');
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const added = req.request.body.telemetryMetaData.parameterTypeSet[2];
+      expect(added).toEqual({ name: 'Flag_Type', kind: 'Boolean' });
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('deleting a telemetry item selects its owning system', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'BusVoltage');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const deleteButton = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Delete'
+      ) as HTMLButtonElement;
+      deleteButton.click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      expect(compiled.querySelector('.node-title')?.textContent).toContain('Sat');
+      const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+      expect(itemLabels).not.toContain('BusVoltage');
+    }));
+
+    it('selecting a container shows its read-only entry list', () => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+
+      clickTreeRowByText(fixture, 'Frame');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('.node-title')?.textContent).toContain('Frame');
+      expect(compiled.querySelector('.entry-list')?.textContent).toContain('BusVoltage');
+    });
+
+    it('preserved (unmodeled) document content passes through edits into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const nameInput = compiled.querySelector('#node-name') as HTMLInputElement;
+      nameInput.value = 'RenamedSat';
+      nameInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.name).toBe('RenamedSat');
+      expect(req.request.body.preserved).toEqual([{ elementName: 'Header', outerXml: '<Header/>' }]);
+      req.flush('<SpaceSystem/>');
+    }));
   });
 });

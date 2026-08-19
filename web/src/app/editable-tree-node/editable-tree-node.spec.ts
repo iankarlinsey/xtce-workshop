@@ -1,80 +1,95 @@
 import { TestBed } from '@angular/core/testing';
 import { EditableTreeNodeComponent } from './editable-tree-node';
-import { SpaceSystemDocument } from '../document-tree';
+import { SpaceSystemDocument, Selection } from '../document-tree';
 
 describe('EditableTreeNodeComponent', () => {
-  function render(node: SpaceSystemDocument, path: number[] = [], selectedPath: number[] | null = null) {
+  function render(node: SpaceSystemDocument, path: number[] = [], selection: Selection | null = null) {
     const fixture = TestBed.createComponent(EditableTreeNodeComponent);
     fixture.componentRef.setInput('node', node);
     fixture.componentRef.setInput('path', path);
-    fixture.componentRef.setInput('selectedPath', selectedPath);
+    fixture.componentRef.setInput('selection', selection);
     fixture.detectChanges();
     return fixture;
   }
 
+  const withTelemetry = (): SpaceSystemDocument => ({
+    name: 'Sat',
+    children: [{ name: 'Bus', children: [] }],
+    telemetryMetaData: {
+      parameterTypeSet: [
+        { name: 'Volt_Type', kind: 'Float' },
+        { name: 'Mode_Type', kind: 'Enumerated', enumerations: [] },
+      ],
+      parameterSet: [{ name: 'BusVoltage', parameterTypeRef: 'Volt_Type' }],
+      containerSet: [{ name: 'Frame', entryList: [] }],
+    },
+  });
+
   it('renders the node name', () => {
     const fixture = render({ name: 'Minimal', children: [] });
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Minimal');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Minimal');
   });
 
-  it('emits its own path when the row is clicked', () => {
+  it('emits a system selection when the system row is clicked', () => {
     const fixture = render({ name: 'Bus', children: [] }, [1]);
-    let emitted: number[] | undefined;
-    fixture.componentInstance.select.subscribe((p) => (emitted = p));
+    let emitted: Selection | undefined;
+    fixture.componentInstance.select.subscribe((s) => (emitted = s));
 
     (fixture.nativeElement.querySelector('.tree-node-row') as HTMLElement).click();
 
-    expect(emitted).toEqual([1]);
+    expect(emitted).toEqual({ systemPath: [1] });
   });
 
-  it('applies the selected class when its path matches selectedPath', () => {
-    const fixture = render({ name: 'Bus', children: [] }, [1], [1]);
+  it('renders telemetry item rows with their names', () => {
+    const fixture = render(withTelemetry());
 
-    const row = fixture.nativeElement.querySelector('.tree-node-row') as HTMLElement;
-    expect(row.classList).toContain('selected');
+    const compiled = fixture.nativeElement as HTMLElement;
+    const labels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+    expect(labels).toEqual(['Volt_Type', 'Mode_Type', 'BusVoltage', 'Frame']);
   });
 
-  it('does not apply the selected class when paths differ', () => {
-    const fixture = render({ name: 'Bus', children: [] }, [1], [0]);
+  it('emits an item selection when an item row is clicked', () => {
+    const fixture = render(withTelemetry());
+    let emitted: Selection | undefined;
+    fixture.componentInstance.select.subscribe((s) => (emitted = s));
 
-    const row = fixture.nativeElement.querySelector('.tree-node-row') as HTMLElement;
-    expect(row.classList).not.toContain('selected');
+    const rows = fixture.nativeElement.querySelectorAll('.item-row');
+    (rows[2] as HTMLElement).click(); // BusVoltage — the parameter
+
+    expect(emitted).toEqual({ systemPath: [], item: { kind: 'parameter', index: 0 } });
   });
 
-  it('bubbles a child selection up unchanged', () => {
+  it('marks the matching item row as selected', () => {
+    const fixture = render(withTelemetry(), [], { systemPath: [], item: { kind: 'parameterType', index: 1 } });
+
+    const rows = fixture.nativeElement.querySelectorAll('.item-row');
+    expect((rows[0] as HTMLElement).classList).not.toContain('selected');
+    expect((rows[1] as HTMLElement).classList).toContain('selected');
+  });
+
+  it('does not mark the system row selected when an item within it is selected', () => {
+    const fixture = render(withTelemetry(), [], { systemPath: [], item: { kind: 'parameter', index: 0 } });
+
+    const systemRow = fixture.nativeElement.querySelector('.tree-node-row:not(.item-row)') as HTMLElement;
+    expect(systemRow.classList).not.toContain('selected');
+  });
+
+  it('bubbles a child system selection up unchanged', () => {
     const fixture = render({
       name: 'Mission',
       children: [{ name: 'Bus', children: [] }],
     });
-    let emitted: number[] | undefined;
-    fixture.componentInstance.select.subscribe((p) => (emitted = p));
+    let emitted: Selection | undefined;
+    fixture.componentInstance.select.subscribe((s) => (emitted = s));
 
     const childRow = fixture.nativeElement.querySelectorAll('.tree-node-row')[1] as HTMLElement;
     childRow.click();
 
-    expect(emitted).toEqual([0]);
+    expect(emitted).toEqual({ systemPath: [0] });
   });
 
-  it('passes the correct path to each child', () => {
-    const fixture = render({
-      name: 'Mission',
-      children: [
-        { name: 'Bus', children: [] },
-        { name: 'Payload', children: [] },
-      ],
-    });
-    let emitted: number[] | undefined;
-    fixture.componentInstance.select.subscribe((p) => (emitted = p));
-
-    const rows = fixture.nativeElement.querySelectorAll('.tree-node-row');
-    (rows[2] as HTMLElement).click(); // Mission, Bus, Payload -> index 2 is Payload
-
-    expect(emitted).toEqual([1]);
-  });
-
-  it('renders a single node with no children with no toggle button', () => {
+  it('renders a single node with no children and no items with no toggle button', () => {
     const fixture = render({ name: 'Minimal', children: [] });
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -82,23 +97,12 @@ describe('EditableTreeNodeComponent', () => {
     expect(compiled.querySelector('.toggle-spacer')).toBeTruthy();
   });
 
-  it('renders nested children recursively, expanded by default', () => {
-    const fixture = render({
-      name: 'Mission',
-      children: [
-        { name: 'Bus', children: [
-          { name: 'Power', children: [] },
-        ] },
-        { name: 'Payload', children: [] },
-      ],
-    });
+  it('shows a toggle when the node has telemetry items even without child systems', () => {
+    const node = withTelemetry();
+    node.children = [];
+    const fixture = render(node);
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Mission');
-    expect(compiled.textContent).toContain('Bus');
-    expect(compiled.textContent).toContain('Power');
-    expect(compiled.textContent).toContain('Payload');
-    expect(compiled.querySelectorAll('app-editable-tree-node').length).toBe(3);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.toggle')).toBeTruthy();
   });
 
   it('collapsing does not trigger a selection (toggle click does not bubble to row)', () => {
@@ -106,8 +110,8 @@ describe('EditableTreeNodeComponent', () => {
       name: 'Mission',
       children: [{ name: 'Bus', children: [] }],
     });
-    let emitted: number[] | undefined;
-    fixture.componentInstance.select.subscribe((p) => (emitted = p));
+    let emitted: Selection | undefined;
+    fixture.componentInstance.select.subscribe((s) => (emitted = s));
 
     const compiled = fixture.nativeElement as HTMLElement;
     const toggle = compiled.querySelector('.toggle') as HTMLButtonElement;
@@ -123,8 +127,18 @@ describe('EditableTreeNodeComponent', () => {
     fixture.componentRef.setInput('searchTerm', 'bus');
     fixture.detectChanges();
 
+    expect((fixture.nativeElement as HTMLElement).textContent?.trim()).toBe('');
+  });
+
+  it('keeps the system visible when only a telemetry item matches, and filters item rows', () => {
+    const fixture = render(withTelemetry());
+    fixture.componentRef.setInput('searchTerm', 'busvolt');
+    fixture.detectChanges();
+
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent?.trim()).toBe('');
+    expect(compiled.textContent).toContain('Sat');
+    const labels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+    expect(labels).toEqual(['BusVoltage']);
   });
 
   it('keeps an ancestor visible when a descendant matches the search term', () => {

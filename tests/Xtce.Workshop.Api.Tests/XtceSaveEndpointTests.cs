@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -56,5 +57,32 @@ public class XtceSaveEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(HttpStatusCode.OK, loadResponse.StatusCode);
         var body = await loadResponse.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Mission", body.GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task PostSave_DocumentWithOmittedCollections_IsNormalizedNot500()
+    {
+        // {"name":"M"} binds Children (and nested collections) to null — the normalizer
+        // must absorb that instead of letting the writer NRE into a 500.
+        var client = _factory.CreateClient();
+        var json = """{"name":"M","telemetryMetaData":{"parameterTypeSet":null}}""";
+
+        var response = await client.PostAsync("/api/xtce/save",
+            new StringContent(json, Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("\"M\"", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task PostValidate_DocumentWithOmittedCollections_IsNormalizedNot500()
+    {
+        var client = _factory.CreateClient();
+        var json = """{"name":"M"}""";
+
+        var response = await client.PostAsync("/api/xtce/validate",
+            new StringContent(json, Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }

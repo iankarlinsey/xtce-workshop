@@ -71,3 +71,20 @@
   border-left: 1px solid var(--border-soft);
   padding-left: 8px;
 }
+
+.item-row .label {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.icon-type {
+  color: oklch(0.75 0.12 300);
+}
+
+.icon-param {
+  color: var(--accent);
+}
+
+.icon-container {
+  color: oklch(0.78 0.12 85);
+}

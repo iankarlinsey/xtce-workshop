@@ -302,4 +302,79 @@
 .node-actions {
   display: flex;
   gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.add-type-row {
+  align-items: center;
+}
+
+.kind-select {
+  height: 30px;
+  padding: 0 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12.5px;
+}
+
+.hint {
+  color: var(--text-faint);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.checkbox-field label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.enum-editor .enum-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.enum-editor .enum-value {
+  width: 90px;
+}
+
+.enum-editor .enum-label {
+  flex: 1;
+}
+
+.enum-editor .enum-remove {
+  width: 32px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.entry-list {
+  margin: 0;
+  padding-left: 20px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.entry-row {
+  margin-bottom: 4px;
+}
+
+.entry-kind {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-right: 6px;
 }

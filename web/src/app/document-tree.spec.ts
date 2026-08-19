@@ -1,4 +1,17 @@
-import { getNodeAtPath, updateNodeAtPath, deleteNodeAtPath, pathsEqual, SpaceSystemDocument } from './document-tree';
+import {
+  getNodeAtPath,
+  updateNodeAtPath,
+  deleteNodeAtPath,
+  pathsEqual,
+  selectionsEqual,
+  getItemAtSelection,
+  updateItemAtSelection,
+  addItemToSystem,
+  deleteItemAtSelection,
+  collectParameterTypeNames,
+  SpaceSystemDocument,
+  ParameterTypeDoc,
+} from './document-tree';
 
 describe('document-tree', () => {
   function sampleDoc(): SpaceSystemDocument {
@@ -99,6 +112,107 @@ describe('document-tree', () => {
       expect(result.name).toBe('Mission');
       expect(getNodeAtPath(result, [0, 0])?.name).toBe('Power');
       expect(getNodeAtPath(result, [0, 1])?.name).toBe('Thermal');
+    });
+  });
+
+  function telemetryDoc(): SpaceSystemDocument {
+    return {
+      name: 'Sat',
+      children: [{ name: 'Bus', children: [] }],
+      // extra unknown property to verify spread passthrough (stand-in for preserved XML)
+      preserved: [{ elementName: 'Header', outerXml: '<Header/>' }],
+      telemetryMetaData: {
+        parameterTypeSet: [
+          { name: 'Volt_Type', kind: 'Float', preserved: [{ elementName: 'UnitSet', outerXml: '<UnitSet/>' }] },
+          { name: 'Mode_Type', kind: 'Enumerated', enumerations: [{ value: 0, label: 'IDLE' }] },
+        ],
+        parameterSet: [{ name: 'BusVoltage', parameterTypeRef: 'Volt_Type' }],
+        containerSet: [{ name: 'Frame', entryList: [] }],
+      },
+    };
+  }
+
+  describe('selectionsEqual', () => {
+    it('compares system selections by path', () => {
+      expect(selectionsEqual({ systemPath: [0] }, { systemPath: [0] })).toBe(true);
+      expect(selectionsEqual({ systemPath: [0] }, { systemPath: [1] })).toBe(false);
+    });
+
+    it('distinguishes system selections from item selections', () => {
+      expect(selectionsEqual({ systemPath: [] }, { systemPath: [], item: { kind: 'parameter', index: 0 } })).toBe(false);
+    });
+
+    it('compares item selections by kind and index', () => {
+      const a = { systemPath: [], item: { kind: 'parameter' as const, index: 0 } };
+      expect(selectionsEqual(a, { systemPath: [], item: { kind: 'parameter', index: 0 } })).toBe(true);
+      expect(selectionsEqual(a, { systemPath: [], item: { kind: 'parameter', index: 1 } })).toBe(false);
+      expect(selectionsEqual(a, { systemPath: [], item: { kind: 'container', index: 0 } })).toBe(false);
+    });
+  });
+
+  describe('getItemAtSelection', () => {
+    it('returns the addressed telemetry item', () => {
+      const type = getItemAtSelection(telemetryDoc(), { systemPath: [], item: { kind: 'parameterType', index: 1 } });
+      expect((type as ParameterTypeDoc).name).toBe('Mode_Type');
+    });
+
+    it('returns null for a system selection or a stale index', () => {
+      expect(getItemAtSelection(telemetryDoc(), { systemPath: [] })).toBeNull();
+      expect(getItemAtSelection(telemetryDoc(), { systemPath: [], item: { kind: 'parameter', index: 9 } })).toBeNull();
+      expect(getItemAtSelection(telemetryDoc(), { systemPath: [0], item: { kind: 'parameter', index: 0 } })).toBeNull();
+    });
+  });
+
+  describe('updateItemAtSelection', () => {
+    it('updates the addressed item immutably, preserving unknown properties', () => {
+      const original = telemetryDoc();
+      const result = updateItemAtSelection(
+        original,
+        { systemPath: [], item: { kind: 'parameterType', index: 0 } },
+        (type) => ({ ...(type as ParameterTypeDoc), name: 'Renamed_Type' })
+      );
+
+      const updated = result.telemetryMetaData!.parameterTypeSet[0];
+      expect(updated.name).toBe('Renamed_Type');
+      // preserved passthrough survives on the item, the telemetry object, and the doc
+      expect(updated['preserved']).toEqual([{ elementName: 'UnitSet', outerXml: '<UnitSet/>' }]);
+      expect(result['preserved']).toEqual([{ elementName: 'Header', outerXml: '<Header/>' }]);
+      // untouched siblings and the original stay intact
+      expect(result.telemetryMetaData!.parameterTypeSet[1].name).toBe('Mode_Type');
+      expect(original.telemetryMetaData!.parameterTypeSet[0].name).toBe('Volt_Type');
+    });
+  });
+
+  describe('addItemToSystem', () => {
+    it('appends to the right list', () => {
+      const result = addItemToSystem(telemetryDoc(), [], 'parameter', { name: 'NewParam', parameterTypeRef: 'Volt_Type' });
+      expect(result.telemetryMetaData!.parameterSet.map((p) => p.name)).toEqual(['BusVoltage', 'NewParam']);
+    });
+
+    it('creates telemetryMetaData when the system has none', () => {
+      const result = addItemToSystem(telemetryDoc(), [0], 'parameterType', { name: 'T', kind: 'Integer' });
+      expect(result.children[0].telemetryMetaData!.parameterTypeSet[0].name).toBe('T');
+      expect(result.children[0].telemetryMetaData!.parameterSet).toEqual([]);
+    });
+  });
+
+  describe('deleteItemAtSelection', () => {
+    it('removes only the addressed item', () => {
+      const result = deleteItemAtSelection(telemetryDoc(), { systemPath: [], item: { kind: 'parameterType', index: 0 } });
+      expect(result.telemetryMetaData!.parameterTypeSet.map((t) => t.name)).toEqual(['Mode_Type']);
+      expect(result.telemetryMetaData!.parameterSet.length).toBe(1);
+    });
+  });
+
+  describe('collectParameterTypeNames', () => {
+    it('collects, dedupes, and sorts names across the whole tree', () => {
+      const doc = telemetryDoc();
+      doc.children[0].telemetryMetaData = {
+        parameterTypeSet: [{ name: 'Volt_Type', kind: 'Float' }, { name: 'Amp_Type', kind: 'Float' }],
+        parameterSet: [],
+      };
+
+      expect(collectParameterTypeNames(doc)).toEqual(['Amp_Type', 'Mode_Type', 'Volt_Type']);
     });
   });
 });

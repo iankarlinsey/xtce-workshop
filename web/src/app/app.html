@@ -44,7 +44,7 @@
         <div class="validation-panel">
           <p class="validation-summary">{{ validationIssues().length }} validation issue(s)</p>
           <ul class="validation-list">
-            @for (issue of validationIssues(); track issue.location + issue.ruleId) {
+            @for (issue of validationIssues(); track issue.location + issue.ruleId + issue.message) {
               <li class="validation-issue" [class.severity-warning]="issue.severity === 'Warning'">
                 <span class="validation-location">{{ issue.location }}</span>
                 <span class="validation-message">{{ issue.message }}</span>
@@ -63,32 +63,167 @@
           <app-editable-tree-node
             [node]="doc"
             [path]="[]"
-            [selectedPath]="selectedPath()"
+            [selection]="selection()"
             [searchTerm]="treeSearchTerm()"
-            (select)="onNodeSelected($event)"
+            (select)="onSelect($event)"
           />
         </div>
       }
     </aside>
 
     <main class="main-panel">
-      @if (selectedNode(); as node) {
+      @if (selectedSystem(); as system) {
         <div class="node-title">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
-          <span>{{ node.name }}</span>
+          <span>{{ system.name }}</span>
           <span class="type-badge">SpaceSystem</span>
         </div>
 
         <div class="form-field">
           <label for="node-name">Name</label>
-          <input id="node-name" [value]="node.name" (input)="onSelectedNameInput($event)" />
+          <input id="node-name" [value]="system.name" (input)="onSelectedNameInput($event)" />
         </div>
 
         <div class="node-actions">
           <button type="button" class="btn" (click)="onAddChildToSelected()">+ Add child</button>
+          <button type="button" class="btn" (click)="onAddParameter()">+ Add parameter</button>
+          <button type="button" class="btn" (click)="onAddContainer()">+ Add container</button>
           @if (!isRootSelected()) {
             <button type="button" class="btn btn-danger" (click)="onDeleteSelected()">Delete</button>
           }
+        </div>
+
+        <div class="node-actions add-type-row">
+          <select #newTypeKind class="kind-select" aria-label="New parameter type kind">
+            <option value="Integer">Integer</option>
+            <option value="Float">Float</option>
+            <option value="String">String</option>
+            <option value="Boolean">Boolean</option>
+            <option value="Enumerated">Enumerated</option>
+          </select>
+          <button type="button" class="btn" (click)="onAddParameterType(newTypeKind)">+ Add parameter type</button>
+        </div>
+      } @else if (selectedParameterType(); as type) {
+        <div class="node-title">
+          <span>{{ type.name }}</span>
+          <span class="type-badge">{{ type.kind }}ParameterType</span>
+        </div>
+
+        <div class="form-field">
+          <label for="type-name">Name</label>
+          <input id="type-name" [value]="type.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        <div class="form-field">
+          <label for="type-initial">Initial value</label>
+          <input id="type-initial" [value]="type.initialValue ?? ''" (input)="onItemFieldInput('initialValue', $event)" />
+        </div>
+
+        @if (type.kind === 'Integer') {
+          <div class="form-field checkbox-field">
+            <label>
+              <input type="checkbox" [checked]="type.signed ?? true" (change)="onItemFieldInput('signed', $event)" />
+              Signed <span class="hint">(XTCE default: true)</span>
+            </label>
+          </div>
+        }
+        @if (type.kind === 'Integer' || type.kind === 'Float') {
+          <div class="form-field">
+            <label for="type-size">Size in bits <span class="hint">(XTCE default: 32)</span></label>
+            <input id="type-size" type="number" [value]="type.sizeInBits ?? ''" (input)="onItemNumberFieldInput('sizeInBits', $event)" />
+          </div>
+        }
+        @if (type.kind === 'Boolean') {
+          <div class="form-field">
+            <label for="type-one">One string value <span class="hint">(default: True)</span></label>
+            <input id="type-one" [value]="type.oneStringValue ?? ''" (input)="onItemFieldInput('oneStringValue', $event)" />
+          </div>
+          <div class="form-field">
+            <label for="type-zero">Zero string value <span class="hint">(default: False)</span></label>
+            <input id="type-zero" [value]="type.zeroStringValue ?? ''" (input)="onItemFieldInput('zeroStringValue', $event)" />
+          </div>
+        }
+        @if (type.kind === 'Enumerated') {
+          <div class="form-field enum-editor">
+            <label>Enumeration list</label>
+            @for (entry of type.enumerations ?? []; track $index; let i = $index) {
+              <div class="enum-row">
+                <input class="enum-value" type="number" [value]="entry.value" (input)="onEnumerationFieldInput(i, 'value', $event)" aria-label="Enumeration value" />
+                <input class="enum-label" [value]="entry.label" (input)="onEnumerationFieldInput(i, 'label', $event)" aria-label="Enumeration label" />
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveEnumeration(i)" aria-label="Remove enumeration">&times;</button>
+              </div>
+            }
+            <button type="button" class="btn" (click)="onAddEnumeration()">+ Add enumeration</button>
+          </div>
+        }
+
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
+      } @else if (selectedParameter(); as parameter) {
+        <div class="node-title">
+          <span>{{ parameter.name }}</span>
+          <span class="type-badge">Parameter</span>
+        </div>
+
+        <div class="form-field">
+          <label for="param-name">Name</label>
+          <input id="param-name" [value]="parameter.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        <div class="form-field">
+          <label for="param-typeref">Parameter type ref</label>
+          <input id="param-typeref" list="known-type-names" [value]="parameter.parameterTypeRef" (input)="onItemFieldInput('parameterTypeRef', $event)" />
+          <datalist id="known-type-names">
+            @for (name of knownTypeNames(); track name) {
+              <option [value]="name"></option>
+            }
+          </datalist>
+        </div>
+        <div class="form-field">
+          <label for="param-initial">Initial value <span class="hint">(overrides the type's)</span></label>
+          <input id="param-initial" [value]="parameter.initialValue ?? ''" (input)="onItemFieldInput('initialValue', $event)" />
+        </div>
+
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
+      } @else if (selectedContainer(); as container) {
+        <div class="node-title">
+          <span>{{ container.name }}</span>
+          <span class="type-badge">SequenceContainer</span>
+        </div>
+
+        <div class="form-field">
+          <label for="container-name">Name</label>
+          <input id="container-name" [value]="container.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        <div class="form-field checkbox-field">
+          <label>
+            <input type="checkbox" [checked]="container.abstract ?? false" (change)="onItemFieldInput('abstract', $event)" />
+            Abstract <span class="hint">(XTCE default: false)</span>
+          </label>
+        </div>
+
+        <div class="form-field">
+          <label>Entry list <span class="hint">(read-only for now)</span></label>
+          @if (container.entryList.length === 0) {
+            <p class="meta-text">No entries.</p>
+          } @else {
+            <ol class="entry-list">
+              @for (entry of container.entryList; track $index) {
+                <li class="entry-row">
+                  @switch (entry.kind) {
+                    @case ('ParameterRef') { <span class="entry-kind">param</span> {{ entry.ref }} }
+                    @case ('ContainerRef') { <span class="entry-kind">container</span> {{ entry.ref }} }
+                    @case ('Raw') { <span class="entry-kind">other</span> {{ entry.rawXml?.elementName }} }
+                  }
+                </li>
+              }
+            </ol>
+          }
+        </div>
+
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
       } @else {
         <p class="empty-state">Load or create a document to get started.</p>
