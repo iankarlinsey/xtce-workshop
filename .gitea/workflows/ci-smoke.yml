@@ -6,6 +6,9 @@ on:
 jobs:
   smoke:
     runs-on: dind
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: echo (runner -> Gitea connectivity)
         run: echo "hello from ${{ runner.name }} — runner->Gitea OK"
