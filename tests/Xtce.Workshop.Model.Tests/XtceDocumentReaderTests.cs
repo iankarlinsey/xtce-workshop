@@ -50,6 +50,76 @@ public class XtceDocumentReaderTests
     }
 
     [Fact]
+    public void Load_SampleWithoutTelemetryMetaData_LeavesTelemetryMetaDataNull()
+    {
+        using var stream = File.OpenRead(TestPaths.NestedSample);
+
+        var result = XtceDocumentReader.Load(stream);
+
+        Assert.Null(result.TelemetryMetaData);
+    }
+
+    [Fact]
+    public void Load_TelemetrySampleFile_ParsesAllFiveParameterTypeKinds()
+    {
+        using var stream = File.OpenRead(TestPaths.TelemetrySample);
+
+        var result = XtceDocumentReader.Load(stream);
+
+        Assert.NotNull(result.TelemetryMetaData);
+        var types = result.TelemetryMetaData!.ParameterTypeSet;
+        Assert.Equal(5, types.Count);
+
+        var integer = Assert.Single(types, t => t.Name == "BatteryCount_Type");
+        Assert.Equal(ParameterTypeKind.Integer, integer.Kind);
+        Assert.Equal(false, integer.Signed);
+        Assert.Equal(8, integer.SizeInBits);
+        Assert.Equal("4", integer.InitialValue);
+
+        var floatType = Assert.Single(types, t => t.Name == "BusVoltage_Type");
+        Assert.Equal(ParameterTypeKind.Float, floatType.Kind);
+        Assert.Equal(32, floatType.SizeInBits);
+        Assert.Equal("28.5", floatType.InitialValue);
+
+        var stringType = Assert.Single(types, t => t.Name == "DeviceLabel_Type");
+        Assert.Equal(ParameterTypeKind.String, stringType.Kind);
+        Assert.Equal("unset", stringType.InitialValue);
+
+        var boolType = Assert.Single(types, t => t.Name == "HeaterOn_Type");
+        Assert.Equal(ParameterTypeKind.Boolean, boolType.Kind);
+        Assert.Equal("On", boolType.OneStringValue);
+        Assert.Equal("Off", boolType.ZeroStringValue);
+        Assert.Equal("False", boolType.InitialValue);
+
+        var enumType = Assert.Single(types, t => t.Name == "BusState_Type");
+        Assert.Equal(ParameterTypeKind.Enumerated, enumType.Kind);
+        Assert.Equal("SAFE", enumType.InitialValue);
+        Assert.NotNull(enumType.Enumerations);
+        Assert.Equal(3, enumType.Enumerations!.Count);
+        Assert.Contains(enumType.Enumerations, e => e.Value == 0 && e.Label == "SAFE");
+        Assert.Contains(enumType.Enumerations, e => e.Value == 1 && e.Label == "NOMINAL");
+        Assert.Contains(enumType.Enumerations, e => e.Value == 2 && e.Label == "FAULT");
+    }
+
+    [Fact]
+    public void Load_TelemetrySampleFile_ParsesAllParameters()
+    {
+        using var stream = File.OpenRead(TestPaths.TelemetrySample);
+
+        var result = XtceDocumentReader.Load(stream);
+
+        var parameters = result.TelemetryMetaData!.ParameterSet;
+        Assert.Equal(5, parameters.Count);
+
+        var busVoltage = Assert.Single(parameters, p => p.Name == "BusVoltage");
+        Assert.Equal("BusVoltage_Type", busVoltage.ParameterTypeRef);
+        Assert.Equal("29.1", busVoltage.InitialValue);
+
+        var batteryCount = Assert.Single(parameters, p => p.Name == "BatteryCount");
+        Assert.Null(batteryCount.InitialValue);
+    }
+
+    [Fact]
     public void Load_NotWellFormedXml_ThrowsXtceParseException()
     {
         using var stream = ToStream("<SpaceSystem name=\"Broken\"");

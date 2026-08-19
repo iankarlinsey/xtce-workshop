@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="TelemetryDemo">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <IntegerParameterType name="BatteryCount_Type" signed="false" sizeInBits="8" initialValue="4"/>
+      <FloatParameterType name="BusVoltage_Type" sizeInBits="32" initialValue="28.5"/>
+      <StringParameterType name="DeviceLabel_Type" initialValue="unset"/>
+      <BooleanParameterType name="HeaterOn_Type" initialValue="False" oneStringValue="On" zeroStringValue="Off"/>
+      <EnumeratedParameterType name="BusState_Type" initialValue="SAFE">
+        <EnumerationList>
+          <Enumeration value="0" label="SAFE"/>
+          <Enumeration value="1" label="NOMINAL"/>
+          <Enumeration value="2" label="FAULT"/>
+        </EnumerationList>
+      </EnumeratedParameterType>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="BatteryCount" parameterTypeRef="BatteryCount_Type"/>
+      <Parameter name="BusVoltage" parameterTypeRef="BusVoltage_Type" initialValue="29.1"/>
+      <Parameter name="DeviceLabel" parameterTypeRef="DeviceLabel_Type"/>
+      <Parameter name="HeaterOn" parameterTypeRef="HeaterOn_Type"/>
+      <Parameter name="BusState" parameterTypeRef="BusState_Type"/>
+    </ParameterSet>
+  </TelemetryMetaData>
+</SpaceSystem>

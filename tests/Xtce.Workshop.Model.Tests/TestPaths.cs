@@ -17,4 +17,5 @@ internal static class TestPaths
 
     public static string MinimalSample => Path.Combine(RepoRoot, "samples", "minimal-1.2.xml");
     public static string NestedSample => Path.Combine(RepoRoot, "samples", "nested-1.2.xml");
+    public static string TelemetrySample => Path.Combine(RepoRoot, "samples", "telemetry-1.2.xml");
 }

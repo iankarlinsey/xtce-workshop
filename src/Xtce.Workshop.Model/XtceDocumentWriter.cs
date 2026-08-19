@@ -44,9 +44,110 @@ public static class XtceDocumentWriter
         writer.WriteStartElement("SpaceSystem", XtceNamespace);
         writer.WriteAttributeString("name", spaceSystem.Name);
 
+        if (spaceSystem.TelemetryMetaData is not null)
+        {
+            WriteTelemetryMetaData(writer, spaceSystem.TelemetryMetaData);
+        }
+
         foreach (var child in spaceSystem.Children)
         {
             WriteSpaceSystem(writer, child);
+        }
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteTelemetryMetaData(XmlWriter writer, TelemetryMetaData telemetryMetaData)
+    {
+        // TelemetryMetaDataType's sequence orders ParameterTypeSet before ParameterSet — the
+        // written order must match the XSD sequence for the document to validate.
+        writer.WriteStartElement("TelemetryMetaData", XtceNamespace);
+
+        if (telemetryMetaData.ParameterTypeSet.Count > 0)
+        {
+            writer.WriteStartElement("ParameterTypeSet", XtceNamespace);
+            foreach (var parameterType in telemetryMetaData.ParameterTypeSet)
+            {
+                WriteParameterType(writer, parameterType);
+            }
+            writer.WriteEndElement();
+        }
+
+        if (telemetryMetaData.ParameterSet.Count > 0)
+        {
+            writer.WriteStartElement("ParameterSet", XtceNamespace);
+            foreach (var parameter in telemetryMetaData.ParameterSet)
+            {
+                writer.WriteStartElement("Parameter", XtceNamespace);
+                writer.WriteAttributeString("name", parameter.Name);
+                writer.WriteAttributeString("parameterTypeRef", parameter.ParameterTypeRef);
+                if (parameter.InitialValue is not null)
+                {
+                    writer.WriteAttributeString("initialValue", parameter.InitialValue);
+                }
+                writer.WriteEndElement();
+            }
+            writer.WriteEndElement();
+        }
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteParameterType(XmlWriter writer, ParameterTypeDefinition parameterType)
+    {
+        var elementName = parameterType.Kind switch
+        {
+            ParameterTypeKind.Integer => "IntegerParameterType",
+            ParameterTypeKind.Float => "FloatParameterType",
+            ParameterTypeKind.String => "StringParameterType",
+            ParameterTypeKind.Boolean => "BooleanParameterType",
+            ParameterTypeKind.Enumerated => "EnumeratedParameterType",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(parameterType), parameterType.Kind, "Unsupported parameter type kind."),
+        };
+
+        writer.WriteStartElement(elementName, XtceNamespace);
+        writer.WriteAttributeString("name", parameterType.Name);
+
+        if (parameterType.Kind == ParameterTypeKind.Integer && parameterType.Signed is { } signed)
+        {
+            writer.WriteAttributeString("signed", XmlConvert.ToString(signed));
+        }
+
+        if (parameterType.Kind is ParameterTypeKind.Integer or ParameterTypeKind.Float
+            && parameterType.SizeInBits is { } sizeInBits)
+        {
+            writer.WriteAttributeString("sizeInBits", XmlConvert.ToString(sizeInBits));
+        }
+
+        if (parameterType.Kind == ParameterTypeKind.Boolean)
+        {
+            if (parameterType.OneStringValue is not null)
+            {
+                writer.WriteAttributeString("oneStringValue", parameterType.OneStringValue);
+            }
+            if (parameterType.ZeroStringValue is not null)
+            {
+                writer.WriteAttributeString("zeroStringValue", parameterType.ZeroStringValue);
+            }
+        }
+
+        if (parameterType.InitialValue is not null)
+        {
+            writer.WriteAttributeString("initialValue", parameterType.InitialValue);
+        }
+
+        if (parameterType.Kind == ParameterTypeKind.Enumerated)
+        {
+            writer.WriteStartElement("EnumerationList", XtceNamespace);
+            foreach (var entry in parameterType.Enumerations ?? Array.Empty<EnumerationEntry>())
+            {
+                writer.WriteStartElement("Enumeration", XtceNamespace);
+                writer.WriteAttributeString("value", XmlConvert.ToString(entry.Value));
+                writer.WriteAttributeString("label", entry.Label);
+                writer.WriteEndElement();
+            }
+            writer.WriteEndElement();
         }
 
         writer.WriteEndElement();
