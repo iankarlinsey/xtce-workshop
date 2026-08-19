@@ -21,6 +21,8 @@ public enum ParameterTypeKind
     Binary,
     RelativeTime,
     AbsoluteTime,
+    Array,
+    Aggregate,
 }
 
 /// <summary>
@@ -36,10 +38,11 @@ public sealed record EnumerationEntry(
     string? ShortDescription = null);
 
 /// <summary>
-/// One entry in a ParameterTypeSet — any of the eight modeled scalar kinds (Integer, Float,
-/// String, Boolean, Enumerated, Binary, RelativeTime, AbsoluteTime — issues #21/#28). Only
-/// Array and Aggregate parameter types remain unmodeled, preserved as raw fragments on
-/// TelemetryMetaData.PreservedParameterTypes (issue #23), not lossily represented here.
+/// One entry in a ParameterTypeSet — all ten kinds are modeled (issues #21/#28/#31):
+/// the eight scalars (Integer, Float, String, Boolean, Enumerated, Binary, RelativeTime,
+/// AbsoluteTime) plus Array (ArrayTypeRef + Dimensions) and Aggregate (Members).
+/// TelemetryMetaData.PreservedParameterTypes now only carries kinds a future schema
+/// version might add.
 /// Time-type children (Encoding, ReferenceTime) live in Preserved; validation rules R14/R01
 /// inspect those fragments rather than requiring the encodings to be modeled.
 ///
@@ -60,7 +63,10 @@ public sealed record ParameterTypeDefinition(
     string? ZeroStringValue = null,
     IReadOnlyList<EnumerationEntry>? Enumerations = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    string? ArrayTypeRef = null,
+    IReadOnlyList<Dimension>? Dimensions = null,
+    IReadOnlyList<Member>? Members = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -73,7 +79,10 @@ public sealed record ParameterTypeDefinition(
         && ZeroStringValue == other.ZeroStringValue
         && Structural.ListEquals(Enumerations, other.Enumerations)
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && ArrayTypeRef == other.ArrayTypeRef
+        && Structural.ListEquals(Dimensions, other.Dimensions)
+        && Structural.ListEquals(Members, other.Members);
 
     public override int GetHashCode()
     {
@@ -88,6 +97,9 @@ public sealed record ParameterTypeDefinition(
         Structural.AddList(ref hash, Enumerations);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(ArrayTypeRef);
+        Structural.AddList(ref hash, Dimensions);
+        Structural.AddList(ref hash, Members);
         return hash.ToHashCode();
     }
 }
@@ -130,9 +142,9 @@ public sealed record Parameter(
 /// don't need null-conditional access, but the TelemetryMetaData element itself is nullable
 /// on SpaceSystem since the XSD marks it minOccurs="0".
 ///
-/// PreservedParameterTypes holds unmodeled ParameterTypeSet entries (Array/Aggregate
-/// parameter types); PreservedParameters holds unmodeled
-/// ParameterSet entries (ParameterRef). Both sets are XSD choice-unbounded, so re-emitting
+/// PreservedParameterTypes holds ParameterTypeSet entries of kinds this model doesn't
+/// recognize (all ten current kinds are modeled — this is future-schema insurance);
+/// PreservedParameters holds unmodeled ParameterSet entries (ParameterRef). Both sets are XSD choice-unbounded, so re-emitting
 /// preserved entries after the modeled ones is order-valid. ContainerSet is modeled (issue
 /// #24) and MessageSet too (issue #30); Preserved holds the remaining unmodeled
 /// TelemetryMetaData children (StreamSet, AlgorithmSet), re-emitted in XSD sequence order.

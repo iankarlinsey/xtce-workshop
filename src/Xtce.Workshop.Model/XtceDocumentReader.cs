@@ -29,6 +29,8 @@ public static class XtceDocumentReader
             ["BinaryParameterType"] = ParameterTypeKind.Binary,
             ["RelativeTimeParameterType"] = ParameterTypeKind.RelativeTime,
             ["AbsoluteTimeParameterType"] = ParameterTypeKind.AbsoluteTime,
+            ["ArrayParameterType"] = ParameterTypeKind.Array,
+            ["AggregateParameterType"] = ParameterTypeKind.Aggregate,
         };
 
     public static SpaceSystem Load(Stream xmlStream)
@@ -596,11 +598,18 @@ public static class XtceDocumentReader
         var zeroStringValue = kind == ParameterTypeKind.Boolean ? reader.GetAttribute("zeroStringValue") : null;
         List<EnumerationEntry>? enumerations = kind == ParameterTypeKind.Enumerated ? new List<EnumerationEntry>() : null;
 
+        var arrayTypeRef = kind == ParameterTypeKind.Array
+            ? RequireAttribute(reader, "arrayTypeRef", "an ArrayParameterType")
+            : null;
+        List<Dimension>? dimensions = kind == ParameterTypeKind.Array ? new List<Dimension>() : null;
+        List<Member>? members = kind == ParameterTypeKind.Aggregate ? new List<Member>() : null;
+
         var modeledAttributes = kind switch
         {
             ParameterTypeKind.Integer => new[] { "name", "initialValue", "signed", "sizeInBits" },
             ParameterTypeKind.Float => new[] { "name", "initialValue", "sizeInBits" },
             ParameterTypeKind.Boolean => new[] { "name", "initialValue", "oneStringValue", "zeroStringValue" },
+            ParameterTypeKind.Array => new[] { "name", "initialValue", "arrayTypeRef" },
             _ => new[] { "name", "initialValue" },
         };
         var preservedAttributes = CapturePreservedAttributes(reader, modeledAttributes);
@@ -620,6 +629,14 @@ public static class XtceDocumentReader
                 if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "EnumerationList" && enumerations is not null)
                 {
                     enumerations.AddRange(ReadEnumerationList(reader));
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "DimensionList" && dimensions is not null)
+                {
+                    dimensions.AddRange(ReadDimensionList(reader));
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MemberList" && members is not null)
+                {
+                    members.AddRange(ReadMemberList(reader));
                 }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -647,7 +664,188 @@ public static class XtceDocumentReader
             zeroStringValue,
             enumerations,
             preserved,
-            preservedAttributes);
+            preservedAttributes,
+            arrayTypeRef,
+            dimensions,
+            members);
+    }
+
+    private static List<Dimension> ReadDimensionList(XmlReader reader)
+    {
+        var dimensions = new List<Dimension>();
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return dimensions;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Dimension")
+            {
+                dimensions.Add(ReadDimension(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                reader.Skip();
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return dimensions;
+    }
+
+    private static Dimension ReadDimension(XmlReader reader)
+    {
+        DimensionIndex starting = new();
+        DimensionIndex ending = new();
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return new Dimension(starting, ending);
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName is "StartingIndex" or "EndingIndex")
+            {
+                var isStarting = reader.LocalName == "StartingIndex";
+                var index = ReadDimensionIndex(reader);
+                if (isStarting)
+                {
+                    starting = index;
+                }
+                else
+                {
+                    ending = index;
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                reader.Skip();
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return new Dimension(starting, ending);
+    }
+
+    private static DimensionIndex ReadDimensionIndex(XmlReader reader)
+    {
+        // IntegerValueType: FixedValue is modeled; DynamicValue / DiscreteLookupList ride
+        // as preserved fragments.
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return new DimensionIndex();
+        }
+
+        long? fixedValue = null;
+        RawXmlFragment? raw = null;
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "FixedValue")
+            {
+                var text = reader.ReadElementContentAsString();
+                if (!long.TryParse(text, out var parsed))
+                {
+                    throw new XtceParseException($"FixedValue '{text}' is not a valid integer.");
+                }
+                fixedValue = parsed;
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                var elementName = reader.LocalName;
+                raw = new RawXmlFragment(elementName, reader.ReadOuterXml());
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return new DimensionIndex(fixedValue, raw);
+    }
+
+    private static List<Member> ReadMemberList(XmlReader reader)
+    {
+        var members = new List<Member>();
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return members;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Member")
+            {
+                var name = RequireAttribute(reader, "name", "a Member");
+                var typeRef = RequireAttribute(reader, "typeRef", "a Member");
+                var initialValue = reader.GetAttribute("initialValue");
+                var preservedAttributes = CapturePreservedAttributes(reader, "name", "typeRef", "initialValue");
+
+                List<RawXmlFragment>? preserved = null;
+                if (reader.IsEmptyElement)
+                {
+                    reader.Read();
+                }
+                else
+                {
+                    reader.ReadStartElement();
+                    while (reader.NodeType != XmlNodeType.EndElement)
+                    {
+                        if (reader.NodeType == XmlNodeType.Element)
+                        {
+                            Preserve(ref preserved, reader);
+                        }
+                        else
+                        {
+                            reader.Read();
+                        }
+                    }
+                    reader.ReadEndElement();
+                }
+
+                members.Add(new Member(name, typeRef, initialValue, preserved, preservedAttributes));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                reader.Skip();
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return members;
     }
 
     private static List<EnumerationEntry> ReadEnumerationList(XmlReader reader)

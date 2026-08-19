@@ -19,6 +19,9 @@ public static class XtceValidator
         new LocationInContainerFlagsRule(),
         new ContainerSegmentsNoOverlapRule(),
         new MessageContainerRefMustBeRootRule(),
+        new ArrayDimCountMatchTypeRule(),
+        new DimSubsetLessThanTypeRule(),
+        new DimensionOrderMustAscendRule(),
     ];
 
     public static IReadOnlyList<ValidationIssue> Validate(SpaceSystem root)

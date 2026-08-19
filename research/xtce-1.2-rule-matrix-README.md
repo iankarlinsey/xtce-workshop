@@ -92,12 +92,19 @@ same depth of scrutiny.
   whole layout resolved). #30 modeled `MessageSet` and added R09 (`partial`
   — a demonstrable-non-root heuristic: unresolvable, abstract, or
   included-as-a-sub-piece targets are flagged; proving general rootness
-  isn't attempted). 9 of 15 rules now carry `Implemented` status (4 `yes`,
-  5 `partial` — `partial` is deliberate honesty about citation coverage).
-  The remaining 6 (R02/R03/R05/R06/R12/R13) all need constructs that are
-  still preserved-not-modeled: array/aggregate types and dimensions
-  (R02/R05/R06), data-encoding internals incl. checksums and calibrators
-  (R03/R13), and MetaCommand verifiers (R12).
+  isn't attempted). #31 completed the ParameterTypeSet model
+  (Array/Aggregate) and added R02 (`partial` — statically resolvable
+  entry→parameter→type chains), R05 (`partial` — FixedValue bounds;
+  exceeds-type and same-size-not-a-subset both flagged; Argument-side
+  citations blocked on command modeling), and R06 (`yes` — documented
+  interpretation: a fixed StartingIndex greater than its EndingIndex cannot
+  ascend), plus R11/R15 reach extensions (arrayTypeRef, member typeRef,
+  member initialValue, and ComparisonType/value — a listed R15 citation —
+  via the resolver's new parameter-instance + defining-scope results).
+  12 of 15 rules now carry `Implemented` status (5 `yes`, 7 `partial`).
+  The remaining 3 (R03/R12/R13) need data-encoding internals incl.
+  checksums and spline calibrators (R03/R13) and MetaCommand verifiers
+  (R12).
 - Phase E: adversarial verification that "tested" rules actually fire. Not
   started as a distinct pass yet — #22's fixtures include both positive and
   negative cases per rule, but a dedicated adversarial-verification pass
@@ -107,12 +114,9 @@ same depth of scrutiny.
   built entirely from the XSD's own `<documentation>` blocks, which is one
   of at least two intended sources.
 
-**Phase D remains blocked, for the other 13 rules, on the same object-model
-gap this note originally flagged.** Every rule not yet `Implemented` applies
-to an XTCE construct — `Calibrator`, `Container`, `MetaCommand`, name
-references generally — that `Xtce.Workshop.Model` still doesn't parse or
-represent. #21 extended the model from "just `SpaceSystem` nesting" to also
-cover `TelemetryMetaData`/`ParameterTypeSet`/`ParameterSet`, which is what
-unblocked R07 and (partially) R15. Each further construct is its own
-vertical slice, not a small follow-on — `ContainerSet` for `R04`/`R09`/`R10`
-being the next likely candidate given how many rules cite it.
+**Phase D's remaining 3 rules stay blocked on the same object-model gap this
+note originally flagged**, now much narrower: data-encoding internals
+including checksums and spline calibrators (R03/R13), and
+CommandMetaData/MetaCommand verifiers (R12). Each is its own vertical slice. The `partial` rules also each have a
+recorded gap that closes as more constructs become modeled (see the per-rule
+notes above and in the validator source).

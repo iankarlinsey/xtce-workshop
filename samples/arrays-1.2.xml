@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="ArrayDemo">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <IntegerParameterType name="Elem_Type" signed="false" sizeInBits="16"/>
+      <ArrayParameterType name="Matrix_Type" arrayTypeRef="Elem_Type">
+        <DimensionList>
+          <Dimension>
+            <StartingIndex><FixedValue>0</FixedValue></StartingIndex>
+            <EndingIndex><FixedValue>3</FixedValue></EndingIndex>
+          </Dimension>
+          <Dimension>
+            <StartingIndex><FixedValue>0</FixedValue></StartingIndex>
+            <EndingIndex><FixedValue>1</FixedValue></EndingIndex>
+          </Dimension>
+        </DimensionList>
+      </ArrayParameterType>
+      <ArrayParameterType name="BadDim_Type" arrayTypeRef="Elem_Type">
+        <DimensionList>
+          <Dimension>
+            <StartingIndex><FixedValue>5</FixedValue></StartingIndex>
+            <EndingIndex><FixedValue>2</FixedValue></EndingIndex>
+          </Dimension>
+        </DimensionList>
+      </ArrayParameterType>
+      <AggregateParameterType name="Struct_Type">
+        <MemberList>
+          <Member name="volt" typeRef="Elem_Type" initialValue="42"/>
+          <Member name="badInit" typeRef="Elem_Type" initialValue="not-a-number"/>
+          <Member name="ghostRef" typeRef="Nowhere_Type"/>
+        </MemberList>
+      </AggregateParameterType>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="Matrix" parameterTypeRef="Matrix_Type"/>
+      <Parameter name="Struct" parameterTypeRef="Struct_Type"/>
+    </ParameterSet>
+    <ContainerSet>
+      <SequenceContainer name="Frame">
+        <EntryList>
+          <ArrayParameterRefEntry parameterRef="Matrix">
+            <DimensionList>
+              <Dimension>
+                <StartingIndex><FixedValue>0</FixedValue></StartingIndex>
+                <EndingIndex><FixedValue>9</FixedValue></EndingIndex>
+              </Dimension>
+            </DimensionList>
+          </ArrayParameterRefEntry>
+        </EntryList>
+      </SequenceContainer>
+    </ContainerSet>
+  </TelemetryMetaData>
+</SpaceSystem>

@@ -24,6 +24,81 @@ public static class XmlFragmentInspector
         }
     }
 
+    /// <summary>One Dimension found in a fragment's DimensionList: fixed bounds or nulls.</summary>
+    public sealed record DimensionInfo(long? StartingFixed, long? EndingFixed);
+
+    /// <summary>
+    /// Reads the Dimension entries of a fragment's DimensionList (e.g. on a raw
+    /// ArrayParameterRefEntry). Only FixedValue bounds are captured — dynamic values
+    /// come back null and rules skip what they can't statically see.
+    /// </summary>
+    public static IReadOnlyList<DimensionInfo> FindDimensions(string outerXml)
+    {
+        var dimensions = new List<DimensionInfo>();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
+            long? starting = null, ending = null;
+            var insideDimension = false;
+            string? currentIndex = null;
+
+            while (reader.Read())
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    if (reader.LocalName == "Dimension")
+                    {
+                        insideDimension = true;
+                        starting = ending = null;
+                        if (reader.IsEmptyElement)
+                        {
+                            dimensions.Add(new DimensionInfo(null, null));
+                            insideDimension = false;
+                        }
+                    }
+                    else if (insideDimension && reader.LocalName is "StartingIndex" or "EndingIndex")
+                    {
+                        currentIndex = reader.LocalName;
+                    }
+                    else if (insideDimension && currentIndex is not null && reader.LocalName == "FixedValue")
+                    {
+                        if (long.TryParse(reader.ReadElementContentAsString(), out var parsed))
+                        {
+                            if (currentIndex == "StartingIndex")
+                            {
+                                starting = parsed;
+                            }
+                            else
+                            {
+                                ending = parsed;
+                            }
+                        }
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.EndElement)
+                {
+                    if (reader.LocalName == "Dimension" && insideDimension)
+                    {
+                        dimensions.Add(new DimensionInfo(starting, ending));
+                        insideDimension = false;
+                    }
+                    else if (reader.LocalName is "StartingIndex" or "EndingIndex")
+                    {
+                        currentIndex = null;
+                    }
+                }
+            }
+        }
+        catch (XmlException)
+        {
+            // Malformed preserved content contributes nothing rather than failing validation.
+        }
+
+        return dimensions;
+    }
+
     /// <summary>
     /// One LocationInContainerInBits found inside a fragment: its referenceLocation
     /// attribute (null = absent, XSD default previousEntry) and its FixedValue child's

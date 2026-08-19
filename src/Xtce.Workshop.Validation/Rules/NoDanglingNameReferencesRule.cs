@@ -36,6 +36,27 @@ public sealed class NoDanglingNameReferencesRule : IValidationRule
             }
         }
 
+        foreach (var type in telemetry.ParameterTypeSet)
+        {
+            var typePath = $"{context.Path}/ParameterTypeSet/{type.Name}";
+
+            if (type.Kind == ParameterTypeKind.Array && type.ArrayTypeRef is { } arrayTypeRef
+                && !NameReferenceResolver.Resolve(context, arrayTypeRef, NamedItemKind.ParameterType).Found)
+            {
+                yield return Issue(typePath,
+                    $"arrayTypeRef '{arrayTypeRef}' does not resolve to any parameter type.");
+            }
+
+            foreach (var member in type.Members ?? [])
+            {
+                if (!NameReferenceResolver.Resolve(context, member.TypeRef, NamedItemKind.ParameterType).Found)
+                {
+                    yield return Issue(typePath,
+                        $"Member '{member.Name}' typeRef '{member.TypeRef}' does not resolve to any parameter type.");
+                }
+            }
+        }
+
         foreach (var container in telemetry.ContainerSet ?? [])
         {
             var containerPath = $"{context.Path}/ContainerSet/{container.Name}";

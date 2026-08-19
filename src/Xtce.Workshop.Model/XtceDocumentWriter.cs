@@ -40,6 +40,7 @@ public static class XtceDocumentWriter
     private static readonly string[] ParameterTypeChildOrder =
     [
         "LongDescription", "AliasSet", "AncillaryDataSet",
+        "DimensionList", "MemberList",
         "Encoding", "ReferenceTime",
         "UnitSet",
         "BinaryDataEncoding", "FloatDataEncoding", "IntegerDataEncoding", "StringDataEncoding",
@@ -381,12 +382,19 @@ public static class XtceDocumentWriter
             ParameterTypeKind.Binary => "BinaryParameterType",
             ParameterTypeKind.RelativeTime => "RelativeTimeParameterType",
             ParameterTypeKind.AbsoluteTime => "AbsoluteTimeParameterType",
+            ParameterTypeKind.Array => "ArrayParameterType",
+            ParameterTypeKind.Aggregate => "AggregateParameterType",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(parameterType), parameterType.Kind, "Unsupported parameter type kind."),
         };
 
         writer.WriteStartElement(elementName, XtceNamespace);
         writer.WriteAttributeString("name", parameterType.Name);
+
+        if (parameterType.Kind == ParameterTypeKind.Array && parameterType.ArrayTypeRef is { } arrayTypeRef)
+        {
+            writer.WriteAttributeString("arrayTypeRef", arrayTypeRef);
+        }
 
         if (parameterType.Kind == ParameterTypeKind.Integer && parameterType.Signed is { } signed)
         {
@@ -420,6 +428,42 @@ public static class XtceDocumentWriter
 
         var slots = new List<(string Name, Action Emit)>();
         AddPreservedSlots(slots, writer, parameterType.Preserved);
+        if (parameterType.Kind == ParameterTypeKind.Array)
+        {
+            slots.Add(("DimensionList", () =>
+            {
+                writer.WriteStartElement("DimensionList", XtceNamespace);
+                foreach (var dimension in parameterType.Dimensions ?? [])
+                {
+                    writer.WriteStartElement("Dimension", XtceNamespace);
+                    WriteDimensionIndex(writer, "StartingIndex", dimension.StartingIndex);
+                    WriteDimensionIndex(writer, "EndingIndex", dimension.EndingIndex);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }));
+        }
+        if (parameterType.Kind == ParameterTypeKind.Aggregate)
+        {
+            slots.Add(("MemberList", () =>
+            {
+                writer.WriteStartElement("MemberList", XtceNamespace);
+                foreach (var member in parameterType.Members ?? [])
+                {
+                    writer.WriteStartElement("Member", XtceNamespace);
+                    writer.WriteAttributeString("name", member.Name);
+                    writer.WriteAttributeString("typeRef", member.TypeRef);
+                    if (member.InitialValue is not null)
+                    {
+                        writer.WriteAttributeString("initialValue", member.InitialValue);
+                    }
+                    WritePreservedAttributes(writer, member.PreservedAttributes);
+                    WriteFragments(writer, member.Preserved);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }));
+        }
         if (parameterType.Kind == ParameterTypeKind.Enumerated)
         {
             slots.Add(("EnumerationList", () =>
@@ -445,6 +489,22 @@ public static class XtceDocumentWriter
         }
         EmitInSchemaOrder(ParameterTypeChildOrder, slots);
 
+        writer.WriteEndElement();
+    }
+
+    private static void WriteDimensionIndex(XmlWriter writer, string elementName, DimensionIndex index)
+    {
+        writer.WriteStartElement(elementName, XtceNamespace);
+        if (index.FixedValue is { } fixedValue)
+        {
+            writer.WriteStartElement("FixedValue", XtceNamespace);
+            writer.WriteValue(fixedValue);
+            writer.WriteEndElement();
+        }
+        else if (index.Raw is { } raw)
+        {
+            writer.WriteRaw(raw.OuterXml);
+        }
         writer.WriteEndElement();
     }
 

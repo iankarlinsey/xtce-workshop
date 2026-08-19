@@ -16,7 +16,7 @@ export interface EnumerationEntryDoc {
 
 export type ParameterTypeKind =
   | 'Integer' | 'Float' | 'String' | 'Boolean' | 'Enumerated'
-  | 'Binary' | 'RelativeTime' | 'AbsoluteTime';
+  | 'Binary' | 'RelativeTime' | 'AbsoluteTime' | 'Array' | 'Aggregate';
 
 export interface ParameterTypeDoc {
   name: string;

@@ -49,6 +49,65 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
                 yield return new ValidationIssue(RuleId, Severity, $"{context.Path}/ParameterSet/{parameter.Name}", error);
             }
         }
+
+        // Aggregate member initialValue overrides — same must-match-the-type semantics.
+        foreach (var type in context.Node.TelemetryMetaData.ParameterTypeSet)
+        {
+            foreach (var member in type.Members ?? [])
+            {
+                if (member.InitialValue is null)
+                {
+                    continue;
+                }
+                var memberTypeResolution = NameReferenceResolver.Resolve(context, member.TypeRef, NamedItemKind.ParameterType);
+                if (memberTypeResolution.ParameterType is not { } memberType)
+                {
+                    continue;
+                }
+                var error = Describe(memberType, member.InitialValue);
+                if (error is not null)
+                {
+                    yield return new ValidationIssue(RuleId, Severity,
+                        $"{context.Path}/ParameterTypeSet/{type.Name}/{member.Name}", error);
+                }
+            }
+        }
+
+        // ComparisonType/value (a listed matrix citation): a RestrictionCriteria
+        // Comparison's value literal against the compared parameter's resolved type.
+        foreach (var container in context.Node.TelemetryMetaData.ContainerSet ?? [])
+        {
+            var comparisons = new List<Comparison>();
+            if (container.BaseContainer?.RestrictionCriteria is { } criteria)
+            {
+                if (criteria.Comparison is { } single)
+                {
+                    comparisons.Add(single);
+                }
+                comparisons.AddRange(criteria.ComparisonList ?? []);
+            }
+
+            foreach (var comparison in comparisons)
+            {
+                var parameterResolution = NameReferenceResolver.Resolve(context, comparison.ParameterRef, NamedItemKind.Parameter);
+                if (parameterResolution.Parameter is not { } parameter || parameterResolution.DefinedIn is not { } definedIn)
+                {
+                    continue;
+                }
+                var typeResolution = NameReferenceResolver.Resolve(definedIn, parameter.ParameterTypeRef, NamedItemKind.ParameterType);
+                if (typeResolution.ParameterType is not { } comparedType)
+                {
+                    continue;
+                }
+                var error = Describe(comparedType, comparison.Value);
+                if (error is not null)
+                {
+                    yield return new ValidationIssue(RuleId, Severity,
+                        $"{context.Path}/ContainerSet/{container.Name}",
+                        $"Comparison against '{comparison.ParameterRef}': {error}");
+                }
+            }
+        }
     }
 
     private static string? Describe(ParameterTypeDefinition type, string value) => type.Kind switch
