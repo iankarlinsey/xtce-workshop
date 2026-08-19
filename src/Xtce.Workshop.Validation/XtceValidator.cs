@@ -16,6 +16,8 @@ public static class XtceValidator
         new NextContainerRefMustResolveRule(),
         new TimeDataTypeRequiresEncodingRule(),
         new AmbiguousTimeUnitsRule(),
+        new LocationInContainerFlagsRule(),
+        new ContainerSegmentsNoOverlapRule(),
     ];
 
     public static IReadOnlyList<ValidationIssue> Validate(SpaceSystem root)

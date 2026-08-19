@@ -84,9 +84,14 @@ same depth of scrutiny.
   Encoding/units site is checked by fragment inspection; the
   TimeAlarmRangesType/timeUnits site sits inside preserved alarm content
   and is unreachable), and extended R15 to the new kinds (hexBinary /
-  xs:duration / xs:dateTime literal checks). 6 of 15 rules now carry
-  `Implemented` status (3 `yes`, 3 `partial` — `partial` is deliberate
-  honesty about citation coverage).
+  xs:duration / xs:dateTime literal checks). #29 added R08 (`yes` —
+  LocationInContainerInBits flags via descendant fragment scanning, covering
+  both modeled entries' preserved children and raw entry fragments) and R04
+  (`partial` — duplicate-`order` detection among same-target segments, the
+  conservative no-false-positive reading; true bit-level overlap needs the
+  whole layout resolved). 8 of 15 rules now carry `Implemented` status
+  (4 `yes`, 4 `partial` — `partial` is deliberate honesty about citation
+  coverage).
 - Phase E: adversarial verification that "tested" rules actually fire. Not
   started as a distinct pass yet — #22's fixtures include both positive and
   negative cases per rule, but a dedicated adversarial-verification pass
