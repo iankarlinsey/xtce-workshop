@@ -25,5 +25,8 @@ public static class XtceDocumentNormalizer
                     : null,
             }
             : null,
+        CommandMetaData = spaceSystem.CommandMetaData is { } command
+            ? command with { MetaCommands = command.MetaCommands ?? [] }
+            : null,
     };
 }

@@ -23,6 +23,7 @@ internal static class TestPaths
     public static string TimeBinarySample => Path.Combine(RepoRoot, "samples", "time-binary-1.2.xml");
     public static string MessagesSample => Path.Combine(RepoRoot, "samples", "messages-1.2.xml");
     public static string ArraysSample => Path.Combine(RepoRoot, "samples", "arrays-1.2.xml");
+    public static string CommandsSample => Path.Combine(RepoRoot, "samples", "commands-1.2.xml");
     public static string XtceSchema => Path.Combine(RepoRoot, "reference", "1.2", "SpaceSystem.xsd");
     public static string XmlNamespaceSchema => Path.Combine(RepoRoot, "reference", "1.2", "xml.xsd");
 }

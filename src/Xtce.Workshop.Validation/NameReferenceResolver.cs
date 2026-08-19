@@ -22,7 +22,8 @@ public sealed record ResolutionResult(
     ParameterTypeDefinition? ParameterType = null,
     SequenceContainer? Container = null,
     Parameter? Parameter = null,
-    SpaceSystemContext? DefinedIn = null)
+    SpaceSystemContext? DefinedIn = null,
+    MetaCommand? MetaCommand = null)
 {
     public bool Found => Status != ResolutionStatus.NotFound;
 }
@@ -144,6 +145,12 @@ public static class NameReferenceResolver
             system.ModeledParameters.TryGetValue(itemName, out var modeledParameter))
         {
             return new ResolutionResult(ResolutionStatus.FoundModeled, Parameter: modeledParameter, DefinedIn: system);
+        }
+
+        if (kind == NamedItemKind.MetaCommand &&
+            system.ModeledMetaCommands.TryGetValue(itemName, out var modeledMetaCommand))
+        {
+            return new ResolutionResult(ResolutionStatus.FoundModeled, MetaCommand: modeledMetaCommand, DefinedIn: system);
         }
 
         return new ResolutionResult(ResolutionStatus.FoundOpaque, DefinedIn: system);

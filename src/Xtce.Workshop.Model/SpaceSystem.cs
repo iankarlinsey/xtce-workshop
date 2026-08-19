@@ -20,7 +20,8 @@ public sealed record SpaceSystem(
     IReadOnlyList<SpaceSystem> Children,
     TelemetryMetaData? TelemetryMetaData = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    CommandMetaData? CommandMetaData = null)
 {
     public bool Equals(SpaceSystem? other) =>
         other is not null
@@ -28,7 +29,8 @@ public sealed record SpaceSystem(
         && Children.SequenceEqual(other.Children)
         && Equals(TelemetryMetaData, other.TelemetryMetaData)
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(CommandMetaData, other.CommandMetaData);
 
     public override int GetHashCode()
     {
@@ -39,6 +41,7 @@ public sealed record SpaceSystem(
         hash.Add(TelemetryMetaData);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(CommandMetaData);
         return hash.ToHashCode();
     }
 }

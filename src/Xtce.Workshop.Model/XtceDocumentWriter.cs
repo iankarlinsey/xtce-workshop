@@ -110,6 +110,11 @@ public static class XtceDocumentWriter
             var telemetryMetaData = spaceSystem.TelemetryMetaData;
             slots.Add(("TelemetryMetaData", () => WriteTelemetryMetaData(writer, telemetryMetaData)));
         }
+        if (spaceSystem.CommandMetaData is not null)
+        {
+            var commandMetaData = spaceSystem.CommandMetaData;
+            slots.Add(("CommandMetaData", () => WriteCommandMetaData(writer, commandMetaData)));
+        }
         foreach (var child in spaceSystem.Children)
         {
             var captured = child;
@@ -221,6 +226,99 @@ public static class XtceDocumentWriter
             }));
         }
         EmitInSchemaOrder(MessageSetChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    private static readonly string[] CommandMetaDataChildOrder =
+    [
+        "ParameterTypeSet", "ParameterSet", "ArgumentTypeSet", "MetaCommandSet",
+        "CommandContainerSet", "StreamSet", "AlgorithmSet",
+    ];
+
+    // MetaCommandType's full sequence (DescriptionType children first).
+    private static readonly string[] MetaCommandChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet",
+        "BaseMetaCommand", "SystemName", "ArgumentList", "CommandContainer",
+        "TransmissionConstraintList", "DefaultSignificance", "ContextSignificanceList",
+        "Interlock", "VerifierSet", "ParameterToSetList", "ParametersToSuspendAlarmsOnSet",
+    ];
+
+    private static readonly string[] VerifierSetChildOrder =
+    [
+        "TransferredToRangeVerifier", "SentFromRangeVerifier", "ReceivedVerifier",
+        "AcceptedVerifier", "QueuedVerifier", "ExecutionVerifier", "CompleteVerifier", "FailedVerifier",
+    ];
+
+    private static void WriteCommandMetaData(XmlWriter writer, CommandMetaData commandMetaData)
+    {
+        writer.WriteStartElement("CommandMetaData", XtceNamespace);
+
+        var slots = new List<(string Name, Action Emit)>();
+        AddPreservedSlots(slots, writer, commandMetaData.Preserved);
+
+        if (commandMetaData.MetaCommands.Count > 0 || commandMetaData.PreservedEntries is { Count: > 0 })
+        {
+            slots.Add(("MetaCommandSet", () =>
+            {
+                writer.WriteStartElement("MetaCommandSet", XtceNamespace);
+                foreach (var metaCommand in commandMetaData.MetaCommands)
+                {
+                    WriteMetaCommand(writer, metaCommand);
+                }
+                WriteFragments(writer, commandMetaData.PreservedEntries);
+                writer.WriteEndElement();
+            }));
+        }
+
+        EmitInSchemaOrder(CommandMetaDataChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteMetaCommand(XmlWriter writer, MetaCommand metaCommand)
+    {
+        writer.WriteStartElement("MetaCommand", XtceNamespace);
+        writer.WriteAttributeString("name", metaCommand.Name);
+        if (metaCommand.Abstract is { } isAbstract)
+        {
+            writer.WriteAttributeString("abstract", XmlConvert.ToString(isAbstract));
+        }
+        WritePreservedAttributes(writer, metaCommand.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        AddPreservedSlots(slots, writer, metaCommand.Preserved);
+
+        if (metaCommand.BaseMetaCommandRef is { } baseRef)
+        {
+            slots.Add(("BaseMetaCommand", () =>
+            {
+                writer.WriteStartElement("BaseMetaCommand", XtceNamespace);
+                writer.WriteAttributeString("metaCommandRef", baseRef);
+                WriteFragments(writer, metaCommand.BaseMetaCommandPreserved);
+                writer.WriteEndElement();
+            }));
+        }
+
+        var hasVerifiers = metaCommand.ExecutionVerifiers is { Count: > 0 }
+            || metaCommand.CompleteVerifiers is { Count: > 0 }
+            || metaCommand.PreservedVerifiers is { Count: > 0 };
+        if (hasVerifiers)
+        {
+            slots.Add(("VerifierSet", () =>
+            {
+                writer.WriteStartElement("VerifierSet", XtceNamespace);
+                var verifierSlots = new List<(string Name, Action Emit)>();
+                AddPreservedSlots(verifierSlots, writer, metaCommand.PreservedVerifiers);
+                AddPreservedSlots(verifierSlots, writer, metaCommand.ExecutionVerifiers);
+                AddPreservedSlots(verifierSlots, writer, metaCommand.CompleteVerifiers);
+                EmitInSchemaOrder(VerifierSetChildOrder, verifierSlots);
+                writer.WriteEndElement();
+            }));
+        }
+
+        EmitInSchemaOrder(MetaCommandChildOrder, slots);
 
         writer.WriteEndElement();
     }

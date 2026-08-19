@@ -103,9 +103,14 @@ same depth of scrutiny.
   via the resolver's new parameter-instance + defining-scope results).
   #32 added R13 and R03 (both `yes`) via document-wide fragment
   inspection (`FragmentEnumerator` reaches every preserved fragment,
-  including CommandMetaData argument encodings). 14 of 15 rules now carry
-  `Implemented` status (7 `yes`, 7 `partial`). Only R12 (verifier
-  dedup post-inheritance) remains, blocked on MetaCommand modeling.
+  including CommandMetaData argument encodings). #33 modeled
+  CommandMetaData/MetaCommand (verifiers as fragments, BaseMetaCommand
+  refs, a fourth MetaCommand reference namespace) and added R12 (`yes` —
+  documented exact-duplicate interpretation: whitespace-normalized XML
+  equality across the cycle-guarded inheritance merge). **First-pass
+  Phase D is complete: all 15 rules carry `Implemented` status (8 `yes`,
+  7 `partial`)** — every `partial` has its citation gap recorded in the
+  rule's source docs and closes as more constructs become modeled.
 - Phase E: adversarial verification that "tested" rules actually fire. Not
   started as a distinct pass yet — #22's fixtures include both positive and
   negative cases per rule, but a dedicated adversarial-verification pass
@@ -115,8 +120,10 @@ same depth of scrutiny.
   built entirely from the XSD's own `<documentation>` blocks, which is one
   of at least two intended sources.
 
-**Phase D's one remaining rule (R12, no-duplicate-verifiers-post-inheritance)
-stays blocked on MetaCommand/BaseMetaCommand inheritance modeling** — a
-CommandMetaData vertical slice. The `partial` rules also each have a
+**Phase D first pass is complete** (see above). What remains for the
+validation pipeline: Phase E (a dedicated adversarial-verification pass),
+mining CCSDS 660.1-G-2 as the second rule-extraction corpus, and closing
+the recorded `partial` gaps as command/encoding constructs get modeled
+more deeply. The `partial` rules also each have a
 recorded gap that closes as more constructs become modeled (see the per-rule
 notes above and in the validator source).

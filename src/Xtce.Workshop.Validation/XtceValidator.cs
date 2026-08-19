@@ -24,6 +24,7 @@ public static class XtceValidator
         new DimensionOrderMustAscendRule(),
         new SplineOrderRequiresMinPointsRule(),
         new ChecksumCustomRequiresInputAlgorithmRule(),
+        new NoDuplicateVerifiersRule(),
     ];
 
     public static IReadOnlyList<ValidationIssue> Validate(SpaceSystem root)

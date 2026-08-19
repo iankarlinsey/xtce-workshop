@@ -20,6 +20,43 @@ public static class FragmentEnumerator
             yield return (fragment, $"{path}/{fragment.ElementName}");
         }
 
+        if (context.Node.CommandMetaData is { } commandMetaData)
+        {
+            var commandPath = $"{path}/CommandMetaData";
+            foreach (var fragment in commandMetaData.Preserved ?? [])
+            {
+                yield return (fragment, $"{commandPath}/{fragment.ElementName}");
+            }
+            foreach (var fragment in commandMetaData.PreservedEntries ?? [])
+            {
+                yield return (fragment, $"{commandPath}/MetaCommandSet");
+            }
+            foreach (var metaCommand in commandMetaData.MetaCommands)
+            {
+                var metaCommandPath = $"{commandPath}/MetaCommandSet/{metaCommand.Name}";
+                foreach (var fragment in metaCommand.Preserved ?? [])
+                {
+                    yield return (fragment, metaCommandPath);
+                }
+                foreach (var fragment in metaCommand.BaseMetaCommandPreserved ?? [])
+                {
+                    yield return (fragment, metaCommandPath);
+                }
+                foreach (var fragment in metaCommand.ExecutionVerifiers ?? [])
+                {
+                    yield return (fragment, metaCommandPath);
+                }
+                foreach (var fragment in metaCommand.CompleteVerifiers ?? [])
+                {
+                    yield return (fragment, metaCommandPath);
+                }
+                foreach (var fragment in metaCommand.PreservedVerifiers ?? [])
+                {
+                    yield return (fragment, metaCommandPath);
+                }
+            }
+        }
+
         if (context.Node.TelemetryMetaData is not { } telemetry)
         {
             yield break;

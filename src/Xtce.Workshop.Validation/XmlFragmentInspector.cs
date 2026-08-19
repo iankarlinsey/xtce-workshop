@@ -24,6 +24,30 @@ public static class XmlFragmentInspector
         }
     }
 
+    /// <summary>The text content of a fragment's root element (e.g. a MetaCommandRef's reference).</summary>
+    public static string? RootText(string outerXml)
+    {
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            if (reader.MoveToContent() != XmlNodeType.Element)
+            {
+                return null;
+            }
+            var text = reader.ReadElementContentAsString().Trim();
+            return text.Length == 0 ? null : text;
+        }
+        catch (XmlException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null; // element has child elements, not simple text content
+        }
+    }
+
     /// <summary>One SplineCalibrator found in a fragment: order attribute + point count.</summary>
     public sealed record SplineInfo(long Order, int PointCount);
 

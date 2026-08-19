@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="CommandDemo">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <IntegerParameterType name="AckType" signed="false" sizeInBits="8"/>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="CmdAck" parameterTypeRef="AckType"/>
+    </ParameterSet>
+  </TelemetryMetaData>
+  <CommandMetaData>
+    <MetaCommandSet>
+      <MetaCommand name="BaseCmd" abstract="true">
+        <VerifierSet>
+          <CompleteVerifier>
+            <Comparison parameterRef="CmdAck" value="1"/>
+            <CheckWindow timeToStopChecking="PT5S"/>
+          </CompleteVerifier>
+        </VerifierSet>
+      </MetaCommand>
+      <MetaCommand name="DupCmd">
+        <BaseMetaCommand metaCommandRef="BaseCmd"/>
+        <VerifierSet>
+          <CompleteVerifier>
+            <Comparison parameterRef="CmdAck" value="1"/>
+            <CheckWindow timeToStopChecking="PT5S"/>
+          </CompleteVerifier>
+        </VerifierSet>
+      </MetaCommand>
+      <MetaCommand name="CleanCmd">
+        <BaseMetaCommand metaCommandRef="BaseCmd"/>
+        <VerifierSet>
+          <CompleteVerifier>
+            <Comparison parameterRef="CmdAck" value="2"/>
+            <CheckWindow timeToStopChecking="PT10S"/>
+          </CompleteVerifier>
+        </VerifierSet>
+      </MetaCommand>
+      <MetaCommand name="GhostCmd">
+        <BaseMetaCommand metaCommandRef="NoSuchCmd"/>
+      </MetaCommand>
+    </MetaCommandSet>
+  </CommandMetaData>
+</SpaceSystem>

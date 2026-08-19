@@ -4,15 +4,16 @@ using Xtce.Workshop.Model;
 namespace Xtce.Workshop.Validation;
 
 /// <summary>
-/// The three name namespaces XTCE reference attributes resolve against. Parameter,
-/// parameter-type, and container names are separate spaces — a parameterRef never matches
-/// a container name, and so on.
+/// The name namespaces XTCE reference attributes resolve against. Parameter,
+/// parameter-type, container, and meta-command names are separate spaces — a parameterRef
+/// never matches a container name, and so on.
 /// </summary>
 public enum NamedItemKind
 {
     Parameter,
     ParameterType,
     Container,
+    MetaCommand,
 }
 
 /// <summary>
@@ -42,6 +43,8 @@ public sealed class SpaceSystemContext
     public required IReadOnlyDictionary<string, ParameterTypeDefinition> ModeledParameterTypes { get; init; }
     public required IReadOnlyDictionary<string, SequenceContainer> ModeledContainers { get; init; }
     public required IReadOnlyDictionary<string, Parameter> ModeledParameters { get; init; }
+    public required IReadOnlySet<string> MetaCommandNames { get; init; }
+    public required IReadOnlyDictionary<string, MetaCommand> ModeledMetaCommands { get; init; }
 
     public SpaceSystemContext Root => Parent?.Root ?? this;
 
@@ -50,6 +53,7 @@ public sealed class SpaceSystemContext
         NamedItemKind.Parameter => ParameterNames,
         NamedItemKind.ParameterType => ParameterTypeNames,
         NamedItemKind.Container => ContainerNames,
+        NamedItemKind.MetaCommand => MetaCommandNames,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
@@ -75,6 +79,8 @@ public sealed class SpaceSystemContext
         var modeledTypes = new Dictionary<string, ParameterTypeDefinition>();
         var modeledContainers = new Dictionary<string, SequenceContainer>();
         var modeledParameters = new Dictionary<string, Parameter>();
+        var metaCommandNames = new HashSet<string>();
+        var modeledMetaCommands = new Dictionary<string, MetaCommand>();
 
         if (node.TelemetryMetaData is { } telemetry)
         {
@@ -115,8 +121,41 @@ public sealed class SpaceSystemContext
 
         foreach (var fragment in node.Preserved ?? [])
         {
+            // Documents built by hand (tests) may still carry a whole CommandMetaData as
+            // a fragment; documents from the reader model it (below).
             if (fragment.ElementName == "CommandMetaData")
             {
+                ScanCommandMetaData(fragment.OuterXml, parameterNames, parameterTypeNames, containerNames);
+            }
+        }
+
+        if (node.CommandMetaData is { } commandMetaData)
+        {
+            foreach (var metaCommand in commandMetaData.MetaCommands)
+            {
+                metaCommandNames.Add(metaCommand.Name);
+                modeledMetaCommands[metaCommand.Name] = metaCommand;
+            }
+            foreach (var fragment in commandMetaData.PreservedEntries ?? [])
+            {
+                // BlockMetaCommand defines a name; MetaCommandRef includes one defined
+                // elsewhere under its reference's last segment.
+                if (fragment.ElementName == "BlockMetaCommand" &&
+                    XmlFragmentInspector.RootAttribute(fragment.OuterXml, "name") is { } blockName)
+                {
+                    metaCommandNames.Add(blockName);
+                }
+                else if (fragment.ElementName == "MetaCommandRef" &&
+                    XmlFragmentInspector.RootText(fragment.OuterXml) is { } reference)
+                {
+                    var lastSlash = reference.LastIndexOf('/');
+                    metaCommandNames.Add(lastSlash < 0 ? reference : reference[(lastSlash + 1)..]);
+                }
+            }
+            foreach (var fragment in commandMetaData.Preserved ?? [])
+            {
+                // The command side's own ParameterSet/ParameterTypeSet/CommandContainerSet
+                // ride as whole fragments — their definitions still count.
                 ScanCommandMetaData(fragment.OuterXml, parameterNames, parameterTypeNames, containerNames);
             }
         }
@@ -136,6 +175,8 @@ public sealed class SpaceSystemContext
             ModeledParameterTypes = modeledTypes,
             ModeledContainers = modeledContainers,
             ModeledParameters = modeledParameters,
+            MetaCommandNames = metaCommandNames,
+            ModeledMetaCommands = modeledMetaCommands,
         };
 
         foreach (var child in node.Children)

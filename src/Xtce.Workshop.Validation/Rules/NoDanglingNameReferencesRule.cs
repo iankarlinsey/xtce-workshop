@@ -21,6 +21,17 @@ public sealed class NoDanglingNameReferencesRule : IValidationRule
 
     public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
+        foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
+        {
+            if (metaCommand.BaseMetaCommandRef is { } baseRef
+                && !NameReferenceResolver.Resolve(context, baseRef, NamedItemKind.MetaCommand).Found)
+            {
+                yield return Issue(
+                    $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}",
+                    $"BaseMetaCommand metaCommandRef '{baseRef}' does not resolve to any MetaCommand.");
+            }
+        }
+
         if (context.Node.TelemetryMetaData is not { } telemetry)
         {
             yield break;

@@ -82,12 +82,13 @@ public static class XtceDocumentReader
 
         var children = new List<SpaceSystem>();
         TelemetryMetaData? telemetryMetaData = null;
+        CommandMetaData? commandMetaData = null;
         List<RawXmlFragment>? preserved = null;
 
         if (reader.IsEmptyElement)
         {
             reader.Read();
-            return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes);
+            return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData);
         }
 
         reader.ReadStartElement();
@@ -102,10 +103,14 @@ public static class XtceDocumentReader
             {
                 telemetryMetaData = ReadTelemetryMetaData(reader);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CommandMetaData")
+            {
+                commandMetaData = ReadCommandMetaData(reader);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
                 // Unmodeled child (LongDescription, AliasSet, AncillaryDataSet, Header,
-                // CommandMetaData, ServiceSet) — preserved verbatim, re-emitted on save.
+                // ServiceSet) — preserved verbatim, re-emitted on save.
                 Preserve(ref preserved, reader);
             }
             else
@@ -116,7 +121,184 @@ public static class XtceDocumentReader
 
         reader.ReadEndElement();
 
-        return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes);
+        return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData);
+    }
+
+    private static CommandMetaData ReadCommandMetaData(XmlReader reader)
+    {
+        var metaCommands = new List<MetaCommand>();
+        List<RawXmlFragment>? preservedEntries = null;
+        List<RawXmlFragment>? preserved = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return new CommandMetaData(metaCommands);
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MetaCommandSet")
+            {
+                ReadMetaCommandSet(reader, metaCommands, ref preservedEntries);
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // ParameterTypeSet, ParameterSet, ArgumentTypeSet, CommandContainerSet,
+                // StreamSet, AlgorithmSet — whole fragments; their definitions still feed
+                // the reference namespaces via SpaceSystemContext's scanning.
+                Preserve(ref preserved, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return new CommandMetaData(metaCommands, preservedEntries, preserved);
+    }
+
+    private static void ReadMetaCommandSet(
+        XmlReader reader, List<MetaCommand> metaCommands, ref List<RawXmlFragment>? preservedEntries)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MetaCommand")
+            {
+                metaCommands.Add(ReadMetaCommand(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // MetaCommandRef, BlockMetaCommand — preserved in the set.
+                Preserve(ref preservedEntries, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static MetaCommand ReadMetaCommand(XmlReader reader)
+    {
+        var name = RequireAttribute(reader, "name", "a MetaCommand");
+        var isAbstract = ParseBool(reader, "abstract");
+        var preservedAttributes = CapturePreservedAttributes(reader, "name", "abstract");
+
+        string? baseMetaCommandRef = null;
+        List<RawXmlFragment>? basePreserved = null;
+        List<RawXmlFragment>? executionVerifiers = null;
+        List<RawXmlFragment>? completeVerifiers = null;
+        List<RawXmlFragment>? preservedVerifiers = null;
+        List<RawXmlFragment>? preserved = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "BaseMetaCommand")
+                {
+                    baseMetaCommandRef = RequireAttribute(reader, "metaCommandRef", "a BaseMetaCommand");
+                    if (reader.IsEmptyElement)
+                    {
+                        reader.Read();
+                    }
+                    else
+                    {
+                        reader.ReadStartElement();
+                        while (reader.NodeType != XmlNodeType.EndElement)
+                        {
+                            if (reader.NodeType == XmlNodeType.Element)
+                            {
+                                Preserve(ref basePreserved, reader);
+                            }
+                            else
+                            {
+                                reader.Read();
+                            }
+                        }
+                        reader.ReadEndElement();
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "VerifierSet")
+                {
+                    ReadVerifierSet(reader, ref executionVerifiers, ref completeVerifiers, ref preservedVerifiers);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    Preserve(ref preserved, reader);
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            reader.ReadEndElement();
+        }
+
+        return new MetaCommand(
+            name, isAbstract, baseMetaCommandRef, basePreserved,
+            executionVerifiers, completeVerifiers, preservedVerifiers, preserved, preservedAttributes);
+    }
+
+    private static void ReadVerifierSet(
+        XmlReader reader,
+        ref List<RawXmlFragment>? executionVerifiers,
+        ref List<RawXmlFragment>? completeVerifiers,
+        ref List<RawXmlFragment>? preservedVerifiers)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ExecutionVerifier")
+            {
+                Preserve(ref executionVerifiers, reader);
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CompleteVerifier")
+            {
+                Preserve(ref completeVerifiers, reader);
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // The six 0..1 verifier kinds (TransferredToRange, SentFromRange, Received,
+                // Accepted, Queued, Failed) — preserved.
+                Preserve(ref preservedVerifiers, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
     }
 
     private static TelemetryMetaData ReadTelemetryMetaData(XmlReader reader)
