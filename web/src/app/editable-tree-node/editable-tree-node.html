@@ -1,0 +1,30 @@
+@if (isVisible()) {
+  <div class="tree-node-row">
+    @if (node().children.length > 0) {
+      <button type="button" class="toggle" (click)="toggle()" [attr.aria-expanded]="effectiveExpanded()">
+        {{ effectiveExpanded() ? '▾' : '▸' }}
+      </button>
+    } @else {
+      <span class="toggle-spacer"></span>
+    }
+    <span class="label">{{ node().name }}</span>
+    <button type="button" class="action" (click)="onAddChild()">+ Add child</button>
+    <button type="button" class="action" (click)="onRename()">Rename</button>
+    @if (!isRoot()) {
+      <button type="button" class="action danger" (click)="deleteRequested.emit()">Delete</button>
+    }
+  </div>
+
+  @if (effectiveExpanded() && node().children.length > 0) {
+    <div class="tree-node-children">
+      @for (child of node().children; track $index; let i = $index) {
+        <app-editable-tree-node
+          [node]="child"
+          [searchTerm]="searchTerm()"
+          (nodeChange)="onChildChange(i, $event)"
+          (deleteRequested)="onChildDelete(i)"
+        />
+      }
+    </div>
+  }
+}

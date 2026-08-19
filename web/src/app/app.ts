@@ -1,23 +1,17 @@
 import { Component, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { TreeNode, TreeNodeComponent } from './tree-node/tree-node';
+import { EditableTreeNodeComponent, SpaceSystemDocument } from './editable-tree-node/editable-tree-node';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
 
-interface SpaceSystemDocument {
-  name: string;
-  children: SpaceSystemDocument[];
-}
-
 interface LoadResult {
   name: string;
-  tree: TreeNode;
   document: SpaceSystemDocument;
 }
 
 @Component({
   selector: 'app-root',
-  imports: [TreeNodeComponent],
+  imports: [EditableTreeNodeComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -26,7 +20,6 @@ export class App {
 
   protected readonly healthStatus = signal<HealthStatus>('checking');
   protected readonly selectedFileName = signal<string | null>(null);
-  protected readonly loadedTree = signal<TreeNode | null>(null);
   protected readonly loadError = signal<string | null>(null);
   protected readonly treeSearchTerm = signal('');
 
@@ -48,7 +41,6 @@ export class App {
     }
 
     this.selectedFileName.set(file.name);
-    this.loadedTree.set(null);
     this.loadError.set(null);
     this.saveError.set(null);
     this.treeSearchTerm.set('');
@@ -57,12 +49,13 @@ export class App {
     formData.append('file', file);
 
     this.http.post<LoadResult>('/api/xtce/load', formData).subscribe({
-      next: (result) => {
-        this.loadedTree.set(result.tree);
-        // A loaded file becomes the current editable/saveable document immediately —
-        // the same state New already populates, so Save works identically either way.
-        this.currentDocument.set(result.document);
-      },
+      // A loaded file becomes the current editable/saveable document immediately — the
+      // same state New already populates, so Save and the tree UI work identically
+      // either way. The backend's generic `tree` field (TreeNode) is intentionally
+      // unused here — see summary.md's Architecture Decisions: it stays available for
+      // future read-only content, but this app now always edits, so the editable tree
+      // is the one and only tree UI.
+      next: (result) => this.currentDocument.set(result.document),
       error: (err) => this.loadError.set(err?.error?.error ?? 'Failed to load file.'),
     });
   }
@@ -75,6 +68,10 @@ export class App {
 
     this.currentDocument.set({ name, children: [] });
     this.saveError.set(null);
+  }
+
+  onDocumentChange(updated: SpaceSystemDocument): void {
+    this.currentDocument.set(updated);
   }
 
   onSaveDocument(): void {

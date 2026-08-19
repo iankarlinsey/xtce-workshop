@@ -23,27 +23,29 @@
     @if (selectedFileName()) {
       <p>Selected: {{ selectedFileName() }}</p>
     }
-    @if (loadedTree(); as tree) {
-      <label>
-        Search:
-        <input type="search" (input)="onTreeSearchInput($event)" placeholder="Filter by name" />
-      </label>
-      <div class="tree-container">
-        <app-tree-node [node]="tree" [searchTerm]="treeSearchTerm()" />
-      </div>
-    }
     @if (loadError()) {
       <p class="error">{{ loadError() }}</p>
     }
   </section>
 
   <section>
-    <h2>Create a new XTCE document</h2>
+    <h2>Document</h2>
     <button type="button" (click)="onNewDocument()">New&hellip;</button>
     <button type="button" (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</button>
 
     @if (currentDocument(); as doc) {
-      <p>Current document: <strong>{{ doc.name }}</strong></p>
+      <label>
+        Search:
+        <input type="search" (input)="onTreeSearchInput($event)" placeholder="Filter by name" />
+      </label>
+      <div class="tree-container">
+        <app-editable-tree-node
+          [node]="doc"
+          [isRoot]="true"
+          [searchTerm]="treeSearchTerm()"
+          (nodeChange)="onDocumentChange($event)"
+        />
+      </div>
     }
     @if (saveError()) {
       <p class="error">{{ saveError() }}</p>
