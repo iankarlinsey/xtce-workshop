@@ -20,6 +20,9 @@ public static class XtceDocumentNormalizer
                 ContainerSet = telemetry.ContainerSet
                     ?.Select(container => container with { EntryList = container.EntryList ?? [] })
                     .ToList(),
+                MessageSet = telemetry.MessageSet is { } messageSet
+                    ? messageSet with { Messages = messageSet.Messages ?? [] }
+                    : null,
             }
             : null,
     };

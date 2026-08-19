@@ -168,8 +168,58 @@ public static class XtceDocumentWriter
             }));
         }
 
+        if (telemetryMetaData.MessageSet is { } messageSet)
+        {
+            slots.Add(("MessageSet", () => WriteMessageSet(writer, messageSet)));
+        }
+
         AddPreservedSlots(slots, writer, telemetryMetaData.Preserved);
         EmitInSchemaOrder(TelemetryMetaDataChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    // MessageType's sequence: DescriptionType children, then MatchCriteria, then ContainerRef.
+    private static readonly string[] MessageChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet", "MatchCriteria", "ContainerRef",
+    ];
+
+    private static readonly string[] MessageSetChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet", "Message",
+    ];
+
+    private static void WriteMessageSet(XmlWriter writer, MessageSet messageSet)
+    {
+        writer.WriteStartElement("MessageSet", XtceNamespace);
+        WritePreservedAttributes(writer, messageSet.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        AddPreservedSlots(slots, writer, messageSet.Preserved);
+        foreach (var message in messageSet.Messages)
+        {
+            var captured = message;
+            slots.Add(("Message", () =>
+            {
+                writer.WriteStartElement("Message", XtceNamespace);
+                writer.WriteAttributeString("name", captured.Name);
+                WritePreservedAttributes(writer, captured.PreservedAttributes);
+
+                var messageSlots = new List<(string Name, Action Emit)>();
+                AddPreservedSlots(messageSlots, writer, captured.Preserved);
+                messageSlots.Add(("ContainerRef", () =>
+                {
+                    writer.WriteStartElement("ContainerRef", XtceNamespace);
+                    writer.WriteAttributeString("containerRef", captured.ContainerRef);
+                    writer.WriteEndElement();
+                }));
+                EmitInSchemaOrder(MessageChildOrder, messageSlots);
+
+                writer.WriteEndElement();
+            }));
+        }
+        EmitInSchemaOrder(MessageSetChildOrder, slots);
 
         writer.WriteEndElement();
     }

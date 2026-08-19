@@ -89,9 +89,15 @@ same depth of scrutiny.
   both modeled entries' preserved children and raw entry fragments) and R04
   (`partial` — duplicate-`order` detection among same-target segments, the
   conservative no-false-positive reading; true bit-level overlap needs the
-  whole layout resolved). 8 of 15 rules now carry `Implemented` status
-  (4 `yes`, 4 `partial` — `partial` is deliberate honesty about citation
-  coverage).
+  whole layout resolved). #30 modeled `MessageSet` and added R09 (`partial`
+  — a demonstrable-non-root heuristic: unresolvable, abstract, or
+  included-as-a-sub-piece targets are flagged; proving general rootness
+  isn't attempted). 9 of 15 rules now carry `Implemented` status (4 `yes`,
+  5 `partial` — `partial` is deliberate honesty about citation coverage).
+  The remaining 6 (R02/R03/R05/R06/R12/R13) all need constructs that are
+  still preserved-not-modeled: array/aggregate types and dimensions
+  (R02/R05/R06), data-encoding internals incl. checksums and calibrators
+  (R03/R13), and MetaCommand verifiers (R12).
 - Phase E: adversarial verification that "tested" rules actually fire. Not
   started as a distinct pass yet — #22's fixtures include both positive and
   negative cases per rule, but a dedicated adversarial-verification pass

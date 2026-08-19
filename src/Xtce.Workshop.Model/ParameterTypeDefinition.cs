@@ -130,12 +130,12 @@ public sealed record Parameter(
 /// don't need null-conditional access, but the TelemetryMetaData element itself is nullable
 /// on SpaceSystem since the XSD marks it minOccurs="0".
 ///
-/// PreservedParameterTypes holds unmodeled ParameterTypeSet entries (Binary/RelativeTime/
-/// AbsoluteTime/Array/Aggregate parameter types); PreservedParameters holds unmodeled
+/// PreservedParameterTypes holds unmodeled ParameterTypeSet entries (Array/Aggregate
+/// parameter types); PreservedParameters holds unmodeled
 /// ParameterSet entries (ParameterRef). Both sets are XSD choice-unbounded, so re-emitting
 /// preserved entries after the modeled ones is order-valid. ContainerSet is modeled (issue
-/// #24); Preserved holds the remaining unmodeled TelemetryMetaData children (MessageSet,
-/// StreamSet, AlgorithmSet), re-emitted in XSD sequence order.
+/// #24) and MessageSet too (issue #30); Preserved holds the remaining unmodeled
+/// TelemetryMetaData children (StreamSet, AlgorithmSet), re-emitted in XSD sequence order.
 /// </summary>
 public sealed record TelemetryMetaData(
     IReadOnlyList<ParameterTypeDefinition> ParameterTypeSet,
@@ -143,7 +143,8 @@ public sealed record TelemetryMetaData(
     IReadOnlyList<RawXmlFragment>? PreservedParameterTypes = null,
     IReadOnlyList<RawXmlFragment>? PreservedParameters = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<SequenceContainer>? ContainerSet = null)
+    IReadOnlyList<SequenceContainer>? ContainerSet = null,
+    MessageSet? MessageSet = null)
 {
     public bool Equals(TelemetryMetaData? other) =>
         other is not null
@@ -152,7 +153,8 @@ public sealed record TelemetryMetaData(
         && Structural.ListEquals(PreservedParameterTypes, other.PreservedParameterTypes)
         && Structural.ListEquals(PreservedParameters, other.PreservedParameters)
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(ContainerSet, other.ContainerSet);
+        && Structural.ListEquals(ContainerSet, other.ContainerSet)
+        && Equals(MessageSet, other.MessageSet);
 
     public override int GetHashCode()
     {
@@ -169,6 +171,7 @@ public sealed record TelemetryMetaData(
         Structural.AddList(ref hash, PreservedParameters);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, ContainerSet);
+        hash.Add(MessageSet);
         return hash.ToHashCode();
     }
 }

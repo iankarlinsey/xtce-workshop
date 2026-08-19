@@ -122,6 +122,7 @@ public static class XtceDocumentReader
         var parameterTypes = new List<ParameterTypeDefinition>();
         var parameters = new List<Parameter>();
         List<SequenceContainer>? containers = null;
+        MessageSet? messageSet = null;
         List<RawXmlFragment>? preservedTypes = null;
         List<RawXmlFragment>? preservedParameters = null;
         List<RawXmlFragment>? preserved = null;
@@ -148,10 +149,14 @@ public static class XtceDocumentReader
             {
                 containers = ReadContainerSet(reader);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MessageSet")
+            {
+                messageSet = ReadMessageSet(reader);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // Unmodeled sibling (MessageSet, StreamSet, AlgorithmSet) — preserved
-                // verbatim, re-emitted in XSD sequence order on save.
+                // Unmodeled sibling (StreamSet, AlgorithmSet) — preserved verbatim,
+                // re-emitted in XSD sequence order on save.
                 Preserve(ref preserved, reader);
             }
             else
@@ -162,7 +167,91 @@ public static class XtceDocumentReader
 
         reader.ReadEndElement();
 
-        return new TelemetryMetaData(parameterTypes, parameters, preservedTypes, preservedParameters, preserved, containers);
+        return new TelemetryMetaData(
+            parameterTypes, parameters, preservedTypes, preservedParameters, preserved, containers, messageSet);
+    }
+
+    private static MessageSet ReadMessageSet(XmlReader reader)
+    {
+        var preservedAttributes = CapturePreservedAttributes(reader);
+        var messages = new List<Message>();
+        List<RawXmlFragment>? preserved = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return new MessageSet(messages, preserved, preservedAttributes);
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Message")
+            {
+                messages.Add(ReadMessage(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // OptionalNameDescriptionType children (LongDescription, AliasSet,
+                // AncillaryDataSet) — preserved verbatim.
+                Preserve(ref preserved, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return new MessageSet(messages, preserved, preservedAttributes);
+    }
+
+    private static Message ReadMessage(XmlReader reader)
+    {
+        var name = RequireAttribute(reader, "name", "a Message");
+        var preservedAttributes = CapturePreservedAttributes(reader, "name");
+
+        string? containerRef = null;
+        List<RawXmlFragment>? preserved = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContainerRef")
+                {
+                    containerRef = RequireAttribute(reader, "containerRef", "a Message's ContainerRef");
+                    reader.Skip();
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // MatchCriteria (required by the XSD, a whole expression language) and
+                    // description children — preserved verbatim.
+                    Preserve(ref preserved, reader);
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            reader.ReadEndElement();
+        }
+
+        if (containerRef is null)
+        {
+            throw new XtceParseException($"Message '{name}' is missing its required ContainerRef element.");
+        }
+
+        return new Message(name, containerRef, preserved, preservedAttributes);
     }
 
     private static List<SequenceContainer> ReadContainerSet(XmlReader reader)

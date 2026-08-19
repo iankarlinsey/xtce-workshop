@@ -40,6 +40,7 @@ public sealed class SpaceSystemContext
     public required IReadOnlySet<string> ParameterTypeNames { get; init; }
     public required IReadOnlySet<string> ContainerNames { get; init; }
     public required IReadOnlyDictionary<string, ParameterTypeDefinition> ModeledParameterTypes { get; init; }
+    public required IReadOnlyDictionary<string, SequenceContainer> ModeledContainers { get; init; }
 
     public SpaceSystemContext Root => Parent?.Root ?? this;
 
@@ -71,6 +72,7 @@ public sealed class SpaceSystemContext
         var parameterTypeNames = new HashSet<string>();
         var containerNames = new HashSet<string>();
         var modeledTypes = new Dictionary<string, ParameterTypeDefinition>();
+        var modeledContainers = new Dictionary<string, SequenceContainer>();
 
         if (node.TelemetryMetaData is { } telemetry)
         {
@@ -86,6 +88,7 @@ public sealed class SpaceSystemContext
             foreach (var container in telemetry.ContainerSet ?? [])
             {
                 containerNames.Add(container.Name);
+                modeledContainers[container.Name] = container;
             }
 
             foreach (var fragment in telemetry.PreservedParameterTypes ?? [])
@@ -128,6 +131,7 @@ public sealed class SpaceSystemContext
             ParameterTypeNames = parameterTypeNames,
             ContainerNames = containerNames,
             ModeledParameterTypes = modeledTypes,
+            ModeledContainers = modeledContainers,
         };
 
         foreach (var child in node.Children)

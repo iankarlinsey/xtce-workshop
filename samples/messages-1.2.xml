@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="MessageDemo">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <IntegerParameterType name="ApidType" signed="false" sizeInBits="11"/>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="Apid" parameterTypeRef="ApidType"/>
+    </ParameterSet>
+    <ContainerSet>
+      <SequenceContainer name="CcsdsHeader" abstract="true">
+        <EntryList>
+          <ParameterRefEntry parameterRef="Apid"/>
+        </EntryList>
+      </SequenceContainer>
+      <SequenceContainer name="EpsPacket">
+        <EntryList>
+          <ContainerRefEntry containerRef="TrailerFragment"/>
+        </EntryList>
+        <BaseContainer containerRef="CcsdsHeader">
+          <RestrictionCriteria>
+            <Comparison parameterRef="Apid" value="101"/>
+          </RestrictionCriteria>
+        </BaseContainer>
+      </SequenceContainer>
+      <SequenceContainer name="TrailerFragment">
+        <EntryList>
+          <ParameterRefEntry parameterRef="Apid"/>
+        </EntryList>
+      </SequenceContainer>
+    </ContainerSet>
+    <MessageSet name="OperationalMessages" shortDescription="Message identification">
+      <Message name="EpsMessage">
+        <MatchCriteria>
+          <Comparison parameterRef="Apid" value="101"/>
+        </MatchCriteria>
+        <ContainerRef containerRef="EpsPacket"/>
+      </Message>
+      <Message name="AbstractMessage">
+        <MatchCriteria>
+          <Comparison parameterRef="Apid" value="102"/>
+        </MatchCriteria>
+        <ContainerRef containerRef="CcsdsHeader"/>
+      </Message>
+      <Message name="PieceMessage">
+        <MatchCriteria>
+          <Comparison parameterRef="Apid" value="103"/>
+        </MatchCriteria>
+        <ContainerRef containerRef="TrailerFragment"/>
+      </Message>
+      <Message name="GhostMessage">
+        <MatchCriteria>
+          <Comparison parameterRef="Apid" value="104"/>
+        </MatchCriteria>
+        <ContainerRef containerRef="NoSuchContainer"/>
+      </Message>
+    </MessageSet>
+  </TelemetryMetaData>
+</SpaceSystem>

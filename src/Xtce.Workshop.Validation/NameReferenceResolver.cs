@@ -17,7 +17,10 @@ public enum ResolutionStatus
     FoundOpaque,
 }
 
-public sealed record ResolutionResult(ResolutionStatus Status, ParameterTypeDefinition? ParameterType = null)
+public sealed record ResolutionResult(
+    ResolutionStatus Status,
+    ParameterTypeDefinition? ParameterType = null,
+    SequenceContainer? Container = null)
 {
     public bool Found => Status != ResolutionStatus.NotFound;
 }
@@ -129,7 +132,13 @@ public static class NameReferenceResolver
             return new ResolutionResult(ResolutionStatus.FoundModeled, modeledType);
         }
 
+        if (kind == NamedItemKind.Container &&
+            system.ModeledContainers.TryGetValue(itemName, out var modeledContainer))
+        {
+            return new ResolutionResult(ResolutionStatus.FoundModeled, Container: modeledContainer);
+        }
+
         return new ResolutionResult(
-            kind == NamedItemKind.ParameterType ? ResolutionStatus.FoundOpaque : ResolutionStatus.FoundModeled);
+            kind == NamedItemKind.Parameter ? ResolutionStatus.FoundModeled : ResolutionStatus.FoundOpaque);
     }
 }
