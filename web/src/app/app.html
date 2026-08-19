@@ -88,6 +88,8 @@
           <button type="button" class="btn" (click)="onAddChildToSelected()">+ Add child</button>
           <button type="button" class="btn" (click)="onAddParameter()">+ Add parameter</button>
           <button type="button" class="btn" (click)="onAddContainer()">+ Add container</button>
+          <button type="button" class="btn" (click)="onAddMessage()">+ Add message</button>
+          <button type="button" class="btn" (click)="onAddMetaCommand()">+ Add command</button>
           @if (!isRootSelected()) {
             <button type="button" class="btn btn-danger" (click)="onDeleteSelected()">Delete</button>
           }
@@ -296,6 +298,53 @@
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
+      } @else if (selectedMessage(); as message) {
+        <div class="node-title">
+          <span>{{ message.name }}</span>
+          <span class="type-badge">Message</span>
+        </div>
+
+        <div class="form-field">
+          <label for="message-name">Name</label>
+          <input id="message-name" [value]="message.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        <div class="form-field">
+          <label for="message-containerref">Container ref <span class="hint">(must be a root-level container)</span></label>
+          <input id="message-containerref" list="known-container-names" [value]="message.containerRef" (input)="onItemFieldInput('containerRef', $event)" />
+        </div>
+        <p class="meta-text">Match criteria are preserved as XML (editing them is future work).</p>
+
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
+      } @else if (selectedMetaCommand(); as metaCommand) {
+        <div class="node-title">
+          <span>{{ metaCommand.name }}</span>
+          <span class="type-badge">MetaCommand</span>
+        </div>
+
+        <div class="form-field">
+          <label for="command-name">Name</label>
+          <input id="command-name" [value]="metaCommand.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        <div class="form-field checkbox-field">
+          <label>
+            <input type="checkbox" [checked]="metaCommand.abstract ?? false" (change)="onItemFieldInput('abstract', $event)" />
+            Abstract <span class="hint">(XTCE default: false)</span>
+          </label>
+        </div>
+        <div class="form-field">
+          <label for="command-baseref">Base command ref <span class="hint">(inheritance, optional)</span></label>
+          <input id="command-baseref" list="known-metacommand-names" [value]="metaCommand.baseMetaCommandRef ?? ''" (input)="onItemFieldInput('baseMetaCommandRef', $event)" />
+        </div>
+        <p class="meta-text">
+          Verifiers: {{ (metaCommand.completeVerifiers ?? []).length }} complete,
+          {{ (metaCommand.executionVerifiers ?? []).length }} execution (preserved as XML).
+        </p>
+
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
       } @else {
         <p class="empty-state">Load or create a document to get started.</p>
       }
@@ -312,6 +361,11 @@
       </datalist>
       <datalist id="known-container-names">
         @for (name of knownContainerNames(); track name) {
+          <option [value]="name"></option>
+        }
+      </datalist>
+      <datalist id="known-metacommand-names">
+        @for (name of knownMetaCommandNames(); track name) {
           <option [value]="name"></option>
         }
       </datalist>

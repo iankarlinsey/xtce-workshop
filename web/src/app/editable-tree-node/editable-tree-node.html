@@ -30,6 +30,12 @@
             @case ('container') {
               <svg class="node-icon icon-container" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1"/><path d="M8 7v10M14 7v10"/></svg>
             }
+            @case ('message') {
+              <svg class="node-icon icon-message" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+            }
+            @case ('metaCommand') {
+              <svg class="node-icon icon-command" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5-5 5M12 19h7"/></svg>
+            }
           }
           <span class="label">{{ item.name }}</span>
         </div>

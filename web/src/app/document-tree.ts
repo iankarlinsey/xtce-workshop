@@ -80,10 +80,36 @@ export interface SequenceContainerDoc {
   [key: string]: unknown;
 }
 
+export interface MessageDoc {
+  name: string;
+  containerRef: string;
+  [key: string]: unknown;
+}
+
+export interface MessageSetDoc {
+  messages: MessageDoc[];
+  [key: string]: unknown;
+}
+
 export interface TelemetryMetaDataDoc {
   parameterTypeSet: ParameterTypeDoc[];
   parameterSet: ParameterDoc[];
   containerSet?: SequenceContainerDoc[] | null;
+  messageSet?: MessageSetDoc | null;
+  [key: string]: unknown;
+}
+
+export interface MetaCommandDoc {
+  name: string;
+  abstract?: boolean | null;
+  baseMetaCommandRef?: string | null;
+  executionVerifiers?: unknown[] | null;
+  completeVerifiers?: unknown[] | null;
+  [key: string]: unknown;
+}
+
+export interface CommandMetaDataDoc {
+  metaCommands: MetaCommandDoc[];
   [key: string]: unknown;
 }
 
@@ -91,13 +117,14 @@ export interface SpaceSystemDocument {
   name: string;
   children: SpaceSystemDocument[];
   telemetryMetaData?: TelemetryMetaDataDoc | null;
+  commandMetaData?: CommandMetaDataDoc | null;
   [key: string]: unknown;
 }
 
 /** A path is a list of child indices from the root; [] is the root itself. */
 export type NodePath = number[];
 
-export type ItemKind = 'parameterType' | 'parameter' | 'container';
+export type ItemKind = 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand';
 
 /**
  * What the user has selected: a SpaceSystem (item undefined), or one telemetry item
@@ -168,44 +195,56 @@ export function deleteNodeAtPath(doc: SpaceSystemDocument, path: NodePath): Spac
   }));
 }
 
-function itemsOf(telemetry: TelemetryMetaDataDoc, kind: ItemKind): readonly (ParameterTypeDoc | ParameterDoc | SequenceContainerDoc)[] {
+export type TelemetryItem = ParameterTypeDoc | ParameterDoc | SequenceContainerDoc | MessageDoc | MetaCommandDoc;
+
+function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly TelemetryItem[] {
   switch (kind) {
     case 'parameterType':
-      return telemetry.parameterTypeSet;
+      return system.telemetryMetaData?.parameterTypeSet ?? [];
     case 'parameter':
-      return telemetry.parameterSet;
+      return system.telemetryMetaData?.parameterSet ?? [];
     case 'container':
-      return telemetry.containerSet ?? [];
+      return system.telemetryMetaData?.containerSet ?? [];
+    case 'message':
+      return system.telemetryMetaData?.messageSet?.messages ?? [];
+    case 'metaCommand':
+      return system.commandMetaData?.metaCommands ?? [];
   }
 }
 
 /** The telemetry item a selection points at, or null for system selections / stale paths. */
-export function getItemAtSelection(
-  doc: SpaceSystemDocument,
-  selection: Selection
-): ParameterTypeDoc | ParameterDoc | SequenceContainerDoc | null {
+export function getItemAtSelection(doc: SpaceSystemDocument, selection: Selection): TelemetryItem | null {
   if (!selection.item) {
     return null;
   }
   const system = getNodeAtPath(doc, selection.systemPath);
-  if (!system?.telemetryMetaData) {
+  if (!system) {
     return null;
   }
-  return itemsOf(system.telemetryMetaData, selection.item.kind)[selection.item.index] ?? null;
+  return itemsOf(system, selection.item.kind)[selection.item.index] ?? null;
 }
 
 function withUpdatedList(
-  telemetry: TelemetryMetaDataDoc,
+  system: SpaceSystemDocument,
   kind: ItemKind,
-  update: (list: readonly (ParameterTypeDoc | ParameterDoc | SequenceContainerDoc)[]) => unknown[]
-): TelemetryMetaDataDoc {
+  update: (list: readonly TelemetryItem[]) => unknown[]
+): SpaceSystemDocument {
+  const telemetry: TelemetryMetaDataDoc = system.telemetryMetaData ?? { parameterTypeSet: [], parameterSet: [] };
   switch (kind) {
     case 'parameterType':
-      return { ...telemetry, parameterTypeSet: update(telemetry.parameterTypeSet) as ParameterTypeDoc[] };
+      return { ...system, telemetryMetaData: { ...telemetry, parameterTypeSet: update(telemetry.parameterTypeSet) as ParameterTypeDoc[] } };
     case 'parameter':
-      return { ...telemetry, parameterSet: update(telemetry.parameterSet) as ParameterDoc[] };
+      return { ...system, telemetryMetaData: { ...telemetry, parameterSet: update(telemetry.parameterSet) as ParameterDoc[] } };
     case 'container':
-      return { ...telemetry, containerSet: update(telemetry.containerSet ?? []) as SequenceContainerDoc[] };
+      return { ...system, telemetryMetaData: { ...telemetry, containerSet: update(telemetry.containerSet ?? []) as SequenceContainerDoc[] } };
+    case 'message': {
+      const messageSet: MessageSetDoc = telemetry.messageSet ?? { messages: [] };
+      return { ...system, telemetryMetaData: { ...telemetry, messageSet: { ...messageSet, messages: update(messageSet.messages) as MessageDoc[] } } };
+    }
+    case 'metaCommand': {
+      const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
+      return { ...system, commandMetaData: { ...commandMetaData, metaCommands: update(commandMetaData.metaCommands) as MetaCommandDoc[] } };
+    }
   }
 }
 
@@ -219,17 +258,9 @@ export function updateItemAtSelection(
   if (!item) {
     return doc;
   }
-  return updateNodeAtPath(doc, selection.systemPath, (system) => {
-    if (!system.telemetryMetaData) {
-      return system;
-    }
-    return {
-      ...system,
-      telemetryMetaData: withUpdatedList(system.telemetryMetaData, item.kind, (list) =>
-        list.map((entry, i) => (i === item.index ? (updater as (x: unknown) => unknown)(entry) : entry))
-      ),
-    };
-  });
+  return updateNodeAtPath(doc, selection.systemPath, (system) =>
+    withUpdatedList(system, item.kind, (list) =>
+      list.map((entry, i) => (i === item.index ? (updater as (x: unknown) => unknown)(entry) : entry))));
 }
 
 /** Adds a telemetry item to the system at `systemPath`, creating telemetryMetaData if needed. */
@@ -237,15 +268,9 @@ export function addItemToSystem(
   doc: SpaceSystemDocument,
   systemPath: NodePath,
   kind: ItemKind,
-  item: ParameterTypeDoc | ParameterDoc | SequenceContainerDoc
+  item: TelemetryItem
 ): SpaceSystemDocument {
-  return updateNodeAtPath(doc, systemPath, (system) => {
-    const telemetry: TelemetryMetaDataDoc = system.telemetryMetaData ?? { parameterTypeSet: [], parameterSet: [] };
-    return {
-      ...system,
-      telemetryMetaData: withUpdatedList(telemetry, kind, (list) => [...list, item]),
-    };
-  });
+  return updateNodeAtPath(doc, systemPath, (system) => withUpdatedList(system, kind, (list) => [...list, item]));
 }
 
 /** Removes the selected telemetry item. */
@@ -254,17 +279,8 @@ export function deleteItemAtSelection(doc: SpaceSystemDocument, selection: Selec
   if (!item) {
     return doc;
   }
-  return updateNodeAtPath(doc, selection.systemPath, (system) => {
-    if (!system.telemetryMetaData) {
-      return system;
-    }
-    return {
-      ...system,
-      telemetryMetaData: withUpdatedList(system.telemetryMetaData, item.kind, (list) =>
-        list.filter((_, i) => i !== item.index)
-      ),
-    };
-  });
+  return updateNodeAtPath(doc, selection.systemPath, (system) =>
+    withUpdatedList(system, item.kind, (list) => list.filter((_, i) => i !== item.index)));
 }
 
 /** Every parameter-type name in the document — datalist fodder for parameterTypeRef inputs. */
@@ -280,6 +296,11 @@ export function collectParameterNames(doc: SpaceSystemDocument): string[] {
 /** Every container name in the document — datalist fodder for containerRef inputs. */
 export function collectContainerNames(doc: SpaceSystemDocument): string[] {
   return collectNames(doc, (t) => t.telemetryMetaData?.containerSet);
+}
+
+/** Every MetaCommand name in the document — datalist fodder for metaCommandRef inputs. */
+export function collectMetaCommandNames(doc: SpaceSystemDocument): string[] {
+  return collectNames(doc, (t) => t.commandMetaData?.metaCommands);
 }
 
 function collectNames(

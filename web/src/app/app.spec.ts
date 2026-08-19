@@ -792,6 +792,88 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    function loadMessagingDocument(fixture: ReturnType<typeof createAppAndFlushHealth>) {
+      const file = new File(['<xml/>'], 'msg.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [],
+            parameterSet: [],
+            containerSet: [{ name: 'Packet', entryList: [] }],
+            messageSet: {
+              messages: [{ name: 'OpsMsg', containerRef: 'Packet', preserved: [{ elementName: 'MatchCriteria', outerXml: '<MatchCriteria/>' }] }],
+            },
+          },
+          commandMetaData: {
+            metaCommands: [
+              { name: 'BaseCmd', abstract: true },
+              { name: 'Reboot', baseMetaCommandRef: 'BaseCmd', completeVerifiers: [{ elementName: 'CompleteVerifier', outerXml: '<CompleteVerifier/>' }] },
+            ],
+          },
+        },
+      });
+      fixture.detectChanges();
+    }
+
+    it('messages and commands render as tree rows and open their forms', () => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'BaseCmd', 'Reboot']);
+
+      clickTreeRowByText(fixture, 'OpsMsg');
+      expect((compiled.querySelector('#message-containerref') as HTMLInputElement).value).toBe('Packet');
+
+      clickTreeRowByText(fixture, 'Reboot');
+      expect((compiled.querySelector('#command-baseref') as HTMLInputElement).value).toBe('BaseCmd');
+      expect(compiled.textContent).toContain('1 complete');
+    });
+
+    it('editing a message containerRef flows into Save with MatchCriteria preserved', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      clickTreeRowByText(fixture, 'OpsMsg');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const refInput = compiled.querySelector('#message-containerref') as HTMLInputElement;
+      refInput.value = 'OtherPacket';
+      refInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const message = req.request.body.telemetryMetaData.messageSet.messages[0];
+      expect(message.containerRef).toBe('OtherPacket');
+      expect(message.preserved).toEqual([{ elementName: 'MatchCriteria', outerXml: '<MatchCriteria/>' }]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('adding a command creates it under commandMetaData in Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadNestedDocument(fixture); // no commandMetaData yet; root selected
+      spyOn(window, 'prompt').and.returnValue('NewCmd');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const addCommand = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add command'
+      ) as HTMLButtonElement;
+      addCommand.click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.commandMetaData.metaCommands).toEqual([{ name: 'NewCmd' }]);
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('preserved (unmodeled) document content passes through edits into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

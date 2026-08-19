@@ -51,10 +51,7 @@ export class EditableTreeNodeComponent {
 
   /** Flattened telemetry item rows, each tagged with its kind and set index. */
   protected readonly visibleItems = computed(() => {
-    const telemetry = this.node().telemetryMetaData;
-    if (!telemetry) {
-      return [];
-    }
+    const telemetry = this.node().telemetryMetaData ?? { parameterTypeSet: [], parameterSet: [] };
     const term = this.searchTerm().trim().toLowerCase();
     const rows: { kind: ItemKind; index: number; name: string }[] = [];
     telemetry.parameterTypeSet.forEach((type, index) =>
@@ -63,6 +60,10 @@ export class EditableTreeNodeComponent {
       rows.push({ kind: 'parameter', index, name: parameter.name }));
     (telemetry.containerSet ?? []).forEach((container, index) =>
       rows.push({ kind: 'container', index, name: container.name }));
+    (telemetry.messageSet?.messages ?? []).forEach((message, index) =>
+      rows.push({ kind: 'message', index, name: message.name }));
+    (this.node().commandMetaData?.metaCommands ?? []).forEach((metaCommand, index) =>
+      rows.push({ kind: 'metaCommand', index, name: metaCommand.name }));
     return term ? rows.filter((row) => row.name.toLowerCase().includes(term)) : rows;
   });
 
@@ -98,15 +99,15 @@ function matchesOrHasMatch(node: SpaceSystemDocument, lowerCaseTerm: string): bo
     return true;
   }
   const telemetry = node.telemetryMetaData;
-  if (telemetry) {
-    const itemNames = [
-      ...telemetry.parameterTypeSet.map((t) => t.name),
-      ...telemetry.parameterSet.map((p) => p.name),
-      ...(telemetry.containerSet ?? []).map((c) => c.name),
-    ];
-    if (itemNames.some((name) => name.toLowerCase().includes(lowerCaseTerm))) {
-      return true;
-    }
+  const itemNames = [
+    ...(telemetry?.parameterTypeSet ?? []).map((t) => t.name),
+    ...(telemetry?.parameterSet ?? []).map((p) => p.name),
+    ...(telemetry?.containerSet ?? []).map((c) => c.name),
+    ...(telemetry?.messageSet?.messages ?? []).map((m) => m.name),
+    ...(node.commandMetaData?.metaCommands ?? []).map((m) => m.name),
+  ];
+  if (itemNames.some((name) => name.toLowerCase().includes(lowerCaseTerm))) {
+    return true;
   }
   return node.children.some((child) => matchesOrHasMatch(child, lowerCaseTerm));
 }

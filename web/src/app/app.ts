@@ -11,6 +11,9 @@ import {
   Selection,
   ItemKind,
   SequenceEntryDoc,
+  MessageDoc,
+  MetaCommandDoc,
+  TelemetryItem,
   getNodeAtPath,
   updateNodeAtPath,
   deleteNodeAtPath,
@@ -21,6 +24,7 @@ import {
   collectParameterTypeNames,
   collectParameterNames,
   collectContainerNames,
+  collectMetaCommandNames,
   moveEntry,
 } from './document-tree';
 import { ValidationIssue } from './validation';
@@ -96,6 +100,24 @@ export class App {
     return getItemAtSelection(doc, selection) as SequenceContainerDoc | null;
   });
 
+  protected readonly selectedMessage = computed(() => {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection || selection.item?.kind !== 'message') {
+      return null;
+    }
+    return getItemAtSelection(doc, selection) as MessageDoc | null;
+  });
+
+  protected readonly selectedMetaCommand = computed(() => {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection || selection.item?.kind !== 'metaCommand') {
+      return null;
+    }
+    return getItemAtSelection(doc, selection) as MetaCommandDoc | null;
+  });
+
   protected readonly isRootSelected = computed(() => {
     const selection = this.selection();
     return selection !== null && !selection.item && selection.systemPath.length === 0;
@@ -114,6 +136,11 @@ export class App {
   protected readonly knownContainerNames = computed(() => {
     const doc = this.currentDocument();
     return doc ? collectContainerNames(doc) : [];
+  });
+
+  protected readonly knownMetaCommandNames = computed(() => {
+    const doc = this.currentDocument();
+    return doc ? collectMetaCommandNames(doc) : [];
   });
 
   constructor() {
@@ -314,6 +341,37 @@ export class App {
     this.addToSelectedSystem('container', { name, entryList: [] });
   }
 
+  onAddMessage(): void {
+    const name = window.prompt('Name for the new message:');
+    if (!name) {
+      return;
+    }
+    const containerRef = window.prompt('containerRef (root container this message identifies):') ?? '';
+    // MessageType REQUIRES a MatchCriteria — seed a schema-valid one as a preserved
+    // fragment so the saved XML validates (criteria editing is future work).
+    const matchParameter = window.prompt('Match parameter (parameterRef for the MatchCriteria comparison):');
+    if (!matchParameter) {
+      return;
+    }
+    const matchValue = window.prompt('Match value:') ?? '0';
+    this.addToSelectedSystem('message', {
+      name,
+      containerRef,
+      preserved: [{
+        elementName: 'MatchCriteria',
+        outerXml: `<MatchCriteria xmlns="http://www.omg.org/spec/XTCE/20180204"><Comparison parameterRef="${matchParameter}" value="${matchValue}"/></MatchCriteria>`,
+      }],
+    });
+  }
+
+  onAddMetaCommand(): void {
+    const name = window.prompt('Name for the new command:');
+    if (!name) {
+      return;
+    }
+    this.addToSelectedSystem('metaCommand', { name });
+  }
+
   // --- Telemetry item editing ----------------------------------------------------------
 
   onItemFieldInput(field: string, event: Event): void {
@@ -499,7 +557,7 @@ export class App {
     this.setDocument(updateItemAtSelection(doc, selection, updater as (item: never) => unknown));
   }
 
-  private addToSelectedSystem(kind: ItemKind, item: ParameterTypeDoc | ParameterDoc | SequenceContainerDoc): void {
+  private addToSelectedSystem(kind: ItemKind, item: TelemetryItem): void {
     const doc = this.currentDocument();
     const selection = this.selection();
     if (!doc || !selection || selection.item) {
