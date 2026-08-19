@@ -20,6 +20,12 @@ app.MapPost("/api/xtce/load", async (IFormFile file) =>
     }
 }).DisableAntiforgery();
 
+app.MapPost("/api/xtce/save", (SpaceSystem spaceSystem) =>
+{
+    var xml = XtceDocumentWriter.Write(spaceSystem);
+    return Results.Text(xml, "application/xml");
+});
+
 app.Run();
 
 // Exposed so Xtce.Workshop.Api.Tests can spin this app up via WebApplicationFactory<Program>.
