@@ -1,95 +1,125 @@
 import { TestBed } from '@angular/core/testing';
-import { EditableTreeNodeComponent, SpaceSystemDocument } from './editable-tree-node';
+import { EditableTreeNodeComponent } from './editable-tree-node';
+import { SpaceSystemDocument } from '../document-tree';
 
 describe('EditableTreeNodeComponent', () => {
-  function render(node: SpaceSystemDocument, isRoot = false) {
+  function render(node: SpaceSystemDocument, path: number[] = [], selectedPath: number[] | null = null) {
     const fixture = TestBed.createComponent(EditableTreeNodeComponent);
     fixture.componentRef.setInput('node', node);
-    fixture.componentRef.setInput('isRoot', isRoot);
+    fixture.componentRef.setInput('path', path);
+    fixture.componentRef.setInput('selectedPath', selectedPath);
     fixture.detectChanges();
     return fixture;
   }
 
   it('renders the node name', () => {
-    const fixture = render({ name: 'Minimal', children: [] }, true);
+    const fixture = render({ name: 'Minimal', children: [] });
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Minimal');
   });
 
-  it('has no Delete action on the root node', () => {
-    const fixture = render({ name: 'Minimal', children: [] }, true);
+  it('emits its own path when the row is clicked', () => {
+    const fixture = render({ name: 'Bus', children: [] }, [1]);
+    let emitted: number[] | undefined;
+    fixture.componentInstance.select.subscribe((p) => (emitted = p));
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    const buttons = Array.from(compiled.querySelectorAll('button')).map((b) => b.textContent?.trim());
-    expect(buttons).not.toContain('Delete');
+    (fixture.nativeElement.querySelector('.tree-node-row') as HTMLElement).click();
+
+    expect(emitted).toEqual([1]);
   });
 
-  it('has a Delete action on a non-root node', () => {
-    const fixture = render({ name: 'Bus', children: [] }, false);
+  it('applies the selected class when its path matches selectedPath', () => {
+    const fixture = render({ name: 'Bus', children: [] }, [1], [1]);
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    const buttons = Array.from(compiled.querySelectorAll('button')).map((b) => b.textContent?.trim());
-    expect(buttons).toContain('Delete');
+    const row = fixture.nativeElement.querySelector('.tree-node-row') as HTMLElement;
+    expect(row.classList).toContain('selected');
   });
 
-  it('emits an updated node with the new child when Add child is used', () => {
-    const fixture = render({ name: 'Mission', children: [] }, true);
-    spyOn(window, 'prompt').and.returnValue('Bus');
-    let emitted: SpaceSystemDocument | undefined;
-    fixture.componentInstance.nodeChange.subscribe((n) => (emitted = n));
+  it('does not apply the selected class when paths differ', () => {
+    const fixture = render({ name: 'Bus', children: [] }, [1], [0]);
 
-    (fixture.nativeElement.querySelector('.action') as HTMLButtonElement).click();
-
-    expect(emitted).toEqual({ name: 'Mission', children: [{ name: 'Bus', children: [] }] });
+    const row = fixture.nativeElement.querySelector('.tree-node-row') as HTMLElement;
+    expect(row.classList).not.toContain('selected');
   });
 
-  it('does not emit when Add child prompt is cancelled', () => {
-    const fixture = render({ name: 'Mission', children: [] }, true);
-    spyOn(window, 'prompt').and.returnValue(null);
-    let emitted: SpaceSystemDocument | undefined;
-    fixture.componentInstance.nodeChange.subscribe((n) => (emitted = n));
+  it('bubbles a child selection up unchanged', () => {
+    const fixture = render({
+      name: 'Mission',
+      children: [{ name: 'Bus', children: [] }],
+    });
+    let emitted: number[] | undefined;
+    fixture.componentInstance.select.subscribe((p) => (emitted = p));
 
-    (fixture.nativeElement.querySelector('.action') as HTMLButtonElement).click();
+    const childRow = fixture.nativeElement.querySelectorAll('.tree-node-row')[1] as HTMLElement;
+    childRow.click();
 
-    expect(emitted).toBeUndefined();
+    expect(emitted).toEqual([0]);
   });
 
-  it('emits an updated node with the new name when Rename is used', () => {
-    const fixture = render({ name: 'Mission', children: [] }, true);
-    spyOn(window, 'prompt').and.returnValue('Renamed');
-    let emitted: SpaceSystemDocument | undefined;
-    fixture.componentInstance.nodeChange.subscribe((n) => (emitted = n));
-
-    const renameButton = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
-      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Rename'
-    ) as HTMLButtonElement;
-    renameButton.click();
-
-    expect(emitted).toEqual({ name: 'Renamed', children: [] });
-  });
-
-  it('removes a child and emits the parent with it deleted', () => {
+  it('passes the correct path to each child', () => {
     const fixture = render({
       name: 'Mission',
       children: [
         { name: 'Bus', children: [] },
         { name: 'Payload', children: [] },
       ],
-    }, true);
-    let emitted: SpaceSystemDocument | undefined;
-    fixture.componentInstance.nodeChange.subscribe((n) => (emitted = n));
+    });
+    let emitted: number[] | undefined;
+    fixture.componentInstance.select.subscribe((p) => (emitted = p));
 
-    const deleteButtons = Array.from(fixture.nativeElement.querySelectorAll('button')).filter(
-      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Delete'
-    ) as HTMLButtonElement[];
-    deleteButtons[0].click(); // delete "Bus"
+    const rows = fixture.nativeElement.querySelectorAll('.tree-node-row');
+    (rows[2] as HTMLElement).click(); // Mission, Bus, Payload -> index 2 is Payload
 
-    expect(emitted).toEqual({ name: 'Mission', children: [{ name: 'Payload', children: [] }] });
+    expect(emitted).toEqual([1]);
+  });
+
+  it('renders a single node with no children with no toggle button', () => {
+    const fixture = render({ name: 'Minimal', children: [] });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.toggle')).toBeNull();
+    expect(compiled.querySelector('.toggle-spacer')).toBeTruthy();
+  });
+
+  it('renders nested children recursively, expanded by default', () => {
+    const fixture = render({
+      name: 'Mission',
+      children: [
+        { name: 'Bus', children: [
+          { name: 'Power', children: [] },
+        ] },
+        { name: 'Payload', children: [] },
+      ],
+    });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Mission');
+    expect(compiled.textContent).toContain('Bus');
+    expect(compiled.textContent).toContain('Power');
+    expect(compiled.textContent).toContain('Payload');
+    expect(compiled.querySelectorAll('app-editable-tree-node').length).toBe(3);
+  });
+
+  it('collapsing does not trigger a selection (toggle click does not bubble to row)', () => {
+    const fixture = render({
+      name: 'Mission',
+      children: [{ name: 'Bus', children: [] }],
+    });
+    let emitted: number[] | undefined;
+    fixture.componentInstance.select.subscribe((p) => (emitted = p));
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const toggle = compiled.querySelector('.toggle') as HTMLButtonElement;
+    toggle.click();
+    fixture.detectChanges();
+
+    expect(emitted).toBeUndefined();
+    expect(compiled.textContent).not.toContain('Bus');
   });
 
   it('filters out a node whose name does not match the search term', () => {
-    const fixture = render({ name: 'Payload', children: [] }, true);
+    const fixture = render({ name: 'Payload', children: [] });
     fixture.componentRef.setInput('searchTerm', 'bus');
     fixture.detectChanges();
 
@@ -101,7 +131,7 @@ describe('EditableTreeNodeComponent', () => {
     const fixture = render({
       name: 'Mission',
       children: [{ name: 'Bus', children: [{ name: 'Power', children: [] }] }],
-    }, true);
+    });
 
     fixture.componentRef.setInput('searchTerm', 'power');
     fixture.detectChanges();

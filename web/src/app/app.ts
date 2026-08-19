@@ -1,6 +1,13 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { EditableTreeNodeComponent, SpaceSystemDocument } from './editable-tree-node/editable-tree-node';
+import { EditableTreeNodeComponent } from './editable-tree-node/editable-tree-node';
+import {
+  SpaceSystemDocument,
+  NodePath,
+  getNodeAtPath,
+  updateNodeAtPath,
+  deleteNodeAtPath,
+} from './document-tree';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
 
@@ -24,7 +31,19 @@ export class App {
   protected readonly treeSearchTerm = signal('');
 
   protected readonly currentDocument = signal<SpaceSystemDocument | null>(null);
+  protected readonly selectedPath = signal<NodePath | null>(null);
   protected readonly saveError = signal<string | null>(null);
+
+  protected readonly selectedNode = computed(() => {
+    const doc = this.currentDocument();
+    const path = this.selectedPath();
+    if (!doc || !path) {
+      return null;
+    }
+    return getNodeAtPath(doc, path);
+  });
+
+  protected readonly isRootSelected = computed(() => this.selectedPath()?.length === 0);
 
   constructor() {
     this.http.get('/api/health').subscribe({
@@ -55,7 +74,10 @@ export class App {
       // unused here — see summary.md's Architecture Decisions: it stays available for
       // future read-only content, but this app now always edits, so the editable tree
       // is the one and only tree UI.
-      next: (result) => this.currentDocument.set(result.document),
+      next: (result) => {
+        this.currentDocument.set(result.document);
+        this.selectedPath.set([]); // select the root by default so the form isn't empty
+      },
       error: (err) => this.loadError.set(err?.error?.error ?? 'Failed to load file.'),
     });
   }
@@ -67,11 +89,54 @@ export class App {
     }
 
     this.currentDocument.set({ name, children: [] });
+    this.selectedPath.set([]);
     this.saveError.set(null);
   }
 
-  onDocumentChange(updated: SpaceSystemDocument): void {
-    this.currentDocument.set(updated);
+  onNodeSelected(path: NodePath): void {
+    this.selectedPath.set(path);
+  }
+
+  onSelectedNameInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const doc = this.currentDocument();
+    const path = this.selectedPath();
+    if (!doc || !path) {
+      return;
+    }
+
+    this.currentDocument.set(updateNodeAtPath(doc, path, (node) => ({ ...node, name: input.value })));
+  }
+
+  onAddChildToSelected(): void {
+    const name = window.prompt('Name for the new child SpaceSystem:');
+    if (!name) {
+      return;
+    }
+
+    const doc = this.currentDocument();
+    const path = this.selectedPath();
+    if (!doc || !path) {
+      return;
+    }
+
+    this.currentDocument.set(
+      updateNodeAtPath(doc, path, (node) => ({
+        ...node,
+        children: [...node.children, { name, children: [] }],
+      }))
+    );
+  }
+
+  onDeleteSelected(): void {
+    const doc = this.currentDocument();
+    const path = this.selectedPath();
+    if (!doc || !path || path.length === 0) {
+      return; // can't delete the root
+    }
+
+    this.currentDocument.set(deleteNodeAtPath(doc, path));
+    this.selectedPath.set(path.slice(0, -1)); // select the parent after deleting
   }
 
   onSaveDocument(): void {

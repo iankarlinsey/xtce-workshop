@@ -1,7 +1,7 @@
 @if (isVisible()) {
-  <div class="tree-node-row">
+  <div class="tree-node-row" [class.selected]="isSelected()" (click)="onRowClick()">
     @if (node().children.length > 0) {
-      <button type="button" class="toggle" (click)="toggle()" [attr.aria-expanded]="effectiveExpanded()">
+      <button type="button" class="toggle" (click)="toggle($event)" [attr.aria-expanded]="effectiveExpanded()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" [style.transform]="effectiveExpanded() ? 'rotate(0deg)' : 'rotate(-90deg)'"><path d="M6 9l6 6 6-6"/></svg>
       </button>
     } @else {
@@ -9,14 +9,6 @@
     }
     <svg class="node-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
     <span class="label">{{ node().name }}</span>
-    <button type="button" class="action" (click)="onAddChild()">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-      Add child
-    </button>
-    <button type="button" class="action" (click)="onRename()">Rename</button>
-    @if (!isRoot()) {
-      <button type="button" class="action danger" (click)="deleteRequested.emit()">Delete</button>
-    }
   </div>
 
   @if (effectiveExpanded() && node().children.length > 0) {
@@ -24,9 +16,10 @@
       @for (child of node().children; track $index; let i = $index) {
         <app-editable-tree-node
           [node]="child"
+          [path]="childPath(i)"
+          [selectedPath]="selectedPath()"
           [searchTerm]="searchTerm()"
-          (nodeChange)="onChildChange(i, $event)"
-          (deleteRequested)="onChildDelete(i)"
+          (select)="onChildSelect($event)"
         />
       }
     </div>

@@ -19,10 +19,16 @@
     </div>
   </header>
 
-  <main class="app-body">
-    <section class="panel">
-      <h2>Load an XTCE file</h2>
-      <input type="file" accept=".xml" (change)="onFileSelected($event)" />
+  <div class="app-body">
+    <aside class="sidebar">
+      <div class="toolbar">
+        <label class="btn file-btn">
+          Load
+          <input type="file" accept=".xml" (change)="onFileSelected($event)" />
+        </label>
+        <button type="button" class="btn" (click)="onNewDocument()">New&hellip;</button>
+        <button type="button" class="btn btn-primary" (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</button>
+      </div>
 
       @if (selectedFileName()) {
         <p class="meta-text">Selected: {{ selectedFileName() }}</p>
@@ -30,14 +36,9 @@
       @if (loadError()) {
         <p class="error">{{ loadError() }}</p>
       }
-    </section>
-
-    <section class="panel">
-      <h2>Document</h2>
-      <div class="toolbar">
-        <button type="button" class="btn" (click)="onNewDocument()">New&hellip;</button>
-        <button type="button" class="btn btn-primary" (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</button>
-      </div>
+      @if (saveError()) {
+        <p class="error">{{ saveError() }}</p>
+      }
 
       @if (currentDocument(); as doc) {
         <label class="search-field">
@@ -47,15 +48,37 @@
         <div class="tree-container">
           <app-editable-tree-node
             [node]="doc"
-            [isRoot]="true"
+            [path]="[]"
+            [selectedPath]="selectedPath()"
             [searchTerm]="treeSearchTerm()"
-            (nodeChange)="onDocumentChange($event)"
+            (select)="onNodeSelected($event)"
           />
         </div>
       }
-      @if (saveError()) {
-        <p class="error">{{ saveError() }}</p>
+    </aside>
+
+    <main class="main-panel">
+      @if (selectedNode(); as node) {
+        <div class="node-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+          <span>{{ node.name }}</span>
+          <span class="type-badge">SpaceSystem</span>
+        </div>
+
+        <div class="form-field">
+          <label for="node-name">Name</label>
+          <input id="node-name" [value]="node.name" (input)="onSelectedNameInput($event)" />
+        </div>
+
+        <div class="node-actions">
+          <button type="button" class="btn" (click)="onAddChildToSelected()">+ Add child</button>
+          @if (!isRootSelected()) {
+            <button type="button" class="btn btn-danger" (click)="onDeleteSelected()">Delete</button>
+          }
+        </div>
+      } @else {
+        <p class="empty-state">Load or create a document to get started.</p>
       }
-    </section>
-  </main>
+    </main>
+  </div>
 </div>
