@@ -670,6 +670,128 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('Array type form edits arrayTypeRef and dimensions, reflected in Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'arr.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [
+              { name: 'Elem', kind: 'Integer' },
+              {
+                name: 'Matrix', kind: 'Array', arrayTypeRef: 'Elem',
+                dimensions: [{ startingIndex: { fixedValue: 0 }, endingIndex: { fixedValue: 3 } }],
+              },
+            ],
+            parameterSet: [],
+          },
+        },
+      });
+      fixture.detectChanges();
+      clickTreeRowByText(fixture, 'Matrix');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const endInput = compiled.querySelector('input[aria-label="Dimension 0 ending index"]') as HTMLInputElement;
+      endInput.value = '7';
+      endInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      const addDim = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add dimension'
+      ) as HTMLButtonElement;
+      addDim.click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const matrix = req.request.body.telemetryMetaData.parameterTypeSet[1];
+      expect(matrix.dimensions).toEqual([
+        { startingIndex: { fixedValue: 0 }, endingIndex: { fixedValue: 7, raw: null } },
+        { startingIndex: { fixedValue: 0 }, endingIndex: { fixedValue: 0 } },
+      ]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('Aggregate type form edits members, last member is not removable', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'agg.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [
+              { name: 'Elem', kind: 'Integer' },
+              { name: 'Struct', kind: 'Aggregate', members: [{ name: 'volt', typeRef: 'Elem' }] },
+            ],
+            parameterSet: [],
+          },
+        },
+      });
+      fixture.detectChanges();
+      clickTreeRowByText(fixture, 'Struct');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const removeMember = compiled.querySelector('button[aria-label="Remove member"]') as HTMLButtonElement;
+      expect(removeMember.disabled).toBeTrue();
+
+      const addMember = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add member'
+      ) as HTMLButtonElement;
+      addMember.click();
+      fixture.detectChanges();
+
+      const typeRefInput = compiled.querySelector('input[aria-label="Member 1 type ref"]') as HTMLInputElement;
+      typeRefInput.value = 'Elem';
+      typeRefInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const struct = req.request.body.telemetryMetaData.parameterTypeSet[1];
+      expect(struct.members).toEqual([
+        { name: 'volt', typeRef: 'Elem' },
+        { name: 'field2', typeRef: 'Elem' },
+      ]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('creating an Array type via the picker prompts for the element type and seeds one dimension', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture); // root selected
+      const prompts = ['NewArray', 'Volt_Type'];
+      spyOn(window, 'prompt').and.callFake(() => prompts.shift() ?? null);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const kindSelect = compiled.querySelector('.kind-select') as HTMLSelectElement;
+      kindSelect.value = 'Array';
+      const addTypeButton = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add parameter type'
+      ) as HTMLButtonElement;
+      addTypeButton.click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const added = req.request.body.telemetryMetaData.parameterTypeSet.at(-1);
+      expect(added).toEqual({
+        name: 'NewArray',
+        kind: 'Array',
+        arrayTypeRef: 'Volt_Type',
+        dimensions: [{ startingIndex: { fixedValue: 0 }, endingIndex: { fixedValue: 0 } }],
+      });
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('preserved (unmodeled) document content passes through edits into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

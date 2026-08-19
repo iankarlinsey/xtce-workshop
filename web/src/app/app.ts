@@ -207,8 +207,94 @@ export class App {
     const item: ParameterTypeDoc = { name, kind };
     if (kind === 'Enumerated') {
       item.enumerations = [];
+    } else if (kind === 'Array') {
+      // arrayTypeRef is required and an empty one wouldn't validate — prompt for it and
+      // seed one 0..0 dimension (DimensionList requires at least one).
+      const elementType = window.prompt('Element type ref (arrayTypeRef):');
+      if (!elementType) {
+        return;
+      }
+      item.arrayTypeRef = elementType;
+      item.dimensions = [{ startingIndex: { fixedValue: 0 }, endingIndex: { fixedValue: 0 } }];
+    } else if (kind === 'Aggregate') {
+      // MemberList requires at least one Member with a valid typeRef.
+      const memberType = window.prompt('Type ref for the first member:');
+      if (!memberType) {
+        return;
+      }
+      item.members = [{ name: 'field1', typeRef: memberType }];
     }
     this.addToSelectedSystem('parameterType', item);
+  }
+
+  // --- Array dimensions editing ---------------------------------------------------------
+
+  onDimensionBoundInput(index: number, bound: 'startingIndex' | 'endingIndex', event: Event): void {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    const parsed = Number(raw);
+    if (raw === '' || !Number.isFinite(parsed)) {
+      return;
+    }
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      return {
+        ...type,
+        dimensions: (type.dimensions ?? []).map((dimension, i) =>
+          i === index ? { ...dimension, [bound]: { ...dimension[bound], fixedValue: parsed, raw: null } } : dimension),
+      };
+    });
+  }
+
+  onAddDimension(): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      return {
+        ...type,
+        dimensions: [...(type.dimensions ?? []), { startingIndex: { fixedValue: 0 }, endingIndex: { fixedValue: 0 } }],
+      };
+    });
+  }
+
+  onRemoveDimension(index: number): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      const dimensions = type.dimensions ?? [];
+      // DimensionList requires at least one Dimension — the button is disabled at one,
+      // but guard anyway.
+      return dimensions.length <= 1 ? type : { ...type, dimensions: dimensions.filter((_, i) => i !== index) };
+    });
+  }
+
+  // --- Aggregate members editing --------------------------------------------------------
+
+  onMemberFieldInput(index: number, field: 'name' | 'typeRef' | 'initialValue', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      return {
+        ...type,
+        members: (type.members ?? []).map((member, i) =>
+          i === index
+            ? { ...member, [field]: field === 'initialValue' && value === '' ? null : value }
+            : member),
+      };
+    });
+  }
+
+  onAddMember(): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      const members = type.members ?? [];
+      return { ...type, members: [...members, { name: `field${members.length + 1}`, typeRef: '' }] };
+    });
+  }
+
+  onRemoveMember(index: number): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      const members = type.members ?? [];
+      return members.length <= 1 ? type : { ...type, members: members.filter((_, i) => i !== index) };
+    });
   }
 
   onAddParameter(): void {

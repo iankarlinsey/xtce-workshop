@@ -349,6 +349,16 @@
   flex: 1;
 }
 
+.enum-editor .member-name,
+.enum-editor .member-typeref {
+  flex: 1;
+  min-width: 90px;
+}
+
+.enum-editor .member-initial {
+  width: 100px;
+}
+
 .enum-editor .enum-remove {
   width: 32px;
   padding: 0;

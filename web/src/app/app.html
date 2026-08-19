@@ -103,6 +103,8 @@
             <option value="Binary">Binary</option>
             <option value="RelativeTime">RelativeTime</option>
             <option value="AbsoluteTime">AbsoluteTime</option>
+            <option value="Array">Array</option>
+            <option value="Aggregate">Aggregate</option>
           </select>
           <button type="button" class="btn" (click)="onAddParameterType(newTypeKind)">+ Add parameter type</button>
         </div>
@@ -145,6 +147,41 @@
             <input id="type-zero" [value]="type.zeroStringValue ?? ''" (input)="onItemFieldInput('zeroStringValue', $event)" />
           </div>
         }
+        @if (type.kind === 'Array') {
+          <div class="form-field">
+            <label for="type-arrayref">Element type ref (arrayTypeRef)</label>
+            <input id="type-arrayref" list="known-type-names" [value]="type.arrayTypeRef ?? ''" (input)="onItemFieldInput('arrayTypeRef', $event)" />
+          </div>
+          <div class="form-field enum-editor">
+            <label>Dimensions <span class="hint">(zero-based, inclusive bounds)</span></label>
+            @for (dimension of type.dimensions ?? []; track $index; let i = $index) {
+              <div class="enum-row">
+                @if (dimension.startingIndex.raw || dimension.endingIndex.raw) {
+                  <span class="entry-raw-label">dynamic bound (preserved verbatim)</span>
+                } @else {
+                  <input class="enum-value" type="number" [value]="dimension.startingIndex.fixedValue ?? ''" (input)="onDimensionBoundInput(i, 'startingIndex', $event)" [attr.aria-label]="'Dimension ' + i + ' starting index'" />
+                  <input class="enum-value" type="number" [value]="dimension.endingIndex.fixedValue ?? ''" (input)="onDimensionBoundInput(i, 'endingIndex', $event)" [attr.aria-label]="'Dimension ' + i + ' ending index'" />
+                }
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveDimension(i)" [disabled]="(type.dimensions ?? []).length <= 1" aria-label="Remove dimension">&times;</button>
+              </div>
+            }
+            <button type="button" class="btn" (click)="onAddDimension()">+ Add dimension</button>
+          </div>
+        }
+        @if (type.kind === 'Aggregate') {
+          <div class="form-field enum-editor">
+            <label>Members</label>
+            @for (member of type.members ?? []; track $index; let i = $index) {
+              <div class="enum-row">
+                <input class="member-name" [value]="member.name" (input)="onMemberFieldInput(i, 'name', $event)" [attr.aria-label]="'Member ' + i + ' name'" />
+                <input class="member-typeref" list="known-type-names" [value]="member.typeRef" (input)="onMemberFieldInput(i, 'typeRef', $event)" [attr.aria-label]="'Member ' + i + ' type ref'" />
+                <input class="member-initial" [value]="member.initialValue ?? ''" (input)="onMemberFieldInput(i, 'initialValue', $event)" placeholder="initial" [attr.aria-label]="'Member ' + i + ' initial value'" />
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveMember(i)" [disabled]="(type.members ?? []).length <= 1" aria-label="Remove member">&times;</button>
+              </div>
+            }
+            <button type="button" class="btn" (click)="onAddMember()">+ Add member</button>
+          </div>
+        }
         @if (type.kind === 'Enumerated') {
           <div class="form-field enum-editor">
             <label>Enumeration list</label>
@@ -175,11 +212,6 @@
         <div class="form-field">
           <label for="param-typeref">Parameter type ref</label>
           <input id="param-typeref" list="known-type-names" [value]="parameter.parameterTypeRef" (input)="onItemFieldInput('parameterTypeRef', $event)" />
-          <datalist id="known-type-names">
-            @for (name of knownTypeNames(); track name) {
-              <option [value]="name"></option>
-            }
-          </datalist>
         </div>
         <div class="form-field">
           <label for="param-initial">Initial value <span class="hint">(overrides the type's)</span></label>
@@ -261,23 +293,28 @@
           }
         </div>
 
-        <datalist id="known-parameter-names">
-          @for (name of knownParameterNames(); track name) {
-            <option [value]="name"></option>
-          }
-        </datalist>
-        <datalist id="known-container-names">
-          @for (name of knownContainerNames(); track name) {
-            <option [value]="name"></option>
-          }
-        </datalist>
-
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
       } @else {
         <p class="empty-state">Load or create a document to get started.</p>
       }
+
+      <datalist id="known-type-names">
+        @for (name of knownTypeNames(); track name) {
+          <option [value]="name"></option>
+        }
+      </datalist>
+      <datalist id="known-parameter-names">
+        @for (name of knownParameterNames(); track name) {
+          <option [value]="name"></option>
+        }
+      </datalist>
+      <datalist id="known-container-names">
+        @for (name of knownContainerNames(); track name) {
+          <option [value]="name"></option>
+        }
+      </datalist>
     </main>
   </div>
 </div>

@@ -18,6 +18,25 @@ export type ParameterTypeKind =
   | 'Integer' | 'Float' | 'String' | 'Boolean' | 'Enumerated'
   | 'Binary' | 'RelativeTime' | 'AbsoluteTime' | 'Array' | 'Aggregate';
 
+export interface DimensionIndexDoc {
+  fixedValue?: number | null;
+  raw?: { elementName: string; outerXml: string } | null;
+  [key: string]: unknown;
+}
+
+export interface DimensionDoc {
+  startingIndex: DimensionIndexDoc;
+  endingIndex: DimensionIndexDoc;
+  [key: string]: unknown;
+}
+
+export interface MemberDoc {
+  name: string;
+  typeRef: string;
+  initialValue?: string | null;
+  [key: string]: unknown;
+}
+
 export interface ParameterTypeDoc {
   name: string;
   kind: ParameterTypeKind;
@@ -27,6 +46,9 @@ export interface ParameterTypeDoc {
   oneStringValue?: string | null;
   zeroStringValue?: string | null;
   enumerations?: EnumerationEntryDoc[] | null;
+  arrayTypeRef?: string | null;
+  dimensions?: DimensionDoc[] | null;
+  members?: MemberDoc[] | null;
   [key: string]: unknown;
 }
 
