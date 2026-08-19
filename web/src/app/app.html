@@ -30,4 +30,17 @@
       <p class="error">{{ loadError() }}</p>
     }
   </section>
+
+  <section>
+    <h2>Create a new XTCE document</h2>
+    <button type="button" (click)="onNewDocument()">New&hellip;</button>
+    <button type="button" (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</button>
+
+    @if (currentDocument(); as doc) {
+      <p>Current document: <strong>{{ doc.name }}</strong></p>
+    }
+    @if (saveError()) {
+      <p class="error">{{ saveError() }}</p>
+    }
+  </section>
 </main>
