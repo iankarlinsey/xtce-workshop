@@ -1,0 +1,14 @@
+main {
+  font-family: system-ui, sans-serif;
+  max-width: 40rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+section {
+  margin-top: 1.5rem;
+}
+
+.error {
+  color: #b3261e;
+}

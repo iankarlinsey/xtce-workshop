@@ -1,0 +1,33 @@
+<main>
+  <h1>xtce-workshop</h1>
+
+  <section>
+    <h2>Backend</h2>
+    @switch (healthStatus()) {
+      @case ('checking') {
+        <p>Checking backend&hellip;</p>
+      }
+      @case ('ok') {
+        <p>Backend: OK</p>
+      }
+      @case ('unreachable') {
+        <p>Backend: unreachable</p>
+      }
+    }
+  </section>
+
+  <section>
+    <h2>Load an XTCE file</h2>
+    <input type="file" accept=".xml" (change)="onFileSelected($event)" />
+
+    @if (selectedFileName()) {
+      <p>Selected: {{ selectedFileName() }}</p>
+    }
+    @if (loadedName()) {
+      <p>Loaded SpaceSystem name: <strong>{{ loadedName() }}</strong></p>
+    }
+    @if (loadError()) {
+      <p class="error">{{ loadError() }}</p>
+    }
+  </section>
+</main>

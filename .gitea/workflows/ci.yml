@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  build-and-test:
+  backend-build-and-test:
     runs-on: dind
     container: mcr.microsoft.com/dotnet/sdk:8.0
     steps:
@@ -36,5 +36,34 @@ jobs:
         # older upload API that Gitea Actions does support.
         uses: actions/upload-artifact@v3
         with:
-          name: test-results
+          name: backend-test-results
           path: '**/test-results.trx'
+
+  frontend-build-and-test:
+    runs-on: dind
+    # Pinned by digest to match web/Dockerfile — re-pin both together when bumping Node.
+    container: node:20-bookworm@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Install git and Chromium
+        # Chromium is needed to run Karma tests headless — see web/karma.conf.js for why
+        # a custom launcher (--no-sandbox) is required when running as root in a container.
+        run: apt-get update && apt-get install -y --no-install-recommends git chromium
+
+      - name: Checkout
+        # defaults.run.working-directory only affects `run:` steps below, not this one —
+        # checkout always unpacks at the job's workspace root regardless.
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npx ng build --configuration production
+
+      - name: Test
+        run: npx ng test --watch=false
+        env:
+          CHROME_BIN: /usr/bin/chromium
