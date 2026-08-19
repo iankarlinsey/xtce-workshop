@@ -24,8 +24,12 @@
       <p>Selected: {{ selectedFileName() }}</p>
     }
     @if (loadedTree(); as tree) {
+      <label>
+        Search:
+        <input type="search" (input)="onTreeSearchInput($event)" placeholder="Filter by name" />
+      </label>
       <div class="tree-container">
-        <app-tree-node [node]="tree" />
+        <app-tree-node [node]="tree" [searchTerm]="treeSearchTerm()" />
       </div>
     }
     @if (loadError()) {

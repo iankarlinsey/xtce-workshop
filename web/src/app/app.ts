@@ -27,6 +27,7 @@ export class App {
   protected readonly selectedFileName = signal<string | null>(null);
   protected readonly loadedTree = signal<TreeNode | null>(null);
   protected readonly loadError = signal<string | null>(null);
+  protected readonly treeSearchTerm = signal('');
 
   protected readonly currentDocument = signal<SpaceSystemDocument | null>(null);
   protected readonly saveError = signal<string | null>(null);
@@ -48,6 +49,7 @@ export class App {
     this.selectedFileName.set(file.name);
     this.loadedTree.set(null);
     this.loadError.set(null);
+    this.treeSearchTerm.set('');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -84,6 +86,11 @@ export class App {
       next: (xml) => this.downloadXml(xml, `${doc.name}.xml`),
       error: () => this.saveError.set('Failed to save document.'),
     });
+  }
+
+  onTreeSearchInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.treeSearchTerm.set(input.value);
   }
 
   private downloadXml(xml: string, filename: string): void {

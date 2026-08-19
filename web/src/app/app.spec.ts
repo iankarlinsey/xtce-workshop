@@ -101,6 +101,33 @@ describe('App', () => {
       expect(compiled.textContent).toContain('Payload');
     });
 
+    it('filters the tree via the search box', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'nested.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Mission',
+        tree: {
+          label: 'Mission',
+          nodeType: 'SpaceSystem',
+          children: [
+            { label: 'Bus', nodeType: 'SpaceSystem', children: [] },
+            { label: 'Payload', nodeType: 'SpaceSystem', children: [] },
+          ],
+        },
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const searchInput = compiled.querySelector('input[type="search"]') as HTMLInputElement;
+      searchInput.value = 'bus';
+      searchInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(compiled.textContent).toContain('Bus');
+      expect(compiled.textContent).not.toContain('Payload');
+    });
+
     it('shows an error and no tree when loading fails', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'broken.xml');

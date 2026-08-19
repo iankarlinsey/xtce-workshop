@@ -1,18 +1,20 @@
-<div class="tree-node-row">
-  @if (node().children.length > 0) {
-    <button type="button" class="toggle" (click)="toggle()" [attr.aria-expanded]="expanded()">
-      {{ expanded() ? '▾' : '▸' }}
-    </button>
-  } @else {
-    <span class="toggle-spacer"></span>
-  }
-  <span class="label" [attr.data-node-type]="node().nodeType">{{ node().label }}</span>
-</div>
-
-@if (expanded() && node().children.length > 0) {
-  <div class="tree-node-children">
-    @for (child of node().children; track $index) {
-      <app-tree-node [node]="child" />
+@if (isVisible()) {
+  <div class="tree-node-row">
+    @if (node().children.length > 0) {
+      <button type="button" class="toggle" (click)="toggle()" [attr.aria-expanded]="effectiveExpanded()">
+        {{ effectiveExpanded() ? '▾' : '▸' }}
+      </button>
+    } @else {
+      <span class="toggle-spacer"></span>
     }
+    <span class="label" [attr.data-node-type]="node().nodeType">{{ node().label }}</span>
   </div>
+
+  @if (effectiveExpanded() && node().children.length > 0) {
+    <div class="tree-node-children">
+      @for (child of node().children; track $index) {
+        <app-tree-node [node]="child" [searchTerm]="searchTerm()" />
+      }
+    </div>
+  }
 }
