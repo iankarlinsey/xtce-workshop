@@ -1,0 +1,21 @@
+name: ci-smoke
+on:
+  push:
+    paths: ['.gitea/workflows/ci-smoke.yml']
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: dind
+    steps:
+      - name: echo (runner -> Gitea connectivity)
+        run: echo "hello from ${{ runner.name }} — runner->Gitea OK"
+      - name: DinD reachable from job
+        run: docker version
+      - name: build + push image to this repo's Gitea registry
+        run: |
+          printf 'FROM busybox:latest\nLABEL ci=smoke\n' > Dockerfile.smoke
+          IMG=git.karlinsey.ddns.net/iankarlinsey/xtce-workshop-ci-smoke:latest
+          echo "${{ secrets.GITEA_TOKEN }}" | docker login git.karlinsey.ddns.net -u "${{ github.actor }}" --password-stdin
+          docker build -t "$IMG" -f Dockerfile.smoke .
+          docker push "$IMG"
+          echo "PUSHED $IMG"
