@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{CCD67F88-A4F7-4031-8D11-E18186DB81B5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xtce.SpecTools", "src\Xtce.SpecTools\Xtce.SpecTools.csproj", "{0F6558FA-E683-4703-9296-9B2F518259E1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0E9EF45E-95C6-4492-8DBF-6B934B8C5EAC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xtce.SpecTools.Tests", "tests\Xtce.SpecTools.Tests\Xtce.SpecTools.Tests.csproj", "{2EF2114E-5CB9-426A-BD34-7F1587198822}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0F6558FA-E683-4703-9296-9B2F518259E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F6558FA-E683-4703-9296-9B2F518259E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F6558FA-E683-4703-9296-9B2F518259E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F6558FA-E683-4703-9296-9B2F518259E1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2EF2114E-5CB9-426A-BD34-7F1587198822}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2EF2114E-5CB9-426A-BD34-7F1587198822}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2EF2114E-5CB9-426A-BD34-7F1587198822}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2EF2114E-5CB9-426A-BD34-7F1587198822}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0F6558FA-E683-4703-9296-9B2F518259E1} = {CCD67F88-A4F7-4031-8D11-E18186DB81B5}
+		{2EF2114E-5CB9-426A-BD34-7F1587198822} = {0E9EF45E-95C6-4492-8DBF-6B934B8C5EAC}
+	EndGlobalSection
+EndGlobal
