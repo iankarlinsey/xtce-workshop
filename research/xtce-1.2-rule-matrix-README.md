@@ -72,9 +72,13 @@ same depth of scrutiny.
   issues #21 (object-model expansion: `TelemetryMetaData`/`ParameterTypeSet`/
   `ParameterSet`) and #22 (`Xtce.Workshop.Validation`: R07 fully, R15
   partially — 1 of its 7 cited owner locations, the rest blocked on
-  MetaCommand/Argument/Container modeling). 2 of 15 rules now `Implemented`
-  in the matrix (R15 marked `partial`, not `yes`, since it's honest about
-  covering only one citation).
+  MetaCommand/Argument/Container modeling). #24 modeled `ContainerSet`, and
+  #25 added the NameReferenceType resolver plus R10 (`yes`) and R11
+  (`partial` — modeled ref sites only: parameterTypeRef, entry refs,
+  BaseContainer, Comparison; references inside preserved raw fragments are
+  invisible by construction), and upgraded R15's type resolution to work
+  cross-SpaceSystem. 4 of 15 rules now carry `Implemented` status (2 `yes`,
+  2 `partial` — `partial` is deliberate honesty about citation coverage).
 - Phase E: adversarial verification that "tested" rules actually fire. Not
   started as a distinct pass yet — #22's fixtures include both positive and
   negative cases per rule, but a dedicated adversarial-verification pass

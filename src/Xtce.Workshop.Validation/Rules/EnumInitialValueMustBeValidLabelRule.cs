@@ -15,14 +15,14 @@ public sealed class EnumInitialValueMustBeValidLabelRule : IValidationRule
     public string RuleId => "XTCE-1.2-R07-enum-initial-value-must-be-valid-label";
     public ValidationSeverity Severity => ValidationSeverity.Error;
 
-    public IEnumerable<ValidationIssue> ValidateSpaceSystem(SpaceSystem spaceSystem, string path)
+    public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
-        if (spaceSystem.TelemetryMetaData is null)
+        if (context.Node.TelemetryMetaData is null)
         {
             yield break;
         }
 
-        foreach (var type in spaceSystem.TelemetryMetaData.ParameterTypeSet)
+        foreach (var type in context.Node.TelemetryMetaData.ParameterTypeSet)
         {
             if (type.Kind != ParameterTypeKind.Enumerated || type.InitialValue is null)
             {
@@ -35,7 +35,7 @@ public sealed class EnumInitialValueMustBeValidLabelRule : IValidationRule
                 yield return new ValidationIssue(
                     RuleId,
                     Severity,
-                    $"{path}/ParameterTypeSet/{type.Name}",
+                    $"{context.Path}/ParameterTypeSet/{type.Name}",
                     $"initialValue '{type.InitialValue}' is not a valid label in {type.Name}'s EnumerationList.");
             }
         }

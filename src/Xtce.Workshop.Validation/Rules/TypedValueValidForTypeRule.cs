@@ -13,30 +13,32 @@ namespace Xtce.Workshop.Validation;
 /// ComparisonType/value) need MetaCommand/Container modeling this project doesn't have yet —
 /// see summary.md's Architecture Decisions. This rule is intentionally partial, not "done."
 ///
-/// Only parameterTypeRef values that resolve to a type in the SAME SpaceSystem's own
-/// ParameterTypeSet are checked. XTCE name references may be relative/absolute paths across
-/// the whole SpaceSystem tree; resolving those, and flagging references that don't resolve
-/// at all, is rule R11 (no-dangling-name-references), not yet implemented. A parameterTypeRef
-/// this rule can't resolve locally is silently skipped rather than flagged, to avoid false
-/// positives on legitimate cross-subsystem references.
+/// parameterTypeRef resolution goes through NameReferenceResolver (issue #25), so a
+/// Parameter whose type lives in an ancestor or another SpaceSystem is checked too. A ref
+/// that resolves to an unmodeled (opaque, preserved) type is skipped — its constraints
+/// can't be inspected; a ref that doesn't resolve at all is R11's finding, not R15's.
 /// </summary>
 public sealed class TypedValueValidForTypeRule : IValidationRule
 {
     public string RuleId => "XTCE-1.2-R15-typed-value-valid-for-type";
     public ValidationSeverity Severity => ValidationSeverity.Error;
 
-    public IEnumerable<ValidationIssue> ValidateSpaceSystem(SpaceSystem spaceSystem, string path)
+    public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
-        if (spaceSystem.TelemetryMetaData is null)
+        if (context.Node.TelemetryMetaData is null)
         {
             yield break;
         }
 
-        var typesByName = spaceSystem.TelemetryMetaData.ParameterTypeSet.ToDictionary(t => t.Name);
-
-        foreach (var parameter in spaceSystem.TelemetryMetaData.ParameterSet)
+        foreach (var parameter in context.Node.TelemetryMetaData.ParameterSet)
         {
-            if (parameter.InitialValue is null || !typesByName.TryGetValue(parameter.ParameterTypeRef, out var type))
+            if (parameter.InitialValue is null)
+            {
+                continue;
+            }
+
+            var resolution = NameReferenceResolver.Resolve(context, parameter.ParameterTypeRef, NamedItemKind.ParameterType);
+            if (resolution.ParameterType is not { } type)
             {
                 continue;
             }
@@ -44,7 +46,7 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
             var error = Describe(type, parameter.InitialValue);
             if (error is not null)
             {
-                yield return new ValidationIssue(RuleId, Severity, $"{path}/ParameterSet/{parameter.Name}", error);
+                yield return new ValidationIssue(RuleId, Severity, $"{context.Path}/ParameterSet/{parameter.Name}", error);
             }
         }
     }

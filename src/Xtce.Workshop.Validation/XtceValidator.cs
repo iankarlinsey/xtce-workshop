@@ -3,8 +3,8 @@ using Xtce.Workshop.Model;
 namespace Xtce.Workshop.Validation;
 
 /// <summary>
-/// Runs every registered rule against a document (a SpaceSystem tree), depth-first,
-/// building a "/"-joined path of SpaceSystem names for each finding's Location.
+/// Runs every registered rule against a document (a SpaceSystem tree): builds the
+/// SpaceSystemContext index once, then calls each rule for each SpaceSystem node.
 /// </summary>
 public static class XtceValidator
 {
@@ -12,25 +12,23 @@ public static class XtceValidator
     [
         new EnumInitialValueMustBeValidLabelRule(),
         new TypedValueValidForTypeRule(),
+        new NoDanglingNameReferencesRule(),
+        new NextContainerRefMustResolveRule(),
     ];
 
     public static IReadOnlyList<ValidationIssue> Validate(SpaceSystem root)
     {
+        var rootContext = SpaceSystemContext.Build(root);
         var issues = new List<ValidationIssue>();
-        Walk(root, root.Name, issues);
+
+        foreach (var context in rootContext.SelfAndDescendants())
+        {
+            foreach (var rule in Rules)
+            {
+                issues.AddRange(rule.Validate(context));
+            }
+        }
+
         return issues;
-    }
-
-    private static void Walk(SpaceSystem node, string path, List<ValidationIssue> issues)
-    {
-        foreach (var rule in Rules)
-        {
-            issues.AddRange(rule.ValidateSpaceSystem(node, path));
-        }
-
-        foreach (var child in node.Children)
-        {
-            Walk(child, $"{path}/{child.Name}", issues);
-        }
     }
 }
