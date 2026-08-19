@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Xtce.Workshop.Model\Xtce.Workshop.Model.csproj" />
+    <ProjectReference Include="..\Xtce.Workshop.Validation\Xtce.Workshop.Validation.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -40,6 +40,20 @@
         <p class="error">{{ saveError() }}</p>
       }
 
+      @if (validationIssues().length > 0) {
+        <div class="validation-panel">
+          <p class="validation-summary">{{ validationIssues().length }} validation issue(s)</p>
+          <ul class="validation-list">
+            @for (issue of validationIssues(); track issue.location + issue.ruleId) {
+              <li class="validation-issue" [class.severity-warning]="issue.severity === 'Warning'">
+                <span class="validation-location">{{ issue.location }}</span>
+                <span class="validation-message">{{ issue.message }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
       @if (currentDocument(); as doc) {
         <label class="search-field">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>

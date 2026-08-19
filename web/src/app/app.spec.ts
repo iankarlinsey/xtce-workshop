@@ -128,6 +128,45 @@ describe('App', () => {
       expect(compiled.textContent).not.toContain('Payload');
     });
 
+    it('renders validation issues returned by the load endpoint', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'nested.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Mission',
+        document: { name: 'Mission', children: [] },
+        validationIssues: [
+          {
+            ruleId: 'XTCE-1.2-R07-enum-initial-value-must-be-valid-label',
+            severity: 'Error',
+            location: 'Mission/ParameterTypeSet/State_Type',
+            message: "initialValue 'UNKNOWN' is not a valid label in State_Type's EnumerationList.",
+          },
+        ],
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('1 validation issue(s)');
+      expect(compiled.textContent).toContain('Mission/ParameterTypeSet/State_Type');
+      expect(compiled.textContent).toContain('is not a valid label');
+    });
+
+    it('shows no validation panel when there are no issues', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'minimal.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Minimal',
+        document: { name: 'Minimal', children: [] },
+        validationIssues: [],
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('.validation-panel')).toBeNull();
+    });
+
     it('shows an error and no document when loading fails', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'broken.xml');

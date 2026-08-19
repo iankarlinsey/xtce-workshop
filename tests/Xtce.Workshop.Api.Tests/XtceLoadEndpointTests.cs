@@ -95,6 +95,48 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task PostLoad_ValidFile_ReturnsEmptyValidationIssues()
+    {
+        var client = _factory.CreateClient();
+        var repoRoot = FindRepoRoot();
+        var samplePath = Path.Combine(repoRoot, "samples", "telemetry-1.2.xml");
+
+        using var content = new MultipartFormDataContent();
+        await using var fileStream = File.OpenRead(samplePath);
+        content.Add(new StreamContent(fileStream), "file", "telemetry-1.2.xml");
+
+        var response = await client.PostAsync("/api/xtce/load", content);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(0, body.GetProperty("validationIssues").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task PostLoad_FileWithIssues_ReturnsValidationIssues()
+    {
+        var client = _factory.CreateClient();
+        var repoRoot = FindRepoRoot();
+        var samplePath = Path.Combine(repoRoot, "samples", "telemetry-with-issues-1.2.xml");
+
+        using var content = new MultipartFormDataContent();
+        await using var fileStream = File.OpenRead(samplePath);
+        content.Add(new StreamContent(fileStream), "file", "telemetry-with-issues-1.2.xml");
+
+        var response = await client.PostAsync("/api/xtce/load", content);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var issues = body.GetProperty("validationIssues");
+        Assert.Equal(2, issues.GetArrayLength());
+
+        var ruleIds = issues.EnumerateArray().Select(i => i.GetProperty("ruleId").GetString()).ToList();
+        Assert.Contains("XTCE-1.2-R07-enum-initial-value-must-be-valid-label", ruleIds);
+        Assert.Contains("XTCE-1.2-R15-typed-value-valid-for-type", ruleIds);
+
+        var severity = issues[0].GetProperty("severity").GetString();
+        Assert.Equal("Error", severity);
+    }
+
+    [Fact]
     public async Task PostLoad_MalformedFile_Returns400()
     {
         var client = _factory.CreateClient();

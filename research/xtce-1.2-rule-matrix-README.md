@@ -61,30 +61,35 @@ be schema-declared — so the shortcut costs nothing here, but it's the kind of
 thing worth being honest about rather than implying every single row got the
 same depth of scrutiny.
 
-## What's next (Phase C / D / E, not started)
+## What's next (Phase C / D / E)
 
 - Phase C: this matrix already doubles as the backlog — no separate step
   needed beyond keeping it current as rules get implemented.
 - Phase D: implement each rule as a validator against `Xtce.Workshop.Model`,
   citing its `RuleId` in code, with a positive and negative fixture per rule
   (per the OSS test-idea harvest's finding that round-trip/negative-case
-  testing catches real bugs single-direction tests miss).
-- Phase E: adversarial verification that "tested" rules actually fire.
+  testing catches real bugs single-direction tests miss). **Started** — see
+  issues #21 (object-model expansion: `TelemetryMetaData`/`ParameterTypeSet`/
+  `ParameterSet`) and #22 (`Xtce.Workshop.Validation`: R07 fully, R15
+  partially — 1 of its 7 cited owner locations, the rest blocked on
+  MetaCommand/Argument/Container modeling). 2 of 15 rules now `Implemented`
+  in the matrix (R15 marked `partial`, not `yes`, since it's honest about
+  covering only one citation).
+- Phase E: adversarial verification that "tested" rules actually fire. Not
+  started as a distinct pass yet — #22's fixtures include both positive and
+  negative cases per rule, but a dedicated adversarial-verification pass
+  (per the methodology's original intent) hasn't happened.
 - Not yet started: mining CCSDS 660.1-G-2 (Element Description, the
   identified *primary* corpus, 286 pages) the same way — this matrix is
   built entirely from the XSD's own `<documentation>` blocks, which is one
   of at least two intended sources.
 
-**Phase D is blocked on something larger, worth flagging explicitly rather
-than starting unprompted.** Every one of these 15 rules applies to XTCE
-constructs — `Parameter`, `Calibrator`, `Container`, `MetaCommand`, name
-references generally — that `Xtce.Workshop.Model` doesn't parse or represent
-at all yet. The object model currently covers exactly one construct
-(`SpaceSystem` nesting). Implementing any of these 15 rules for real means
-first extending the object model to cover the relevant construct(s), which
-is a substantially larger scope than triage was — likely its own set of
-vertical slices, construct by construct, not a small follow-on. That
-prioritization call (which constructs matter most to model next —
-`TelemetryMetaData`/`ParameterTypeSet` for `R15` and `R07`, `ContainerSet`
-for `R04`/`R09`/`R10`, etc.) is a reasonable one to make with input rather
-than picked unilaterally.
+**Phase D remains blocked, for the other 13 rules, on the same object-model
+gap this note originally flagged.** Every rule not yet `Implemented` applies
+to an XTCE construct — `Calibrator`, `Container`, `MetaCommand`, name
+references generally — that `Xtce.Workshop.Model` still doesn't parse or
+represent. #21 extended the model from "just `SpaceSystem` nesting" to also
+cover `TelemetryMetaData`/`ParameterTypeSet`/`ParameterSet`, which is what
+unblocked R07 and (partially) R15. Each further construct is its own
+vertical slice, not a small follow-on — `ContainerSet` for `R04`/`R09`/`R10`
+being the next likely candidate given how many rules cite it.

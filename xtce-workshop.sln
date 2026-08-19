@@ -19,6 +19,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xtce.Workshop.Model.Tests",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xtce.Workshop.Api.Tests", "tests\Xtce.Workshop.Api.Tests\Xtce.Workshop.Api.Tests.csproj", "{2DFD43E1-653F-444E-8722-971772210EBD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xtce.Workshop.Validation", "src\Xtce.Workshop.Validation\Xtce.Workshop.Validation.csproj", "{8C8686DD-CCCE-449E-8935-DFED684073DE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xtce.Workshop.Validation.Tests", "tests\Xtce.Workshop.Validation.Tests\Xtce.Workshop.Validation.Tests.csproj", "{651511A2-1D23-472A-8FE9-F8B0ED35EC21}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -52,6 +56,14 @@ Global
 		{2DFD43E1-653F-444E-8722-971772210EBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2DFD43E1-653F-444E-8722-971772210EBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2DFD43E1-653F-444E-8722-971772210EBD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C8686DD-CCCE-449E-8935-DFED684073DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C8686DD-CCCE-449E-8935-DFED684073DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C8686DD-CCCE-449E-8935-DFED684073DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C8686DD-CCCE-449E-8935-DFED684073DE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{651511A2-1D23-472A-8FE9-F8B0ED35EC21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{651511A2-1D23-472A-8FE9-F8B0ED35EC21}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{651511A2-1D23-472A-8FE9-F8B0ED35EC21}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{651511A2-1D23-472A-8FE9-F8B0ED35EC21}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0F6558FA-E683-4703-9296-9B2F518259E1} = {CCD67F88-A4F7-4031-8D11-E18186DB81B5}
@@ -60,5 +72,7 @@ Global
 		{43B18DE6-A534-4AFB-AEDA-3A409DB88175} = {CCD67F88-A4F7-4031-8D11-E18186DB81B5}
 		{2D98DFBC-51A1-4302-BACA-2AB49839B5E8} = {0E9EF45E-95C6-4492-8DBF-6B934B8C5EAC}
 		{2DFD43E1-653F-444E-8722-971772210EBD} = {0E9EF45E-95C6-4492-8DBF-6B934B8C5EAC}
+		{8C8686DD-CCCE-449E-8935-DFED684073DE} = {CCD67F88-A4F7-4031-8D11-E18186DB81B5}
+		{651511A2-1D23-472A-8FE9-F8B0ED35EC21} = {0E9EF45E-95C6-4492-8DBF-6B934B8C5EAC}
 	EndGlobalSection
 EndGlobal

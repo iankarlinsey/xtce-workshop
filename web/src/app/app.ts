@@ -8,12 +8,14 @@ import {
   updateNodeAtPath,
   deleteNodeAtPath,
 } from './document-tree';
+import { ValidationIssue } from './validation';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
 
 interface LoadResult {
   name: string;
   document: SpaceSystemDocument;
+  validationIssues: ValidationIssue[];
 }
 
 @Component({
@@ -33,6 +35,7 @@ export class App {
   protected readonly currentDocument = signal<SpaceSystemDocument | null>(null);
   protected readonly selectedPath = signal<NodePath | null>(null);
   protected readonly saveError = signal<string | null>(null);
+  protected readonly validationIssues = signal<ValidationIssue[]>([]);
 
   protected readonly selectedNode = computed(() => {
     const doc = this.currentDocument();
@@ -62,6 +65,7 @@ export class App {
     this.selectedFileName.set(file.name);
     this.loadError.set(null);
     this.saveError.set(null);
+    this.validationIssues.set([]);
     this.treeSearchTerm.set('');
 
     const formData = new FormData();
@@ -77,6 +81,7 @@ export class App {
       next: (result) => {
         this.currentDocument.set(result.document);
         this.selectedPath.set([]); // select the root by default so the form isn't empty
+        this.validationIssues.set(result.validationIssues ?? []);
       },
       error: (err) => this.loadError.set(err?.error?.error ?? 'Failed to load file.'),
     });
@@ -91,6 +96,7 @@ export class App {
     this.currentDocument.set({ name, children: [] });
     this.selectedPath.set([]);
     this.saveError.set(null);
+    this.validationIssues.set([]);
   }
 
   onNodeSelected(path: NodePath): void {

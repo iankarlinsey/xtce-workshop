@@ -8,10 +8,12 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0@sha256:306301580fcaa5b445180e759db59309979
 WORKDIR /src
 
 COPY src/Xtce.Workshop.Model/Xtce.Workshop.Model.csproj src/Xtce.Workshop.Model/
+COPY src/Xtce.Workshop.Validation/Xtce.Workshop.Validation.csproj src/Xtce.Workshop.Validation/
 COPY src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj src/Xtce.Workshop.Api/
 RUN dotnet restore src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj
 
 COPY src/Xtce.Workshop.Model/ src/Xtce.Workshop.Model/
+COPY src/Xtce.Workshop.Validation/ src/Xtce.Workshop.Validation/
 COPY src/Xtce.Workshop.Api/ src/Xtce.Workshop.Api/
 RUN dotnet publish src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj -c Release -o /app --no-restore
 

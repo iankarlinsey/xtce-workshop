@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="TelemetryWithIssues">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <EnumeratedParameterType name="BusState_Type" initialValue="UNKNOWN">
+        <EnumerationList>
+          <Enumeration value="0" label="SAFE"/>
+          <Enumeration value="1" label="NOMINAL"/>
+        </EnumerationList>
+      </EnumeratedParameterType>
+      <IntegerParameterType name="SmallCounter_Type" signed="false" sizeInBits="8"/>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="BusState" parameterTypeRef="BusState_Type"/>
+      <Parameter name="SmallCounter" parameterTypeRef="SmallCounter_Type" initialValue="9999"/>
+    </ParameterSet>
+  </TelemetryMetaData>
+</SpaceSystem>
