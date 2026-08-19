@@ -58,8 +58,43 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
         ParameterTypeKind.String => null,
         ParameterTypeKind.Boolean => DescribeBoolean(type, value),
         ParameterTypeKind.Enumerated => DescribeEnumerated(type, value),
+        ParameterTypeKind.Binary => DescribeBinary(value),
+        ParameterTypeKind.RelativeTime => DescribeRelativeTime(value),
+        ParameterTypeKind.AbsoluteTime => DescribeAbsoluteTime(value),
         _ => null,
     };
+
+    // xs:hexBinary: hex digits, even count (each byte is two digits).
+    private static string? DescribeBinary(string value) =>
+        value.Length % 2 == 0 && value.All(Uri.IsHexDigit)
+            ? null
+            : $"initialValue '{value}' is not valid hexBinary (even number of hex digits) for its Binary type.";
+
+    private static string? DescribeRelativeTime(string value)
+    {
+        try
+        {
+            System.Xml.XmlConvert.ToTimeSpan(value);
+            return null;
+        }
+        catch (FormatException)
+        {
+            return $"initialValue '{value}' is not a valid xs:duration for its RelativeTime type.";
+        }
+    }
+
+    private static string? DescribeAbsoluteTime(string value)
+    {
+        try
+        {
+            System.Xml.XmlConvert.ToDateTimeOffset(value);
+            return null;
+        }
+        catch (FormatException)
+        {
+            return $"initialValue '{value}' is not a valid xs:dateTime for its AbsoluteTime type.";
+        }
+    }
 
     private static string? DescribeInteger(ParameterTypeDefinition type, string value)
     {

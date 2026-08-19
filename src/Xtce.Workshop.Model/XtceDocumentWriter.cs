@@ -33,11 +33,14 @@ public static class XtceDocumentWriter
     ];
 
     // Superset covering every modeled parameter type kind's XSD sequence: DescriptionType
-    // children, then BaseDataType (UnitSet, encoding choice), then per-kind extensions —
-    // each kind uses a subset of this list in this same relative order.
+    // children, then BaseDataType (UnitSet, encoding choice) or BaseTimeDataType (Encoding,
+    // ReferenceTime), then per-kind extensions — each kind uses a subset of this list in
+    // this same relative order (the BaseDataType and BaseTimeDataType families never mix
+    // children, so one shared table is safe).
     private static readonly string[] ParameterTypeChildOrder =
     [
         "LongDescription", "AliasSet", "AncillaryDataSet",
+        "Encoding", "ReferenceTime",
         "UnitSet",
         "BinaryDataEncoding", "FloatDataEncoding", "IntegerDataEncoding", "StringDataEncoding",
         "ToString", "ValidRange", "SizeRangeInCharacters",
@@ -325,6 +328,9 @@ public static class XtceDocumentWriter
             ParameterTypeKind.String => "StringParameterType",
             ParameterTypeKind.Boolean => "BooleanParameterType",
             ParameterTypeKind.Enumerated => "EnumeratedParameterType",
+            ParameterTypeKind.Binary => "BinaryParameterType",
+            ParameterTypeKind.RelativeTime => "RelativeTimeParameterType",
+            ParameterTypeKind.AbsoluteTime => "AbsoluteTimeParameterType",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(parameterType), parameterType.Kind, "Unsupported parameter type kind."),
         };

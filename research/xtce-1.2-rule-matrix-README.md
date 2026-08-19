@@ -77,8 +77,16 @@ same depth of scrutiny.
   (`partial` — modeled ref sites only: parameterTypeRef, entry refs,
   BaseContainer, Comparison; references inside preserved raw fragments are
   invisible by construction), and upgraded R15's type resolution to work
-  cross-SpaceSystem. 4 of 15 rules now carry `Implemented` status (2 `yes`,
-  2 `partial` — `partial` is deliberate honesty about citation coverage).
+  cross-SpaceSystem. #28 modeled the Binary/RelativeTime/AbsoluteTime kinds
+  and added R14 (`yes` — Encoding-fragment presence, with baseType-present
+  skipping the check since encoding may be inherited and time-type
+  inheritance chains aren't resolved) and R01 (`partial` warning — the
+  Encoding/units site is checked by fragment inspection; the
+  TimeAlarmRangesType/timeUnits site sits inside preserved alarm content
+  and is unreachable), and extended R15 to the new kinds (hexBinary /
+  xs:duration / xs:dateTime literal checks). 6 of 15 rules now carry
+  `Implemented` status (3 `yes`, 3 `partial` — `partial` is deliberate
+  honesty about citation coverage).
 - Phase E: adversarial verification that "tested" rules actually fire. Not
   started as a distinct pass yet — #22's fixtures include both positive and
   negative cases per rule, but a dedicated adversarial-verification pass

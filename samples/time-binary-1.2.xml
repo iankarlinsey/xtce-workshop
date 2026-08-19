@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="TimeBinaryDemo">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <BinaryParameterType name="Blob_Type" initialValue="CAFEBABE"/>
+      <RelativeTimeParameterType name="Uptime_Type" initialValue="PT0S">
+        <Encoding units="seconds">
+          <IntegerDataEncoding sizeInBits="32" encoding="unsigned"/>
+        </Encoding>
+      </RelativeTimeParameterType>
+      <AbsoluteTimeParameterType name="MissionTime_Type">
+        <Encoding units="days">
+          <IntegerDataEncoding sizeInBits="16" encoding="unsigned"/>
+        </Encoding>
+      </AbsoluteTimeParameterType>
+      <AbsoluteTimeParameterType name="NakedTime_Type"/>
+      <AbsoluteTimeParameterType name="DerivedTime_Type" baseType="MissionTime_Type"/>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="Blob" parameterTypeRef="Blob_Type" initialValue="0DDBA11"/>
+      <Parameter name="Uptime" parameterTypeRef="Uptime_Type" initialValue="P1DT2H"/>
+      <Parameter name="MissionTime" parameterTypeRef="MissionTime_Type" initialValue="2026-08-19T12:00:00Z"/>
+    </ParameterSet>
+  </TelemetryMetaData>
+</SpaceSystem>

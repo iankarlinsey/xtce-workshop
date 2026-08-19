@@ -90,7 +90,7 @@ public sealed class SpaceSystemContext
 
             foreach (var fragment in telemetry.PreservedParameterTypes ?? [])
             {
-                if (RootAttribute(fragment.OuterXml, "name") is { } name)
+                if (XmlFragmentInspector.RootAttribute(fragment.OuterXml, "name") is { } name)
                 {
                     parameterTypeNames.Add(name);
                 }
@@ -99,7 +99,7 @@ public sealed class SpaceSystemContext
             {
                 // A ParameterRef entry includes a parameter defined elsewhere under its
                 // last path segment as the locally visible name.
-                if (RootAttribute(fragment.OuterXml, "parameterRef") is { } reference)
+                if (XmlFragmentInspector.RootAttribute(fragment.OuterXml, "parameterRef") is { } reference)
                 {
                     var lastSlash = reference.LastIndexOf('/');
                     parameterNames.Add(lastSlash < 0 ? reference : reference[(lastSlash + 1)..]);
@@ -136,21 +136,6 @@ public sealed class SpaceSystemContext
         }
 
         return context;
-    }
-
-    /// <summary>Reads one attribute off a fragment's root element without full parsing.</summary>
-    private static string? RootAttribute(string outerXml, string attributeName)
-    {
-        try
-        {
-            using var reader = XmlReader.Create(new StringReader(outerXml),
-                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
-            return reader.MoveToContent() == XmlNodeType.Element ? reader.GetAttribute(attributeName) : null;
-        }
-        catch (XmlException)
-        {
-            return null;
-        }
     }
 
     /// <summary>

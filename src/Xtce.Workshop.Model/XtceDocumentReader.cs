@@ -26,6 +26,9 @@ public static class XtceDocumentReader
             ["StringParameterType"] = ParameterTypeKind.String,
             ["BooleanParameterType"] = ParameterTypeKind.Boolean,
             ["EnumeratedParameterType"] = ParameterTypeKind.Enumerated,
+            ["BinaryParameterType"] = ParameterTypeKind.Binary,
+            ["RelativeTimeParameterType"] = ParameterTypeKind.RelativeTime,
+            ["AbsoluteTimeParameterType"] = ParameterTypeKind.AbsoluteTime,
         };
 
     public static SpaceSystem Load(Stream xmlStream)
@@ -472,9 +475,9 @@ public static class XtceDocumentReader
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // Unmodeled parameter type kind (Binary, RelativeTime, AbsoluteTime, Array,
-                // Aggregate) — preserved verbatim. The set is XSD choice-unbounded, so
-                // re-emitting these after the modeled entries stays schema-valid.
+                // Unmodeled parameter type kind (Array, Aggregate) — preserved verbatim.
+                // The set is XSD choice-unbounded, so re-emitting these after the modeled
+                // entries stays schema-valid.
                 Preserve(ref preservedTypes, reader);
             }
             else

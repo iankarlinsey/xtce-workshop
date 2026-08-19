@@ -18,6 +18,9 @@ public enum ParameterTypeKind
     String,
     Boolean,
     Enumerated,
+    Binary,
+    RelativeTime,
+    AbsoluteTime,
 }
 
 /// <summary>
@@ -33,11 +36,12 @@ public sealed record EnumerationEntry(
     string? ShortDescription = null);
 
 /// <summary>
-/// One entry in a ParameterTypeSet — an IntegerParameterType, FloatParameterType,
-/// StringParameterType, BooleanParameterType, or EnumeratedParameterType. Only the primitive
-/// scalar kinds are modeled; Binary/RelativeTime/AbsoluteTime/Array/Aggregate parameter types
-/// are preserved as raw fragments on TelemetryMetaData.PreservedParameterTypes (issue #23),
-/// not lossily represented here.
+/// One entry in a ParameterTypeSet — any of the eight modeled scalar kinds (Integer, Float,
+/// String, Boolean, Enumerated, Binary, RelativeTime, AbsoluteTime — issues #21/#28). Only
+/// Array and Aggregate parameter types remain unmodeled, preserved as raw fragments on
+/// TelemetryMetaData.PreservedParameterTypes (issue #23), not lossily represented here.
+/// Time-type children (Encoding, ReferenceTime) live in Preserved; validation rules R14/R01
+/// inspect those fragments rather than requiring the encodings to be modeled.
 ///
 /// Modeled attributes stay null when absent from the source — XSD defaults (signed=true,
 /// sizeInBits=32, oneStringValue="True", zeroStringValue="False") are applied by consumers

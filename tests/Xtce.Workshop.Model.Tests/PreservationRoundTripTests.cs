@@ -51,14 +51,18 @@ public class PreservationRoundTripTests
     }
 
     [Fact]
-    public void Load_CapturesUnmodeledParameterTypeKindsAndSetEntries()
+    public void Load_ModelsAllScalarKindsAndPreservesSetEntries()
     {
         var loaded = LoadPreservationSample();
         var telemetry = loaded.TelemetryMetaData!;
 
-        Assert.Equal(
-            ["BinaryParameterType", "AbsoluteTimeParameterType"],
-            telemetry.PreservedParameterTypes!.Select(f => f.ElementName).ToList());
+        // Binary and time kinds are modeled as of issue #28 — only Array/Aggregate would
+        // still land in PreservedParameterTypes, and this fixture has none.
+        Assert.Null(telemetry.PreservedParameterTypes);
+        Assert.Equal(ParameterTypeKind.Binary,
+            telemetry.ParameterTypeSet.Single(t => t.Name == "Blob_Type").Kind);
+        Assert.Equal(ParameterTypeKind.AbsoluteTime,
+            telemetry.ParameterTypeSet.Single(t => t.Name == "MissionTime_Type").Kind);
         Assert.Equal(["ParameterRef"], telemetry.PreservedParameters!.Select(f => f.ElementName).ToList());
         // ContainerSet is modeled as of issue #24, so nothing at the TelemetryMetaData
         // level is left to preserve in this fixture.
