@@ -118,6 +118,7 @@ public static class XtceDocumentReader
     {
         var parameterTypes = new List<ParameterTypeDefinition>();
         var parameters = new List<Parameter>();
+        List<SequenceContainer>? containers = null;
         List<RawXmlFragment>? preservedTypes = null;
         List<RawXmlFragment>? preservedParameters = null;
         List<RawXmlFragment>? preserved = null;
@@ -140,10 +141,14 @@ public static class XtceDocumentReader
             {
                 ReadParameterSet(reader, parameters, ref preservedParameters);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContainerSet")
+            {
+                containers = ReadContainerSet(reader);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // Unmodeled sibling (ContainerSet, MessageSet, StreamSet, AlgorithmSet) —
-                // preserved verbatim, re-emitted in XSD sequence order on save.
+                // Unmodeled sibling (MessageSet, StreamSet, AlgorithmSet) — preserved
+                // verbatim, re-emitted in XSD sequence order on save.
                 Preserve(ref preserved, reader);
             }
             else
@@ -154,7 +159,295 @@ public static class XtceDocumentReader
 
         reader.ReadEndElement();
 
-        return new TelemetryMetaData(parameterTypes, parameters, preservedTypes, preservedParameters, preserved);
+        return new TelemetryMetaData(parameterTypes, parameters, preservedTypes, preservedParameters, preserved, containers);
+    }
+
+    private static List<SequenceContainer> ReadContainerSet(XmlReader reader)
+    {
+        var containers = new List<SequenceContainer>();
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return containers;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "SequenceContainer")
+            {
+                containers.Add(ReadSequenceContainer(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // ContainerSetType's choice admits only SequenceContainer, so anything else
+                // is schema-invalid input — skipping (not preserving) is acceptable under
+                // the schema-valid-input premise the preservation guarantee targets.
+                reader.Skip();
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return containers;
+    }
+
+    private static SequenceContainer ReadSequenceContainer(XmlReader reader)
+    {
+        var name = RequireAttribute(reader, "name", "a SequenceContainer");
+        var isAbstract = ParseBool(reader, "abstract");
+        var preservedAttributes = CapturePreservedAttributes(reader, "name", "abstract");
+
+        var entries = new List<SequenceEntry>();
+        BaseContainer? baseContainer = null;
+        List<RawXmlFragment>? preserved = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "EntryList")
+                {
+                    ReadEntryList(reader, entries);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "BaseContainer")
+                {
+                    baseContainer = ReadBaseContainer(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // DefaultRateInStream, RateInStreamSet, BinaryEncoding, LongDescription,
+                    // AliasSet, AncillaryDataSet — preserved verbatim.
+                    Preserve(ref preserved, reader);
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            reader.ReadEndElement();
+        }
+
+        return new SequenceContainer(name, entries, baseContainer, isAbstract, preserved, preservedAttributes);
+    }
+
+    private static void ReadEntryList(XmlReader reader, List<SequenceEntry> entries)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterRefEntry")
+            {
+                entries.Add(ReadRefEntry(reader, SequenceEntryKind.ParameterRef, "parameterRef"));
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContainerRefEntry")
+            {
+                entries.Add(ReadRefEntry(reader, SequenceEntryKind.ContainerRef, "containerRef"));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // The other five entry kinds (segments, stream segments, indirect and array
+                // refs) ride as Raw entries IN POSITION — entry order is the packet layout,
+                // so unlike set-typed collections these cannot be appended at the end.
+                var elementName = reader.LocalName;
+                var outerXml = reader.ReadOuterXml();
+                entries.Add(new SequenceEntry(SequenceEntryKind.Raw, RawXml: new RawXmlFragment(elementName, outerXml)));
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static SequenceEntry ReadRefEntry(XmlReader reader, SequenceEntryKind kind, string refAttributeName)
+    {
+        var reference = RequireAttribute(reader, refAttributeName, $"a {reader.LocalName}");
+        var preservedAttributes = CapturePreservedAttributes(reader, refAttributeName);
+
+        List<RawXmlFragment>? preserved = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // LocationInContainerInBits, RepeatEntry, IncludeCondition,
+                    // TimeAssociation, AncillaryDataSet — preserved verbatim.
+                    Preserve(ref preserved, reader);
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            reader.ReadEndElement();
+        }
+
+        return new SequenceEntry(kind, reference, null, preserved, preservedAttributes);
+    }
+
+    private static BaseContainer ReadBaseContainer(XmlReader reader)
+    {
+        var containerRef = RequireAttribute(reader, "containerRef", "a BaseContainer");
+        RestrictionCriteria? restrictionCriteria = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "RestrictionCriteria")
+                {
+                    restrictionCriteria = ReadRestrictionCriteria(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // BaseContainerType admits only RestrictionCriteria — schema-invalid
+                    // input, skipped under the schema-valid-input premise.
+                    reader.Skip();
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            reader.ReadEndElement();
+        }
+
+        return new BaseContainer(containerRef, restrictionCriteria);
+    }
+
+    private static RestrictionCriteria ReadRestrictionCriteria(XmlReader reader)
+    {
+        Comparison? comparison = null;
+        List<Comparison>? comparisonList = null;
+        string? nextContainerRef = null;
+        RawXmlFragment? raw = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return new RestrictionCriteria();
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Comparison")
+            {
+                comparison = ReadComparison(reader);
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ComparisonList")
+            {
+                comparisonList = ReadComparisonList(reader);
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "NextContainer")
+            {
+                nextContainerRef = RequireAttribute(reader, "containerRef", "a NextContainer");
+                reader.Skip();
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // BooleanExpression or CustomAlgorithm — carried verbatim as the criteria.
+                var elementName = reader.LocalName;
+                raw = new RawXmlFragment(elementName, reader.ReadOuterXml());
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return new RestrictionCriteria(comparison, comparisonList, nextContainerRef, raw);
+    }
+
+    private static List<Comparison> ReadComparisonList(XmlReader reader)
+    {
+        var comparisons = new List<Comparison>();
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return comparisons;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Comparison")
+            {
+                comparisons.Add(ReadComparison(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                reader.Skip();
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+
+        return comparisons;
+    }
+
+    private static Comparison ReadComparison(XmlReader reader)
+    {
+        var parameterRef = RequireAttribute(reader, "parameterRef", "a Comparison");
+        var value = reader.GetAttribute("value")
+            ?? throw new XtceParseException("a Comparison element is missing its required 'value' attribute.");
+        var comparisonOperator = reader.GetAttribute("comparisonOperator");
+        var instance = ParseLong(reader, "instance");
+        var useCalibratedValue = ParseBool(reader, "useCalibratedValue");
+        var preservedAttributes = CapturePreservedAttributes(
+            reader, "parameterRef", "value", "comparisonOperator", "instance", "useCalibratedValue");
+
+        reader.Skip();
+
+        return new Comparison(parameterRef, value, comparisonOperator, instance, useCalibratedValue, preservedAttributes);
     }
 
     private static void ReadParameterTypeSet(

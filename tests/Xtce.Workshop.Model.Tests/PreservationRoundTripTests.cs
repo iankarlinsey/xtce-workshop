@@ -60,7 +60,10 @@ public class PreservationRoundTripTests
             ["BinaryParameterType", "AbsoluteTimeParameterType"],
             telemetry.PreservedParameterTypes!.Select(f => f.ElementName).ToList());
         Assert.Equal(["ParameterRef"], telemetry.PreservedParameters!.Select(f => f.ElementName).ToList());
-        Assert.Equal(["ContainerSet"], telemetry.Preserved!.Select(f => f.ElementName).ToList());
+        // ContainerSet is modeled as of issue #24, so nothing at the TelemetryMetaData
+        // level is left to preserve in this fixture.
+        Assert.Null(telemetry.Preserved);
+        Assert.Equal("MainFrame", Assert.Single(telemetry.ContainerSet!).Name);
     }
 
     [Fact]

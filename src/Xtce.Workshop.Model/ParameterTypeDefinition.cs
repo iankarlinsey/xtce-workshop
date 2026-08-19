@@ -129,16 +129,17 @@ public sealed record Parameter(
 /// PreservedParameterTypes holds unmodeled ParameterTypeSet entries (Binary/RelativeTime/
 /// AbsoluteTime/Array/Aggregate parameter types); PreservedParameters holds unmodeled
 /// ParameterSet entries (ParameterRef). Both sets are XSD choice-unbounded, so re-emitting
-/// preserved entries after the modeled ones is order-valid. Preserved holds unmodeled
-/// TelemetryMetaData children (ContainerSet, MessageSet, StreamSet, AlgorithmSet), re-emitted
-/// in XSD sequence order.
+/// preserved entries after the modeled ones is order-valid. ContainerSet is modeled (issue
+/// #24); Preserved holds the remaining unmodeled TelemetryMetaData children (MessageSet,
+/// StreamSet, AlgorithmSet), re-emitted in XSD sequence order.
 /// </summary>
 public sealed record TelemetryMetaData(
     IReadOnlyList<ParameterTypeDefinition> ParameterTypeSet,
     IReadOnlyList<Parameter> ParameterSet,
     IReadOnlyList<RawXmlFragment>? PreservedParameterTypes = null,
     IReadOnlyList<RawXmlFragment>? PreservedParameters = null,
-    IReadOnlyList<RawXmlFragment>? Preserved = null)
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<SequenceContainer>? ContainerSet = null)
 {
     public bool Equals(TelemetryMetaData? other) =>
         other is not null
@@ -146,7 +147,8 @@ public sealed record TelemetryMetaData(
         && ParameterSet.SequenceEqual(other.ParameterSet)
         && Structural.ListEquals(PreservedParameterTypes, other.PreservedParameterTypes)
         && Structural.ListEquals(PreservedParameters, other.PreservedParameters)
-        && Structural.ListEquals(Preserved, other.Preserved);
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(ContainerSet, other.ContainerSet);
 
     public override int GetHashCode()
     {
@@ -162,6 +164,7 @@ public sealed record TelemetryMetaData(
         Structural.AddList(ref hash, PreservedParameterTypes);
         Structural.AddList(ref hash, PreservedParameters);
         Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, ContainerSet);
         return hash.ToHashCode();
     }
 }

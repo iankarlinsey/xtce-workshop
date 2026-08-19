@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="ContainerDemo">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <IntegerParameterType name="ApidType" signed="false" sizeInBits="11"/>
+      <IntegerParameterType name="CounterType" signed="false" sizeInBits="14"/>
+      <FloatParameterType name="VoltageType" sizeInBits="32"/>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="Apid" parameterTypeRef="ApidType"/>
+      <Parameter name="SeqCount" parameterTypeRef="CounterType"/>
+      <Parameter name="BusVoltage" parameterTypeRef="VoltageType"/>
+    </ParameterSet>
+    <ContainerSet>
+      <SequenceContainer name="CcsdsHeader" abstract="true" shortDescription="Primary header layout">
+        <LongDescription>Abstract base layout shared by all packets.</LongDescription>
+        <EntryList>
+          <ParameterRefEntry parameterRef="Apid"/>
+          <ParameterRefEntry parameterRef="SeqCount">
+            <LocationInContainerInBits referenceLocation="containerStart">
+              <FixedValue>11</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+        </EntryList>
+      </SequenceContainer>
+      <SequenceContainer name="EpsPacket">
+        <EntryList>
+          <ParameterRefEntry parameterRef="BusVoltage"/>
+          <ParameterSegmentRefEntry parameterRef="SeqCount" sizeInBits="8"/>
+          <ContainerRefEntry containerRef="TrailerFragment"/>
+        </EntryList>
+        <BaseContainer containerRef="CcsdsHeader">
+          <RestrictionCriteria>
+            <Comparison parameterRef="Apid" value="101"/>
+          </RestrictionCriteria>
+        </BaseContainer>
+      </SequenceContainer>
+      <SequenceContainer name="AdcsPacket">
+        <EntryList/>
+        <BaseContainer containerRef="CcsdsHeader">
+          <RestrictionCriteria>
+            <ComparisonList>
+              <Comparison parameterRef="Apid" value="102"/>
+              <Comparison parameterRef="SeqCount" comparisonOperator="&gt;=" value="0" instance="-1" useCalibratedValue="false"/>
+            </ComparisonList>
+          </RestrictionCriteria>
+        </BaseContainer>
+      </SequenceContainer>
+      <SequenceContainer name="ChainedPacket">
+        <EntryList/>
+        <BaseContainer containerRef="CcsdsHeader">
+          <RestrictionCriteria>
+            <Comparison parameterRef="Apid" value="103"/>
+            <NextContainer containerRef="EpsPacket"/>
+          </RestrictionCriteria>
+        </BaseContainer>
+      </SequenceContainer>
+      <SequenceContainer name="TrailerFragment">
+        <EntryList>
+          <ParameterRefEntry parameterRef="SeqCount"/>
+        </EntryList>
+      </SequenceContainer>
+    </ContainerSet>
+  </TelemetryMetaData>
+</SpaceSystem>
