@@ -11,8 +11,11 @@ jobs:
     runs-on: dind
     container: mcr.microsoft.com/dotnet/sdk:8.0
     steps:
-      - name: Install git
-        run: apt-get update && apt-get install -y --no-install-recommends git
+      - name: Install git and Node.js
+        # actions/checkout and actions/upload-artifact are JS actions that need a `node`
+        # binary in the job container to run their dist/index.js — mcr.microsoft.com/dotnet/sdk
+        # doesn't ship one, and this container's contents aren't otherwise established.
+        run: apt-get update && apt-get install -y --no-install-recommends git nodejs
 
       - name: Checkout
         uses: actions/checkout@v4
