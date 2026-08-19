@@ -74,3 +74,17 @@ same depth of scrutiny.
   identified *primary* corpus, 286 pages) the same way — this matrix is
   built entirely from the XSD's own `<documentation>` blocks, which is one
   of at least two intended sources.
+
+**Phase D is blocked on something larger, worth flagging explicitly rather
+than starting unprompted.** Every one of these 15 rules applies to XTCE
+constructs — `Parameter`, `Calibrator`, `Container`, `MetaCommand`, name
+references generally — that `Xtce.Workshop.Model` doesn't parse or represent
+at all yet. The object model currently covers exactly one construct
+(`SpaceSystem` nesting). Implementing any of these 15 rules for real means
+first extending the object model to cover the relevant construct(s), which
+is a substantially larger scope than triage was — likely its own set of
+vertical slices, construct by construct, not a small follow-on. That
+prioritization call (which constructs matter most to model next —
+`TelemetryMetaData`/`ParameterTypeSet` for `R15` and `R07`, `ContainerSet`
+for `R04`/`R09`/`R10`, etc.) is a reasonable one to make with input rather
+than picked unilaterally.
