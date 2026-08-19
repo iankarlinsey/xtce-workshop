@@ -31,7 +31,10 @@ jobs:
 
       - name: Publish test results
         if: always()
-        uses: actions/upload-artifact@v4
+        # v4+ requires GitHub's newer Actions Results API backend, unsupported on
+        # Gitea/GHES-style servers ("not currently supported on GHES"). v3 uses the
+        # older upload API that Gitea Actions does support.
+        uses: actions/upload-artifact@v3
         with:
           name: test-results
           path: '**/test-results.trx'
