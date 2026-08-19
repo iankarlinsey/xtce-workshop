@@ -69,6 +69,7 @@ describe('App', () => {
       httpMock.expectOne('/api/xtce/load').flush({
         name: 'Minimal',
         tree: { label: 'Minimal', nodeType: 'SpaceSystem', children: [] },
+        document: { name: 'Minimal', children: [] },
       });
       fixture.detectChanges();
 
@@ -91,6 +92,13 @@ describe('App', () => {
             { label: 'Payload', nodeType: 'SpaceSystem', children: [] },
           ],
         },
+        document: {
+          name: 'Mission',
+          children: [
+            { name: 'Bus', children: [] },
+            { name: 'Payload', children: [] },
+          ],
+        },
       });
       fixture.detectChanges();
 
@@ -99,6 +107,27 @@ describe('App', () => {
       expect(compiled.textContent).toContain('Mission');
       expect(compiled.textContent).toContain('Bus');
       expect(compiled.textContent).toContain('Payload');
+    });
+
+    it('makes a loaded document immediately saveable, identically to New', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'nested.xml');
+      const clickSpy = spyOn(HTMLAnchorElement.prototype, 'click');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Mission',
+        tree: { label: 'Mission', nodeType: 'SpaceSystem', children: [] },
+        document: { name: 'Mission', children: [] },
+      });
+      fixture.detectChanges();
+
+      fixture.componentInstance.onSaveDocument();
+
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body).toEqual({ name: 'Mission', children: [] });
+      req.flush('<SpaceSystem name="Mission"/>');
+
+      expect(clickSpy).toHaveBeenCalled();
     });
 
     it('filters the tree via the search box', () => {
@@ -113,6 +142,13 @@ describe('App', () => {
           children: [
             { label: 'Bus', nodeType: 'SpaceSystem', children: [] },
             { label: 'Payload', nodeType: 'SpaceSystem', children: [] },
+          ],
+        },
+        document: {
+          name: 'Mission',
+          children: [
+            { name: 'Bus', children: [] },
+            { name: 'Payload', children: [] },
           ],
         },
       });

@@ -4,14 +4,15 @@ import { TreeNode, TreeNodeComponent } from './tree-node/tree-node';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
 
-interface LoadResult {
-  name: string;
-  tree: TreeNode;
-}
-
 interface SpaceSystemDocument {
   name: string;
   children: SpaceSystemDocument[];
+}
+
+interface LoadResult {
+  name: string;
+  tree: TreeNode;
+  document: SpaceSystemDocument;
 }
 
 @Component({
@@ -49,13 +50,19 @@ export class App {
     this.selectedFileName.set(file.name);
     this.loadedTree.set(null);
     this.loadError.set(null);
+    this.saveError.set(null);
     this.treeSearchTerm.set('');
 
     const formData = new FormData();
     formData.append('file', file);
 
     this.http.post<LoadResult>('/api/xtce/load', formData).subscribe({
-      next: (result) => this.loadedTree.set(result.tree),
+      next: (result) => {
+        this.loadedTree.set(result.tree);
+        // A loaded file becomes the current editable/saveable document immediately —
+        // the same state New already populates, so Save works identically either way.
+        this.currentDocument.set(result.document);
+      },
       error: (err) => this.loadError.set(err?.error?.error ?? 'Failed to load file.'),
     });
   }
