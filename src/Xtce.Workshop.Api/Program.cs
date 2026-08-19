@@ -1,3 +1,4 @@
+using Xtce.Workshop.Api;
 using Xtce.Workshop.Model;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,7 +13,8 @@ app.MapPost("/api/xtce/load", async (IFormFile file) =>
     try
     {
         var spaceSystem = XtceDocumentReader.Load(stream);
-        return Results.Ok(new { name = spaceSystem.Name });
+        var tree = TreeNode.FromSpaceSystem(spaceSystem);
+        return Results.Ok(new { name = spaceSystem.Name, tree });
     }
     catch (XtceParseException ex)
     {

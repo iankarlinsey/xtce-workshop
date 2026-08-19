@@ -17,7 +17,7 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
-    public async Task PostLoad_MinimalValidFile_Returns200WithName()
+    public async Task PostLoad_MinimalValidFile_Returns200WithNameAndTree()
     {
         var client = _factory.CreateClient();
         var repoRoot = FindRepoRoot();
@@ -32,6 +32,36 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Minimal", body.GetProperty("name").GetString());
+
+        var tree = body.GetProperty("tree");
+        Assert.Equal("Minimal", tree.GetProperty("label").GetString());
+        Assert.Equal("SpaceSystem", tree.GetProperty("nodeType").GetString());
+        Assert.Equal(0, tree.GetProperty("children").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task PostLoad_NestedValidFile_ReturnsFullTreeStructure()
+    {
+        var client = _factory.CreateClient();
+        var repoRoot = FindRepoRoot();
+        var samplePath = Path.Combine(repoRoot, "samples", "nested-1.2.xml");
+
+        using var content = new MultipartFormDataContent();
+        await using var fileStream = File.OpenRead(samplePath);
+        content.Add(new StreamContent(fileStream), "file", "nested-1.2.xml");
+
+        var response = await client.PostAsync("/api/xtce/load", content);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        var tree = body.GetProperty("tree");
+        Assert.Equal("Mission", tree.GetProperty("label").GetString());
+        var children = tree.GetProperty("children");
+        Assert.Equal(2, children.GetArrayLength());
+        Assert.Equal("Bus", children[0].GetProperty("label").GetString());
+        Assert.Equal(2, children[0].GetProperty("children").GetArrayLength());
+        Assert.Equal("Payload", children[1].GetProperty("label").GetString());
     }
 
     [Fact]
