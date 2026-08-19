@@ -11,11 +11,25 @@ jobs:
     runs-on: dind
     container: mcr.microsoft.com/dotnet/sdk:8.0
     steps:
+      - name: Diagnose CA bundle before installing anything
+        run: |
+          echo "--- cert count before apt-get ---"
+          grep -c BEGIN /etc/ssl/certs/ca-certificates.crt || echo "file missing"
+          md5sum /etc/ssl/certs/ca-certificates.crt || true
+          dpkg -l ca-certificates || echo "ca-certificates package not installed yet"
+
       - name: Install git and Node.js
         # actions/checkout and actions/upload-artifact are JS actions that need a `node`
         # binary in the job container to run their dist/index.js — mcr.microsoft.com/dotnet/sdk
         # doesn't ship one, and this container's contents aren't otherwise established.
         run: apt-get update && apt-get install -y --no-install-recommends git nodejs
+
+      - name: Diagnose CA bundle after installing git/nodejs
+        run: |
+          echo "--- cert count after apt-get ---"
+          grep -c BEGIN /etc/ssl/certs/ca-certificates.crt || echo "file missing"
+          md5sum /etc/ssl/certs/ca-certificates.crt || true
+          dpkg -l ca-certificates || echo "ca-certificates package not installed"
 
       - name: Checkout
         uses: actions/checkout@v4
