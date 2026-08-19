@@ -14,7 +14,7 @@ app.MapPost("/api/xtce/load", async (IFormFile file) =>
     {
         var spaceSystem = XtceDocumentReader.Load(stream);
         var tree = TreeNode.FromSpaceSystem(spaceSystem);
-        return Results.Ok(new { name = spaceSystem.Name, tree });
+        return Results.Ok(new { name = spaceSystem.Name, tree, document = spaceSystem });
     }
     catch (XtceParseException ex)
     {
