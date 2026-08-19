@@ -24,6 +24,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Xtce.Workshop.Model\Xtce.Workshop.Model.csproj" />
+    <!-- For the Phase E adversarial suite (AdversarialEndToEndTests), which needs the
+         validator AND this project's XSD-validation helper in one place. -->
+    <ProjectReference Include="..\..\src\Xtce.Workshop.Validation\Xtce.Workshop.Validation.csproj" />
   </ItemGroup>
 
 </Project>

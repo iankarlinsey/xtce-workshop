@@ -33,7 +33,7 @@ B is the triage: read each candidate and classify it.
 - **FLAGGED** (2 candidates) — neither of the above; a genuine finding worth
   recording on its own. See below.
 
-## The two FLAGGED findings
+## The three FLAGGED findings
 
 1. **Candidate #40 (`BaseMetaCommandType`) — a real spec-internal
    inconsistency.** The documentation states `ArgumentAssignmentList` is
@@ -41,7 +41,14 @@ B is the triage: read each candidate and classify it.
    not implemented as a strict rule: doing so would make this validator
    *stricter than the schema itself* and reject files other XTCE tooling
    accepts. Recorded as a finding, not a rule.
-2. **Candidate #60 (`DimensionType`) — needs deeper schema review.** The
+2. **`ContainerSegmentRefEntryType`/`ParameterSegmentRefEntryType` `order` —
+   another doc-vs-schema inconsistency, found by Phase E.** The XSD's own
+   documentation says "the first segment order='0'", but the attribute's
+   type is `PositiveLongType` (minInclusive 1), so `order="0"` does not
+   validate. Discovered when Phase E's every-trigger-must-be-schema-valid
+   assertion rejected an order="0" fixture. R04's duplicate-order detection
+   is unaffected (it compares values, whatever their base).
+3. **Candidate #60 (`DimensionType`) — needs deeper schema review.** The
    documentation describes an OR/choice between `{StartingIndex,EndingIndex}`
    and a "Size" alternative, but `DimensionType`'s own definition only shows
    the index pair. If the Size alternative is real, it likely lives in a
@@ -111,10 +118,13 @@ same depth of scrutiny.
   Phase D is complete: all 15 rules carry `Implemented` status (8 `yes`,
   7 `partial`)** — every `partial` has its citation gap recorded in the
   rule's source docs and closes as more constructs become modeled.
-- Phase E: adversarial verification that "tested" rules actually fire. Not
-  started as a distinct pass yet — #22's fixtures include both positive and
-  negative cases per rule, but a dedicated adversarial-verification pass
-  (per the methodology's original intent) hasn't happened.
+- Phase E: **done** (issue #34, `AdversarialEndToEndTests`): every matrix
+  rule has a TRIGGER and a NEAR-MISS document, both loaded through the real
+  reader (never hand-constructed records) and both asserted schema-valid
+  first — if a trigger were schema-invalid, the "semantic" rule would be
+  re-checking what the schema already enforces. A completeness fact keeps
+  the suite honest: a matrix rule without a Phase E case fails the build.
+  The pass immediately paid for itself by finding FLAGGED item #2 above.
 - Not yet started: mining CCSDS 660.1-G-2 (Element Description, the
   identified *primary* corpus, 286 pages) the same way — this matrix is
   built entirely from the XSD's own `<documentation>` blocks, which is one
