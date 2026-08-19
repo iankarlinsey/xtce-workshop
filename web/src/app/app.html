@@ -206,24 +206,71 @@
           </label>
         </div>
 
-        <div class="form-field">
-          <label>Entry list <span class="hint">(read-only for now)</span></label>
+        <div class="form-field entry-editor">
+          <label>Entry list <span class="hint">(order is the packet layout)</span></label>
           @if (container.entryList.length === 0) {
             <p class="meta-text">No entries.</p>
-          } @else {
-            <ol class="entry-list">
-              @for (entry of container.entryList; track $index) {
-                <li class="entry-row">
-                  @switch (entry.kind) {
-                    @case ('ParameterRef') { <span class="entry-kind">param</span> {{ entry.ref }} }
-                    @case ('ContainerRef') { <span class="entry-kind">container</span> {{ entry.ref }} }
-                    @case ('Raw') { <span class="entry-kind">other</span> {{ entry.rawXml?.elementName }} }
-                  }
-                </li>
+          }
+          @for (entry of container.entryList; track $index; let i = $index) {
+            <div class="entry-edit-row">
+              <span class="entry-kind">{{ entryLabel(entry) }}</span>
+              @if (entry.kind === 'Raw') {
+                <span class="entry-raw-label">unmodeled entry (preserved verbatim)</span>
+              } @else {
+                <input
+                  class="entry-ref"
+                  [attr.list]="entry.kind === 'ParameterRef' ? 'known-parameter-names' : 'known-container-names'"
+                  [value]="entry.ref ?? ''"
+                  (input)="onEntryRefInput(i, $event)"
+                  [attr.aria-label]="'Entry ' + i + ' reference'"
+                />
               }
-            </ol>
+              <button type="button" class="btn entry-btn" (click)="onMoveEntry(i, -1)" [disabled]="i === 0" aria-label="Move entry up">&uarr;</button>
+              <button type="button" class="btn entry-btn" (click)="onMoveEntry(i, 1)" [disabled]="i === container.entryList.length - 1" aria-label="Move entry down">&darr;</button>
+              <button type="button" class="btn btn-danger entry-btn" (click)="onRemoveEntry(i)" aria-label="Remove entry">&times;</button>
+            </div>
+          }
+          <div class="entry-edit-row add-entry-row">
+            <select #newEntryKind class="kind-select" aria-label="New entry kind">
+              <option value="ParameterRef">param</option>
+              <option value="ContainerRef">container</option>
+            </select>
+            <input #newEntryRef class="entry-ref" list="known-parameter-names" placeholder="reference" aria-label="New entry reference" />
+            <button type="button" class="btn" (click)="onAddEntry(newEntryKind, newEntryRef)">+ Add entry</button>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>Base container <span class="hint">(inheritance)</span></label>
+          @if (container.baseContainer; as base) {
+            <div class="entry-edit-row">
+              <input
+                class="entry-ref"
+                list="known-container-names"
+                [value]="base.containerRef"
+                (input)="onBaseContainerRefInput($event)"
+                aria-label="Base container reference"
+              />
+              <button type="button" class="btn btn-danger entry-btn" (click)="onRemoveBaseContainer()" aria-label="Remove base container">&times;</button>
+            </div>
+            @if (base.restrictionCriteria) {
+              <p class="meta-text">Has restriction criteria (edited as XML for now).</p>
+            }
+          } @else {
+            <button type="button" class="btn" (click)="onAddBaseContainer()">+ Add base container</button>
           }
         </div>
+
+        <datalist id="known-parameter-names">
+          @for (name of knownParameterNames(); track name) {
+            <option [value]="name"></option>
+          }
+        </datalist>
+        <datalist id="known-container-names">
+          @for (name of knownContainerNames(); track name) {
+            <option [value]="name"></option>
+          }
+        </datalist>
 
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>

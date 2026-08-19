@@ -535,7 +535,7 @@ describe('App', () => {
       expect(itemLabels).not.toContain('BusVoltage');
     }));
 
-    it('selecting a container shows its read-only entry list', () => {
+    it('selecting a container shows its entry list with editable refs', () => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);
 
@@ -543,8 +543,132 @@ describe('App', () => {
 
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('.node-title')?.textContent).toContain('Frame');
-      expect(compiled.querySelector('.entry-list')?.textContent).toContain('BusVoltage');
+      const refInput = compiled.querySelector('.entry-editor .entry-ref') as HTMLInputElement;
+      expect(refInput.value).toBe('BusVoltage');
     });
+
+    it('adding, editing, moving, and removing entries flows into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Frame');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      // Add a container-ref entry.
+      const kindSelect = compiled.querySelector('.add-entry-row .kind-select') as HTMLSelectElement;
+      kindSelect.value = 'ContainerRef';
+      const newRef = compiled.querySelector('.add-entry-row .entry-ref') as HTMLInputElement;
+      newRef.value = 'Frame';
+      const addButton = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add entry'
+      ) as HTMLButtonElement;
+      addButton.click();
+      fixture.detectChanges();
+
+      // Move the new entry (index 1) up to the front.
+      const moveUpButtons = compiled.querySelectorAll('.entry-edit-row button[aria-label="Move entry up"]');
+      (moveUpButtons[1] as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      // Edit the (now second) parameter entry's ref.
+      const refInputs = compiled.querySelectorAll('.entry-editor .entry-ref');
+      const paramRef = refInputs[1] as HTMLInputElement;
+      paramRef.value = 'RenamedRef';
+      paramRef.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const entries = req.request.body.telemetryMetaData.containerSet[0].entryList;
+      expect(entries).toEqual([
+        { kind: 'ContainerRef', ref: 'Frame' },
+        { kind: 'ParameterRef', ref: 'RenamedRef' },
+      ]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('removing an entry flows into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Frame');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const removeButton = compiled.querySelector('.entry-edit-row button[aria-label="Remove entry"]') as HTMLButtonElement;
+      removeButton.click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.containerSet[0].entryList).toEqual([]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('adding a base container and editing its ref flows into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Frame');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const addBase = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add base container'
+      ) as HTMLButtonElement;
+      addBase.click();
+      fixture.detectChanges();
+
+      const baseInput = compiled.querySelector('input[aria-label="Base container reference"]') as HTMLInputElement;
+      baseInput.value = 'SomeBase';
+      baseInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.containerSet[0].baseContainer).toEqual({ containerRef: 'SomeBase' });
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('raw (unmodeled) entries display read-only but keep their payload through Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'raw.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [],
+            parameterSet: [],
+            containerSet: [{
+              name: 'Frame',
+              entryList: [
+                { kind: 'Raw', rawXml: { elementName: 'ParameterSegmentRefEntry', outerXml: '<ParameterSegmentRefEntry/>' } },
+                { kind: 'ParameterRef', ref: 'P' },
+              ],
+            }],
+          },
+        },
+      });
+      fixture.detectChanges();
+      clickTreeRowByText(fixture, 'Frame');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('.entry-raw-label')?.textContent).toContain('unmodeled');
+
+      // Move the raw entry down — reorder must carry the raw payload untouched.
+      const moveDown = compiled.querySelector('.entry-edit-row button[aria-label="Move entry down"]') as HTMLButtonElement;
+      moveDown.click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const entries = req.request.body.telemetryMetaData.containerSet[0].entryList;
+      expect(entries[0]).toEqual({ kind: 'ParameterRef', ref: 'P' });
+      expect(entries[1].rawXml.elementName).toBe('ParameterSegmentRefEntry');
+      req.flush('<SpaceSystem/>');
+    }));
 
     it('preserved (unmodeled) document content passes through edits into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();

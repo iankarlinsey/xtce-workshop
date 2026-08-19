@@ -10,6 +10,7 @@ import {
   NodePath,
   Selection,
   ItemKind,
+  SequenceEntryDoc,
   getNodeAtPath,
   updateNodeAtPath,
   deleteNodeAtPath,
@@ -18,6 +19,9 @@ import {
   addItemToSystem,
   deleteItemAtSelection,
   collectParameterTypeNames,
+  collectParameterNames,
+  collectContainerNames,
+  moveEntry,
 } from './document-tree';
 import { ValidationIssue } from './validation';
 
@@ -100,6 +104,16 @@ export class App {
   protected readonly knownTypeNames = computed(() => {
     const doc = this.currentDocument();
     return doc ? collectParameterTypeNames(doc) : [];
+  });
+
+  protected readonly knownParameterNames = computed(() => {
+    const doc = this.currentDocument();
+    return doc ? collectParameterNames(doc) : [];
+  });
+
+  protected readonly knownContainerNames = computed(() => {
+    const doc = this.currentDocument();
+    return doc ? collectContainerNames(doc) : [];
   });
 
   constructor() {
@@ -282,6 +296,78 @@ export class App {
         }),
       };
     });
+  }
+
+  // --- Container entry-list editing -----------------------------------------------------
+
+  onAddEntry(kindSelect: HTMLSelectElement, refInput: HTMLInputElement): void {
+    const reference = refInput.value.trim();
+    if (!reference) {
+      return;
+    }
+    const kind = kindSelect.value as 'ParameterRef' | 'ContainerRef';
+    this.mutateSelectedContainer((container) => ({
+      ...container,
+      entryList: [...container.entryList, { kind, ref: reference }],
+    }));
+    refInput.value = '';
+  }
+
+  onEntryRefInput(index: number, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedContainer((container) => ({
+      ...container,
+      entryList: container.entryList.map((entry, i) => (i === index ? { ...entry, ref: value } : entry)),
+    }));
+  }
+
+  onRemoveEntry(index: number): void {
+    this.mutateSelectedContainer((container) => ({
+      ...container,
+      entryList: container.entryList.filter((_, i) => i !== index),
+    }));
+  }
+
+  onMoveEntry(index: number, delta: number): void {
+    this.mutateSelectedContainer((container) => moveEntry(container, index, delta));
+  }
+
+  onBaseContainerRefInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedContainer((container) => ({
+      ...container,
+      // Spread the existing baseContainer so its RestrictionCriteria (and preserved
+      // content) survive a ref edit.
+      baseContainer: { ...(container.baseContainer ?? {}), containerRef: value },
+    }));
+  }
+
+  onAddBaseContainer(): void {
+    this.mutateSelectedContainer((container) =>
+      container.baseContainer ? container : { ...container, baseContainer: { containerRef: '' } });
+  }
+
+  onRemoveBaseContainer(): void {
+    this.mutateSelectedContainer((container) => ({ ...container, baseContainer: null }));
+  }
+
+  private mutateSelectedContainer(updater: (container: SequenceContainerDoc) => SequenceContainerDoc): void {
+    const selection = this.selection();
+    if (selection?.item?.kind !== 'container') {
+      return;
+    }
+    this.mutateSelectedItem((item) => updater(item as SequenceContainerDoc));
+  }
+
+  protected entryLabel(entry: SequenceEntryDoc): string {
+    switch (entry.kind) {
+      case 'ParameterRef':
+        return 'param';
+      case 'ContainerRef':
+        return 'container';
+      default:
+        return entry.rawXml?.elementName ?? 'other';
+    }
   }
 
   // --- Save / search / revalidation ----------------------------------------------------

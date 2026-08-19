@@ -44,10 +44,17 @@ export interface SequenceEntryDoc {
   [key: string]: unknown;
 }
 
+export interface BaseContainerDoc {
+  containerRef: string;
+  restrictionCriteria?: unknown | null;
+  [key: string]: unknown;
+}
+
 export interface SequenceContainerDoc {
   name: string;
   entryList: SequenceEntryDoc[];
   abstract?: boolean | null;
+  baseContainer?: BaseContainerDoc | null;
   [key: string]: unknown;
 }
 
@@ -240,13 +247,42 @@ export function deleteItemAtSelection(doc: SpaceSystemDocument, selection: Selec
 
 /** Every parameter-type name in the document — datalist fodder for parameterTypeRef inputs. */
 export function collectParameterTypeNames(doc: SpaceSystemDocument): string[] {
+  return collectNames(doc, (t) => t.telemetryMetaData?.parameterTypeSet);
+}
+
+/** Every parameter name in the document — datalist fodder for parameterRef inputs. */
+export function collectParameterNames(doc: SpaceSystemDocument): string[] {
+  return collectNames(doc, (t) => t.telemetryMetaData?.parameterSet);
+}
+
+/** Every container name in the document — datalist fodder for containerRef inputs. */
+export function collectContainerNames(doc: SpaceSystemDocument): string[] {
+  return collectNames(doc, (t) => t.telemetryMetaData?.containerSet);
+}
+
+function collectNames(
+  doc: SpaceSystemDocument,
+  select: (node: SpaceSystemDocument) => { name: string }[] | null | undefined
+): string[] {
   const names: string[] = [];
   const walk = (node: SpaceSystemDocument) => {
-    for (const type of node.telemetryMetaData?.parameterTypeSet ?? []) {
-      names.push(type.name);
+    for (const item of select(node) ?? []) {
+      names.push(item.name);
     }
     node.children.forEach(walk);
   };
   walk(doc);
   return [...new Set(names)].sort();
+}
+
+/** Moves the entry at `index` by `delta` positions within a container's entry list. */
+export function moveEntry(container: SequenceContainerDoc, index: number, delta: number): SequenceContainerDoc {
+  const target = index + delta;
+  if (target < 0 || target >= container.entryList.length) {
+    return container;
+  }
+  const entryList = [...container.entryList];
+  const [entry] = entryList.splice(index, 1);
+  entryList.splice(target, 0, entry);
+  return { ...container, entryList };
 }
