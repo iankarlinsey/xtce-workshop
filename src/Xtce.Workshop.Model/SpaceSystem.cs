@@ -6,25 +6,29 @@ namespace Xtce.Workshop.Model;
 /// `Children` reflects that a SpaceSystem may recursively contain child SpaceSystems
 /// (SpaceSystemType: &lt;element ref="xtce:SpaceSystem" minOccurs="0" maxOccurs="unbounded"/&gt;);
 /// `TelemetryMetaData` is optional (minOccurs="0" in the XSD) and null on SpaceSystem nodes
-/// that don't define any parameters. Extend further as later slices need more of the
-/// document (CommandMetaData, Header, etc.).
+/// that don't define any parameters.
+///
+/// `Preserved` holds unmodeled child elements (LongDescription, AliasSet, AncillaryDataSet,
+/// Header, CommandMetaData, ServiceSet) and `PreservedAttributes` unmodeled attributes
+/// (shortDescription, operationalStatus, xml:base, xsi:schemaLocation, namespace
+/// declarations) captured verbatim on load and written back on save — see RawXml.cs and
+/// issue #23 (lossless round-trip). Extend the modeled surface as later slices need more
+/// of the document; preservation keeps the gap lossless in the meantime.
 /// </summary>
 public sealed record SpaceSystem(
     string Name,
     IReadOnlyList<SpaceSystem> Children,
-    TelemetryMetaData? TelemetryMetaData = null)
+    TelemetryMetaData? TelemetryMetaData = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
 {
-    // Record-generated equality compares Children by the collection instance/type, not
-    // its contents — two structurally identical trees built from a List vs. an array (or
-    // just two different List instances) would otherwise compare unequal. Override with
-    // an explicit structural (element-by-element, order-sensitive) comparison instead.
-    // TelemetryMetaData already has its own value-equality override, so a plain Equals()
-    // comparison (which is null-safe) is sufficient for it.
     public bool Equals(SpaceSystem? other) =>
         other is not null
         && Name == other.Name
         && Children.SequenceEqual(other.Children)
-        && Equals(TelemetryMetaData, other.TelemetryMetaData);
+        && Equals(TelemetryMetaData, other.TelemetryMetaData)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
 
     public override int GetHashCode()
     {
@@ -33,6 +37,8 @@ public sealed record SpaceSystem(
         foreach (var child in Children)
             hash.Add(child);
         hash.Add(TelemetryMetaData);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
         return hash.ToHashCode();
     }
 }

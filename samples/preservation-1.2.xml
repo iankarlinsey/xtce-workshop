@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/XTCE/20180204 SpaceSystem.xsd"
+             name="PreservationDemo"
+             shortDescription="Round-trip preservation fixture"
+             operationalStatus="unittest">
+  <LongDescription>Exercises every raw-preservation path in the reader and writer.</LongDescription>
+  <AliasSet>
+    <Alias nameSpace="fsw" alias="PRES_DEMO"/>
+  </AliasSet>
+  <Header validationStatus="Test" version="1.0" date="2026-08-19">
+    <NoteSet>
+      <Note>Preservation fixture — this Header must survive load/save untouched.</Note>
+    </NoteSet>
+  </Header>
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <IntegerParameterType name="Counter_Type" signed="false" sizeInBits="16" baseType="SomeBase_Type" shortDescription="frame counter">
+        <UnitSet>
+          <Unit description="count">counts</Unit>
+        </UnitSet>
+        <IntegerDataEncoding encoding="unsigned" sizeInBits="16"/>
+      </IntegerParameterType>
+      <EnumeratedParameterType name="Mode_Type" initialValue="IDLE">
+        <EnumerationList>
+          <Enumeration value="0" label="IDLE" shortDescription="doing nothing"/>
+          <Enumeration value="1" maxValue="3" label="ACTIVE"/>
+        </EnumerationList>
+      </EnumeratedParameterType>
+      <BinaryParameterType name="Blob_Type"/>
+      <AbsoluteTimeParameterType name="MissionTime_Type"/>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="Counter" parameterTypeRef="Counter_Type" shortDescription="main counter">
+        <ParameterProperties dataSource="telemetered" readOnly="true"/>
+      </Parameter>
+      <Parameter name="Mode" parameterTypeRef="Mode_Type"/>
+      <ParameterRef parameterRef="Other/SomeParam"/>
+    </ParameterSet>
+    <ContainerSet>
+      <SequenceContainer name="MainFrame">
+        <EntryList>
+          <ParameterRefEntry parameterRef="Counter"/>
+        </EntryList>
+      </SequenceContainer>
+    </ContainerSet>
+  </TelemetryMetaData>
+  <CommandMetaData/>
+  <SpaceSystem name="Bus"/>
+</SpaceSystem>

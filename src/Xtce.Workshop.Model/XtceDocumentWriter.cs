@@ -9,10 +9,46 @@ namespace Xtce.Workshop.Model;
 /// XDocument, for the same reason the reader is streaming: consistency, and
 /// compatibility with eventually handling tens-of-MB documents without buffering the
 /// whole tree as one XML string in memory.
+///
+/// Preserved raw fragments (unmodeled elements captured on load — see RawXml.cs, issue #23)
+/// are re-emitted via WriteRaw into their XSD-sequence-correct slot among modeled siblings,
+/// using per-parent element-order tables and a stable merge, so output written from a
+/// schema-valid input stays schema-valid.
 /// </summary>
 public static class XtceDocumentWriter
 {
     private const string XtceNamespace = "http://www.omg.org/spec/XTCE/20180204";
+
+    // XSD sequence order of SpaceSystemType's content (NameDescriptionType's inherited
+    // children first, then SpaceSystemType's own sequence).
+    private static readonly string[] SpaceSystemChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet",
+        "Header", "TelemetryMetaData", "CommandMetaData", "ServiceSet", "SpaceSystem",
+    ];
+
+    private static readonly string[] TelemetryMetaDataChildOrder =
+    [
+        "ParameterTypeSet", "ParameterSet", "ContainerSet", "MessageSet", "StreamSet", "AlgorithmSet",
+    ];
+
+    // Superset covering every modeled parameter type kind's XSD sequence: DescriptionType
+    // children, then BaseDataType (UnitSet, encoding choice), then per-kind extensions —
+    // each kind uses a subset of this list in this same relative order.
+    private static readonly string[] ParameterTypeChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet",
+        "UnitSet",
+        "BinaryDataEncoding", "FloatDataEncoding", "IntegerDataEncoding", "StringDataEncoding",
+        "ToString", "ValidRange", "SizeRangeInCharacters",
+        "EnumerationList",
+        "DefaultAlarm", "ContextAlarmList", "BinaryContextAlarmList",
+    ];
+
+    private static readonly string[] ParameterChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet", "ParameterProperties",
+    ];
 
     /// <summary>
     /// Writes UTF-8 XML to the given stream. Takes a Stream, not a string — writing via
@@ -23,7 +59,10 @@ public static class XtceDocumentWriter
     /// </summary>
     public static void Write(SpaceSystem spaceSystem, Stream output)
     {
-        var settings = new XmlWriterSettings { Indent = true, Encoding = Encoding.UTF8 };
+        // UTF8Encoding(false), not Encoding.UTF8: the latter emits a BOM, which the string
+        // overload then surfaces as a leading U+FEFF character in API responses and breaks
+        // strict XML consumers ("data at the root level is invalid").
+        var settings = new XmlWriterSettings { Indent = true, Encoding = new UTF8Encoding(false) };
         using var writer = XmlWriter.Create(output, settings);
         WriteSpaceSystem(writer, spaceSystem);
     }
@@ -43,52 +82,81 @@ public static class XtceDocumentWriter
         // XML that doesn't validate against the XSD (elementFormDefault="qualified").
         writer.WriteStartElement("SpaceSystem", XtceNamespace);
         writer.WriteAttributeString("name", spaceSystem.Name);
+        WritePreservedAttributes(writer, spaceSystem.PreservedAttributes);
 
+        var slots = new List<(string Name, Action Emit)>();
+        AddPreservedSlots(slots, writer, spaceSystem.Preserved);
         if (spaceSystem.TelemetryMetaData is not null)
         {
-            WriteTelemetryMetaData(writer, spaceSystem.TelemetryMetaData);
+            var telemetryMetaData = spaceSystem.TelemetryMetaData;
+            slots.Add(("TelemetryMetaData", () => WriteTelemetryMetaData(writer, telemetryMetaData)));
         }
-
         foreach (var child in spaceSystem.Children)
         {
-            WriteSpaceSystem(writer, child);
+            var captured = child;
+            slots.Add(("SpaceSystem", () => WriteSpaceSystem(writer, captured)));
         }
+        EmitInSchemaOrder(SpaceSystemChildOrder, slots);
 
         writer.WriteEndElement();
     }
 
     private static void WriteTelemetryMetaData(XmlWriter writer, TelemetryMetaData telemetryMetaData)
     {
-        // TelemetryMetaDataType's sequence orders ParameterTypeSet before ParameterSet — the
-        // written order must match the XSD sequence for the document to validate.
         writer.WriteStartElement("TelemetryMetaData", XtceNamespace);
 
-        if (telemetryMetaData.ParameterTypeSet.Count > 0)
+        var slots = new List<(string Name, Action Emit)>();
+
+        if (telemetryMetaData.ParameterTypeSet.Count > 0 || telemetryMetaData.PreservedParameterTypes is { Count: > 0 })
         {
-            writer.WriteStartElement("ParameterTypeSet", XtceNamespace);
-            foreach (var parameterType in telemetryMetaData.ParameterTypeSet)
+            slots.Add(("ParameterTypeSet", () =>
             {
-                WriteParameterType(writer, parameterType);
-            }
-            writer.WriteEndElement();
+                writer.WriteStartElement("ParameterTypeSet", XtceNamespace);
+                foreach (var parameterType in telemetryMetaData.ParameterTypeSet)
+                {
+                    WriteParameterType(writer, parameterType);
+                }
+                // The set is XSD choice-unbounded, so preserved (unmodeled-kind) entries
+                // can validly follow the modeled ones regardless of original interleaving.
+                WriteFragments(writer, telemetryMetaData.PreservedParameterTypes);
+                writer.WriteEndElement();
+            }));
         }
 
-        if (telemetryMetaData.ParameterSet.Count > 0)
+        if (telemetryMetaData.ParameterSet.Count > 0 || telemetryMetaData.PreservedParameters is { Count: > 0 })
         {
-            writer.WriteStartElement("ParameterSet", XtceNamespace);
-            foreach (var parameter in telemetryMetaData.ParameterSet)
+            slots.Add(("ParameterSet", () =>
             {
-                writer.WriteStartElement("Parameter", XtceNamespace);
-                writer.WriteAttributeString("name", parameter.Name);
-                writer.WriteAttributeString("parameterTypeRef", parameter.ParameterTypeRef);
-                if (parameter.InitialValue is not null)
+                writer.WriteStartElement("ParameterSet", XtceNamespace);
+                foreach (var parameter in telemetryMetaData.ParameterSet)
                 {
-                    writer.WriteAttributeString("initialValue", parameter.InitialValue);
+                    WriteParameter(writer, parameter);
                 }
+                WriteFragments(writer, telemetryMetaData.PreservedParameters);
                 writer.WriteEndElement();
-            }
-            writer.WriteEndElement();
+            }));
         }
+
+        AddPreservedSlots(slots, writer, telemetryMetaData.Preserved);
+        EmitInSchemaOrder(TelemetryMetaDataChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteParameter(XmlWriter writer, Parameter parameter)
+    {
+        writer.WriteStartElement("Parameter", XtceNamespace);
+        writer.WriteAttributeString("name", parameter.Name);
+        writer.WriteAttributeString("parameterTypeRef", parameter.ParameterTypeRef);
+        if (parameter.InitialValue is not null)
+        {
+            writer.WriteAttributeString("initialValue", parameter.InitialValue);
+        }
+        WritePreservedAttributes(writer, parameter.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        AddPreservedSlots(slots, writer, parameter.Preserved);
+        EmitInSchemaOrder(ParameterChildOrder, slots);
 
         writer.WriteEndElement();
     }
@@ -137,19 +205,106 @@ public static class XtceDocumentWriter
             writer.WriteAttributeString("initialValue", parameterType.InitialValue);
         }
 
+        WritePreservedAttributes(writer, parameterType.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        AddPreservedSlots(slots, writer, parameterType.Preserved);
         if (parameterType.Kind == ParameterTypeKind.Enumerated)
         {
-            writer.WriteStartElement("EnumerationList", XtceNamespace);
-            foreach (var entry in parameterType.Enumerations ?? Array.Empty<EnumerationEntry>())
+            slots.Add(("EnumerationList", () =>
             {
-                writer.WriteStartElement("Enumeration", XtceNamespace);
-                writer.WriteAttributeString("value", XmlConvert.ToString(entry.Value));
-                writer.WriteAttributeString("label", entry.Label);
+                writer.WriteStartElement("EnumerationList", XtceNamespace);
+                foreach (var entry in parameterType.Enumerations ?? Array.Empty<EnumerationEntry>())
+                {
+                    writer.WriteStartElement("Enumeration", XtceNamespace);
+                    writer.WriteAttributeString("value", XmlConvert.ToString(entry.Value));
+                    if (entry.MaxValue is { } maxValue)
+                    {
+                        writer.WriteAttributeString("maxValue", XmlConvert.ToString(maxValue));
+                    }
+                    writer.WriteAttributeString("label", entry.Label);
+                    if (entry.ShortDescription is not null)
+                    {
+                        writer.WriteAttributeString("shortDescription", entry.ShortDescription);
+                    }
+                    writer.WriteEndElement();
+                }
                 writer.WriteEndElement();
-            }
-            writer.WriteEndElement();
+            }));
         }
+        EmitInSchemaOrder(ParameterTypeChildOrder, slots);
 
         writer.WriteEndElement();
+    }
+
+    private static void AddPreservedSlots(
+        List<(string Name, Action Emit)> slots, XmlWriter writer, IReadOnlyList<RawXmlFragment>? preserved)
+    {
+        if (preserved is null)
+        {
+            return;
+        }
+        foreach (var fragment in preserved)
+        {
+            var captured = fragment;
+            slots.Add((fragment.ElementName, () => writer.WriteRaw(captured.OuterXml)));
+        }
+    }
+
+    private static void WriteFragments(XmlWriter writer, IReadOnlyList<RawXmlFragment>? fragments)
+    {
+        if (fragments is null)
+        {
+            return;
+        }
+        foreach (var fragment in fragments)
+        {
+            writer.WriteRaw(fragment.OuterXml);
+        }
+    }
+
+    /// <summary>
+    /// Emits slot actions stably sorted by their element name's position in the parent's
+    /// XSD sequence table — preserved fragments interleave correctly with modeled elements,
+    /// and same-named entries keep their captured relative order (OrderBy is stable). A name
+    /// missing from the table (shouldn't happen for schema-valid input) sorts last rather
+    /// than throwing: emitting it somewhere beats losing it.
+    /// </summary>
+    private static void EmitInSchemaOrder(string[] orderTable, List<(string Name, Action Emit)> slots)
+    {
+        foreach (var slot in slots.OrderBy(s =>
+                 {
+                     var index = Array.IndexOf(orderTable, s.Name);
+                     return index < 0 ? orderTable.Length : index;
+                 }))
+        {
+            slot.Emit();
+        }
+    }
+
+    private static void WritePreservedAttributes(XmlWriter writer, IReadOnlyList<RawAttribute>? attributes)
+    {
+        if (attributes is null)
+        {
+            return;
+        }
+
+        foreach (var attribute in attributes)
+        {
+            var colon = attribute.Name.IndexOf(':');
+            if (colon < 0)
+            {
+                writer.WriteAttributeString(attribute.Name, attribute.Value);
+            }
+            else
+            {
+                // Prefixed attribute (xsi:schemaLocation, xml:base) or prefixed namespace
+                // declaration (xmlns:xsi) — re-bind the original prefix to its captured
+                // namespace so preserved fragments that use the prefix stay resolvable.
+                var prefix = attribute.Name[..colon];
+                var localName = attribute.Name[(colon + 1)..];
+                writer.WriteAttributeString(prefix, localName, attribute.NamespaceUri, attribute.Value);
+            }
+        }
     }
 }

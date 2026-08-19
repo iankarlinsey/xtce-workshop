@@ -4,10 +4,12 @@ namespace Xtce.Workshop.Model;
 /// Which XTCE ParameterTypeSet element a ParameterTypeDefinition represents. A closed-union
 /// (discriminated-by-enum) shape was chosen over a record type hierarchy: this project already
 /// discriminates XML element kinds by name when reading/writing (see XtceDocumentReader/Writer),
-/// so a Kind field maps directly onto that existing decision logic, and it sidesteps configuring
-/// System.Text.Json polymorphic serialization for the API's JSON boundary. Kind-specific fields
-/// are nullable and only meaningful for their corresponding Kind — see summary.md's Architecture
-/// Decisions for the tradeoff discussion.
+/// so a Kind field maps directly onto that existing decision logic, and it sidesteps
+/// System.Text.Json polymorphic serialization at the API's JSON boundary — on .NET 8 STJ
+/// requires the type discriminator to be the FIRST property of incoming JSON, which a browser
+/// client round-tripping documents through object spreads cannot reliably guarantee. Kind-
+/// specific fields are nullable and only meaningful for their corresponding Kind — see
+/// summary.md's Architecture Decisions for the tradeoff discussion and the revisit trigger.
 /// </summary>
 public enum ParameterTypeKind
 {
@@ -18,14 +20,31 @@ public enum ParameterTypeKind
     Enumerated,
 }
 
-/// <summary>One Value/Label pair in an EnumeratedParameterType's EnumerationList.</summary>
-public sealed record EnumerationEntry(long Value, string Label);
+/// <summary>
+/// One Value/Label pair in an EnumeratedParameterType's EnumerationList. MaxValue (when set)
+/// makes the label cover the inclusive range [Value, MaxValue]; ShortDescription is the
+/// XSD's optional per-label description. Both are modeled outright (they're plain
+/// attributes) rather than raw-preserved.
+/// </summary>
+public sealed record EnumerationEntry(
+    long Value,
+    string Label,
+    long? MaxValue = null,
+    string? ShortDescription = null);
 
 /// <summary>
 /// One entry in a ParameterTypeSet — an IntegerParameterType, FloatParameterType,
 /// StringParameterType, BooleanParameterType, or EnumeratedParameterType. Only the primitive
 /// scalar kinds are modeled; Binary/RelativeTime/AbsoluteTime/Array/Aggregate parameter types
-/// are out of scope for this slice (see issue #21) and are skipped, not lossily represented.
+/// are preserved as raw fragments on TelemetryMetaData.PreservedParameterTypes (issue #23),
+/// not lossily represented here.
+///
+/// Modeled attributes stay null when absent from the source — XSD defaults (signed=true,
+/// sizeInBits=32, oneStringValue="True", zeroStringValue="False") are applied by consumers
+/// (validators) at check time, never baked in on load, so an attribute the author omitted
+/// stays omitted on save. Unmodeled child elements (UnitSet, data encodings, alarms,
+/// ValidRange, ToString, aliases...) live in Preserved; unmodeled attributes (baseType,
+/// shortDescription, restrictionPattern, characterWidth...) in PreservedAttributes.
 /// </summary>
 public sealed record ParameterTypeDefinition(
     string Name,
@@ -35,11 +54,10 @@ public sealed record ParameterTypeDefinition(
     long? SizeInBits = null,
     string? OneStringValue = null,
     string? ZeroStringValue = null,
-    IReadOnlyList<EnumerationEntry>? Enumerations = null)
+    IReadOnlyList<EnumerationEntry>? Enumerations = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
 {
-    // Enumerations is the only collection-typed property here — record-generated equality
-    // would compare it by instance/type rather than contents (see SpaceSystem.cs for the
-    // same gotcha), so it needs an explicit structural comparison.
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
         && Name == other.Name
@@ -49,17 +67,9 @@ public sealed record ParameterTypeDefinition(
         && SizeInBits == other.SizeInBits
         && OneStringValue == other.OneStringValue
         && ZeroStringValue == other.ZeroStringValue
-        && EnumerationsEqual(other.Enumerations);
-
-    private bool EnumerationsEqual(IReadOnlyList<EnumerationEntry>? other)
-    {
-        if (Enumerations is null || other is null)
-        {
-            return Enumerations is null && other is null;
-        }
-
-        return Enumerations.SequenceEqual(other);
-    }
+        && Structural.ListEquals(Enumerations, other.Enumerations)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
 
     public override int GetHashCode()
     {
@@ -71,35 +81,72 @@ public sealed record ParameterTypeDefinition(
         hash.Add(SizeInBits);
         hash.Add(OneStringValue);
         hash.Add(ZeroStringValue);
-        if (Enumerations is not null)
-        {
-            foreach (var entry in Enumerations)
-            {
-                hash.Add(entry);
-            }
-        }
+        Structural.AddList(ref hash, Enumerations);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
         return hash.ToHashCode();
     }
 }
 
-/// <summary>A named, typed telemetry parameter — a Parameter element in a ParameterSet.</summary>
-public sealed record Parameter(string Name, string ParameterTypeRef, string? InitialValue = null);
+/// <summary>
+/// A named, typed telemetry parameter — a Parameter element in a ParameterSet. Unmodeled
+/// child elements (ParameterProperties, LongDescription, AliasSet, AncillaryDataSet) and
+/// attributes (shortDescription) are preserved, not dropped.
+/// </summary>
+public sealed record Parameter(
+    string Name,
+    string ParameterTypeRef,
+    string? InitialValue = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(Parameter? other) =>
+        other is not null
+        && Name == other.Name
+        && ParameterTypeRef == other.ParameterTypeRef
+        && InitialValue == other.InitialValue
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Name);
+        hash.Add(ParameterTypeRef);
+        hash.Add(InitialValue);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
 
 /// <summary>
 /// The TelemetryMetaData element of a SpaceSystem: its parameter type definitions and the
 /// parameters that reference them. Both lists default to empty rather than null so callers
 /// don't need null-conditional access, but the TelemetryMetaData element itself is nullable
-/// on SpaceSystem since the XSD marks it minOccurs="0" (most SpaceSystem nodes, e.g. a Bus or
-/// Payload subsystem, may have none).
+/// on SpaceSystem since the XSD marks it minOccurs="0".
+///
+/// PreservedParameterTypes holds unmodeled ParameterTypeSet entries (Binary/RelativeTime/
+/// AbsoluteTime/Array/Aggregate parameter types); PreservedParameters holds unmodeled
+/// ParameterSet entries (ParameterRef). Both sets are XSD choice-unbounded, so re-emitting
+/// preserved entries after the modeled ones is order-valid. Preserved holds unmodeled
+/// TelemetryMetaData children (ContainerSet, MessageSet, StreamSet, AlgorithmSet), re-emitted
+/// in XSD sequence order.
 /// </summary>
 public sealed record TelemetryMetaData(
     IReadOnlyList<ParameterTypeDefinition> ParameterTypeSet,
-    IReadOnlyList<Parameter> ParameterSet)
+    IReadOnlyList<Parameter> ParameterSet,
+    IReadOnlyList<RawXmlFragment>? PreservedParameterTypes = null,
+    IReadOnlyList<RawXmlFragment>? PreservedParameters = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null)
 {
     public bool Equals(TelemetryMetaData? other) =>
         other is not null
         && ParameterTypeSet.SequenceEqual(other.ParameterTypeSet)
-        && ParameterSet.SequenceEqual(other.ParameterSet);
+        && ParameterSet.SequenceEqual(other.ParameterSet)
+        && Structural.ListEquals(PreservedParameterTypes, other.PreservedParameterTypes)
+        && Structural.ListEquals(PreservedParameters, other.PreservedParameters)
+        && Structural.ListEquals(Preserved, other.Preserved);
 
     public override int GetHashCode()
     {
@@ -112,6 +159,9 @@ public sealed record TelemetryMetaData(
         {
             hash.Add(parameter);
         }
+        Structural.AddList(ref hash, PreservedParameterTypes);
+        Structural.AddList(ref hash, PreservedParameters);
+        Structural.AddList(ref hash, Preserved);
         return hash.ToHashCode();
     }
 }
