@@ -25,10 +25,12 @@ URL configuration needed.
 
 ```
 src/
-  Xtce.Workshop.Model/   Domain model + XTCE XML reader/writer (no API/UI concerns)
-  Xtce.Workshop.Api/     .NET 8 backend (ASP.NET Core minimal API)
-  Xtce.SpecTools/        Standalone CLI for XTCE spec rule-extraction research —
-                          unrelated to the app itself, see its own project for context
+  Xtce.Workshop.Model/       Domain model + XTCE XML reader/writer (no API/UI concerns)
+  Xtce.Workshop.Validation/  Validation rules + name-reference resolver
+  Xtce.Workshop.Api/         .NET 8 backend (ASP.NET Core minimal API)
+  Xtce.Workshop.Cli/         `xtce-workshop validate` command-line tool
+  Xtce.SpecTools/            Standalone CLI for XTCE spec rule-extraction research —
+                              unrelated to the app itself, see its own project for context
 tests/                   One test project per src/ project, same name + .Tests
 web/                     Angular 20 frontend
 reference/                Formal XTCE spec documents (OMG + CCSDS), by version
@@ -55,6 +57,23 @@ npm start
 `npm start` runs `ng serve` with `proxy.conf.json`, which forwards `/api/*`
 to `http://localhost:5299` — so the backend needs to already be running.
 Opens on http://localhost:4200.
+
+## Validating from the command line
+
+`Xtce.Workshop.Cli` exposes the same validator the web UI uses. Containerized
+(no host toolchain needed):
+
+```
+docker run --rm -v "$(pwd)":/workspace -w /workspace \
+  mcr.microsoft.com/dotnet/sdk:8.0 \
+  dotnet run --project src/Xtce.Workshop.Cli -- validate samples/telemetry-1.2.xml
+```
+
+- `validate <file.xml>` prints one line per finding
+  (`severity RuleId @ Location: message`).
+- `--json` emits the same `{ "validationIssues": [...] }` shape as the API.
+- Exit codes: `0` no findings, `1` findings reported, `2` unusable input
+  (missing file / malformed XML / usage error).
 
 ## Tests
 

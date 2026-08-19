@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>xtce-workshop</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Xtce.Workshop.Model\Xtce.Workshop.Model.csproj" />
+    <ProjectReference Include="..\Xtce.Workshop.Validation\Xtce.Workshop.Validation.csproj" />
+  </ItemGroup>
+
+</Project>
