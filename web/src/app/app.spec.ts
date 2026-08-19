@@ -48,6 +48,75 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Backend: unreachable');
   });
 
+  describe('Load', () => {
+    function createAppAndFlushHealth() {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      httpMock.expectOne('/api/health').flush({ status: 'ok' });
+      return fixture;
+    }
+
+    function selectFile(fixture: ReturnType<typeof createAppAndFlushHealth>, name: string) {
+      const file = new File(['<xml/>'], name, { type: 'application/xml' });
+      const event = { target: { files: [file] } } as unknown as Event;
+      fixture.componentInstance.onFileSelected(event);
+    }
+
+    it('renders a childless tree as a single root node', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'minimal.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Minimal',
+        tree: { label: 'Minimal', nodeType: 'SpaceSystem', children: [] },
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelectorAll('app-tree-node').length).toBe(1);
+      expect(compiled.textContent).toContain('Minimal');
+    });
+
+    it('renders a nested tree as an expandable hierarchy', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'nested.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Mission',
+        tree: {
+          label: 'Mission',
+          nodeType: 'SpaceSystem',
+          children: [
+            { label: 'Bus', nodeType: 'SpaceSystem', children: [] },
+            { label: 'Payload', nodeType: 'SpaceSystem', children: [] },
+          ],
+        },
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelectorAll('app-tree-node').length).toBe(3);
+      expect(compiled.textContent).toContain('Mission');
+      expect(compiled.textContent).toContain('Bus');
+      expect(compiled.textContent).toContain('Payload');
+    });
+
+    it('shows an error and no tree when loading fails', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'broken.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush(
+        { error: 'The document is not well-formed XML.' },
+        { status: 400, statusText: 'Bad Request' }
+      );
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('app-tree-node')).toBeNull();
+      expect(compiled.textContent).toContain('The document is not well-formed XML.');
+    });
+  });
+
   describe('New / Save', () => {
     function createAppAndFlushHealth() {
       const fixture = TestBed.createComponent(App);

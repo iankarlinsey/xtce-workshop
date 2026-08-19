@@ -12,3 +12,11 @@ section {
 .error {
   color: #b3261e;
 }
+
+.tree-container {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: monospace;
+}

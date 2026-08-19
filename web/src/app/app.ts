@@ -1,10 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { TreeNode, TreeNodeComponent } from './tree-node/tree-node';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
 
 interface LoadResult {
   name: string;
+  tree: TreeNode;
 }
 
 interface SpaceSystemDocument {
@@ -14,7 +16,7 @@ interface SpaceSystemDocument {
 
 @Component({
   selector: 'app-root',
-  imports: [],
+  imports: [TreeNodeComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -23,7 +25,7 @@ export class App {
 
   protected readonly healthStatus = signal<HealthStatus>('checking');
   protected readonly selectedFileName = signal<string | null>(null);
-  protected readonly loadedName = signal<string | null>(null);
+  protected readonly loadedTree = signal<TreeNode | null>(null);
   protected readonly loadError = signal<string | null>(null);
 
   protected readonly currentDocument = signal<SpaceSystemDocument | null>(null);
@@ -44,14 +46,14 @@ export class App {
     }
 
     this.selectedFileName.set(file.name);
-    this.loadedName.set(null);
+    this.loadedTree.set(null);
     this.loadError.set(null);
 
     const formData = new FormData();
     formData.append('file', file);
 
     this.http.post<LoadResult>('/api/xtce/load', formData).subscribe({
-      next: (result) => this.loadedName.set(result.name),
+      next: (result) => this.loadedTree.set(result.tree),
       error: (err) => this.loadError.set(err?.error?.error ?? 'Failed to load file.'),
     });
   }
