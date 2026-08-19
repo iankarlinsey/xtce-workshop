@@ -1,9 +1,11 @@
 namespace Xtce.Workshop.Model;
 
 /// <summary>
-/// The root SpaceSystem of an XTCE document. Deliberately minimal today — only the
-/// one attribute the XSD marks required (see reference/1.2/SpaceSystem.xsd: `name`
-/// is the sole use="required" attribute across the SpaceSystemType/NameDescriptionType
-/// chain). Extend as later slices need more of the document.
+/// A SpaceSystem element in an XTCE document — root or nested. Deliberately minimal
+/// today: `Name` (the one attribute the XSD marks required — see
+/// reference/1.2/SpaceSystem.xsd, NameDescriptionType) and `Children`, since a
+/// SpaceSystem may recursively contain child SpaceSystems
+/// (SpaceSystemType: &lt;element ref="xtce:SpaceSystem" minOccurs="0" maxOccurs="unbounded"/&gt;).
+/// Extend as later slices need more of the document (TelemetryMetaData, etc.).
 /// </summary>
-public sealed record SpaceSystem(string Name);
+public sealed record SpaceSystem(string Name, IReadOnlyList<SpaceSystem> Children);

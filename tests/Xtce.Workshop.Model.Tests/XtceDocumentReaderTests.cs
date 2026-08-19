@@ -16,6 +16,40 @@ public class XtceDocumentReaderTests
     }
 
     [Fact]
+    public void Load_MinimalSampleFile_ReturnsEmptyChildrenNotNull()
+    {
+        using var stream = File.OpenRead(TestPaths.MinimalSample);
+
+        var result = XtceDocumentReader.Load(stream);
+
+        Assert.NotNull(result.Children);
+        Assert.Empty(result.Children);
+    }
+
+    [Fact]
+    public void Load_NestedSampleFile_ReturnsCorrectStructureAtEveryLevel()
+    {
+        using var stream = File.OpenRead(TestPaths.NestedSample);
+
+        var result = XtceDocumentReader.Load(stream);
+
+        Assert.Equal("Mission", result.Name);
+        Assert.Equal(2, result.Children.Count);
+
+        var bus = result.Children[0];
+        Assert.Equal("Bus", bus.Name);
+        Assert.Equal(2, bus.Children.Count);
+        Assert.Equal("Power", bus.Children[0].Name);
+        Assert.Empty(bus.Children[0].Children);
+        Assert.Equal("Thermal", bus.Children[1].Name);
+        Assert.Empty(bus.Children[1].Children);
+
+        var payload = result.Children[1];
+        Assert.Equal("Payload", payload.Name);
+        Assert.Empty(payload.Children);
+    }
+
+    [Fact]
     public void Load_NotWellFormedXml_ThrowsXtceParseException()
     {
         using var stream = ToStream("<SpaceSystem name=\"Broken\"");
