@@ -24,6 +24,77 @@ public static class XmlFragmentInspector
         }
     }
 
+    /// <summary>One SplineCalibrator found in a fragment: order attribute + point count.</summary>
+    public sealed record SplineInfo(long Order, int PointCount);
+
+    /// <summary>
+    /// Finds every SplineCalibrator element anywhere inside a fragment, with its order
+    /// (XSD default 1 applied here — the rule needs the effective value) and its
+    /// SplinePoint count.
+    /// </summary>
+    public static IReadOnlyList<SplineInfo> FindSplineCalibrators(string outerXml) =>
+        ScanElements(outerXml, "SplineCalibrator", (reader, depth) =>
+        {
+            var order = long.TryParse(reader.GetAttribute("order"), out var parsed) ? parsed : 1;
+            var points = 0;
+            if (!reader.IsEmptyElement)
+            {
+                while (reader.Read() && !(reader.NodeType == XmlNodeType.EndElement && reader.Depth == depth))
+                {
+                    if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "SplinePoint")
+                    {
+                        points++;
+                    }
+                }
+            }
+            return new SplineInfo(order, points);
+        });
+
+    /// <summary>One Checksum found in a fragment: name attribute + InputAlgorithm presence.</summary>
+    public sealed record ChecksumInfo(string? Name, bool HasInputAlgorithm);
+
+    public static IReadOnlyList<ChecksumInfo> FindChecksums(string outerXml) =>
+        ScanElements(outerXml, "Checksum", (reader, depth) =>
+        {
+            var name = reader.GetAttribute("name");
+            var hasInputAlgorithm = false;
+            if (!reader.IsEmptyElement)
+            {
+                while (reader.Read() && !(reader.NodeType == XmlNodeType.EndElement && reader.Depth == depth))
+                {
+                    if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "InputAlgorithm")
+                    {
+                        hasInputAlgorithm = true;
+                    }
+                }
+            }
+            return new ChecksumInfo(name, hasInputAlgorithm);
+        });
+
+    private static IReadOnlyList<T> ScanElements<T>(string outerXml, string elementName, Func<XmlReader, int, T> capture)
+    {
+        var results = new List<T>();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
+            while (reader.Read())
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == elementName)
+                {
+                    results.Add(capture(reader, reader.Depth));
+                }
+            }
+        }
+        catch (XmlException)
+        {
+            // Malformed preserved content contributes nothing rather than failing validation.
+        }
+
+        return results;
+    }
+
     /// <summary>One Dimension found in a fragment's DimensionList: fixed bounds or nulls.</summary>
     public sealed record DimensionInfo(long? StartingFixed, long? EndingFixed);
 

@@ -101,10 +101,11 @@ same depth of scrutiny.
   ascend), plus R11/R15 reach extensions (arrayTypeRef, member typeRef,
   member initialValue, and ComparisonType/value — a listed R15 citation —
   via the resolver's new parameter-instance + defining-scope results).
-  12 of 15 rules now carry `Implemented` status (5 `yes`, 7 `partial`).
-  The remaining 3 (R03/R12/R13) need data-encoding internals incl.
-  checksums and spline calibrators (R03/R13) and MetaCommand verifiers
-  (R12).
+  #32 added R13 and R03 (both `yes`) via document-wide fragment
+  inspection (`FragmentEnumerator` reaches every preserved fragment,
+  including CommandMetaData argument encodings). 14 of 15 rules now carry
+  `Implemented` status (7 `yes`, 7 `partial`). Only R12 (verifier
+  dedup post-inheritance) remains, blocked on MetaCommand modeling.
 - Phase E: adversarial verification that "tested" rules actually fire. Not
   started as a distinct pass yet — #22's fixtures include both positive and
   negative cases per rule, but a dedicated adversarial-verification pass
@@ -114,9 +115,8 @@ same depth of scrutiny.
   built entirely from the XSD's own `<documentation>` blocks, which is one
   of at least two intended sources.
 
-**Phase D's remaining 3 rules stay blocked on the same object-model gap this
-note originally flagged**, now much narrower: data-encoding internals
-including checksums and spline calibrators (R03/R13), and
-CommandMetaData/MetaCommand verifiers (R12). Each is its own vertical slice. The `partial` rules also each have a
+**Phase D's one remaining rule (R12, no-duplicate-verifiers-post-inheritance)
+stays blocked on MetaCommand/BaseMetaCommand inheritance modeling** — a
+CommandMetaData vertical slice. The `partial` rules also each have a
 recorded gap that closes as more constructs become modeled (see the per-rule
 notes above and in the validator source).

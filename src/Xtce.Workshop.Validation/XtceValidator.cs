@@ -22,6 +22,8 @@ public static class XtceValidator
         new ArrayDimCountMatchTypeRule(),
         new DimSubsetLessThanTypeRule(),
         new DimensionOrderMustAscendRule(),
+        new SplineOrderRequiresMinPointsRule(),
+        new ChecksumCustomRequiresInputAlgorithmRule(),
     ];
 
     public static IReadOnlyList<ValidationIssue> Validate(SpaceSystem root)
