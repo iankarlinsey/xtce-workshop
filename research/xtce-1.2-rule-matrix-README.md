@@ -125,10 +125,15 @@ same depth of scrutiny.
   re-checking what the schema already enforces. A completeness fact keeps
   the suite honest: a matrix rule without a Phase E case fails the build.
   The pass immediately paid for itself by finding FLAGGED item #2 above.
-- Not yet started: mining CCSDS 660.1-G-2 (Element Description, the
-  identified *primary* corpus, 286 pages) the same way — this matrix is
-  built entirely from the XSD's own `<documentation>` blocks, which is one
-  of at least two intended sources.
+- Mining CCSDS 660.1-G-2 (the identified *primary* corpus): **done**
+  (issue #38, see `ccsds-660.1-g2-mining.md` for the completeness log).
+  Six new rules promoted (R16–R21: inheritance cycles, string length-spec
+  conflicts, type-inheritance override restrictions, changePerSecond span,
+  telemetered-without-encoding warning, MetaCommand CommandContainer
+  inheritance), several corroborations of existing rules (incl. R06's
+  ascending interpretation), and a third occurrence of the `order="0"`
+  doc-vs-schema inconsistency. The matrix now has 21 rules; R16–R21 are
+  the new Phase D backlog.
 
 **Phase D first pass is complete** (see above). What remains for the
 validation pipeline: Phase E (a dedicated adversarial-verification pass),

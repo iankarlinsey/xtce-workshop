@@ -158,18 +158,24 @@ public class AdversarialEndToEndTests
     }
 
     [Fact]
-    public void EveryMatrixRule_HasAPhaseECase()
+    public void EveryImplementedMatrixRule_HasAPhaseECase()
     {
-        var matrix = File.ReadAllLines(Path.Combine(TestPaths.RepoRoot, "research", "xtce-1.2-rule-matrix.csv"))
+        // Backlog rows (Implemented == no) can't have a trigger case — nothing fires yet.
+        // The ratchet: the moment a rule's matrix row claims ANY implementation status,
+        // this fact demands its adversarial trigger/near-miss pair.
+        var implemented = File.ReadAllLines(Path.Combine(TestPaths.RepoRoot, "research", "xtce-1.2-rule-matrix.csv"))
             .Skip(1)
-            .Select(line => line.Split(',')[0])
-            .Where(id => id.StartsWith("XTCE-", StringComparison.Ordinal))
+            .Where(line => line.StartsWith("XTCE-", StringComparison.Ordinal))
+            .Select(line => (Id: line.Split(',')[0], Status: line.TrimEnd().Split(',')[^2]))
+            .Where(row => row.Status != "no")
+            .Select(row => row.Id)
             .ToHashSet();
         var covered = Cases().Select(c => (string)c[0]).ToHashSet();
 
-        Assert.True(matrix.SetEquals(covered),
-            "Matrix rules without a Phase E case: " + string.Join(", ", matrix.Except(covered)) +
-            " | Phase E cases without a matrix rule: " + string.Join(", ", covered.Except(matrix)));
+        Assert.True(implemented.IsSubsetOf(covered),
+            "Implemented matrix rules without a Phase E case: " + string.Join(", ", implemented.Except(covered)));
+        Assert.True(covered.IsSubsetOf(implemented),
+            "Phase E cases for rules the matrix doesn't mark implemented: " + string.Join(", ", covered.Except(implemented)));
     }
 
     // ---- document builders (each returns a complete, schema-valid XTCE document) --------
