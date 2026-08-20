@@ -8,7 +8,13 @@ var builder = WebApplication.CreateBuilder(args);
 // underlying int — self-documenting over the wire, and nothing depends on the numeric form.
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+// Controllers configure System.Text.Json separately from minimal APIs — both need the
+// enum-as-string converter or shapes diverge between the two endpoint styles.
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 var app = builder.Build();
+
+app.MapControllers();
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 

@@ -613,6 +613,8 @@
             Schema: {{ report.schemaValid ? 'VALID' : 'INVALID' }}
           </span>
           <div class="spacer"></div>
+          <button type="button" class="btn" (click)="onSaveReport('json')">Save JSON</button>
+          <button type="button" class="btn" (click)="onSaveReport('text')">Save text</button>
           <button type="button" class="btn" (click)="onCloseReport()">Close</button>
         </div>
 

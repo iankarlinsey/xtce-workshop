@@ -30,6 +30,22 @@ public class XtceReportEndpointTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task PostReportText_ReturnsRenderedPlainText()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/xtce/report/text", new { name = "Sat", children = Array.Empty<object>() });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/plain", response.Content.Headers.ContentType?.MediaType);
+        var text = await response.Content.ReadAsStringAsync();
+        Assert.StartsWith("XTCE 1.2 conformance report: Sat", text);
+        Assert.Contains("Generated: ", text);
+        Assert.Contains("#109 ", text);
+        Assert.Contains("Summary: ", text);
+    }
+
+    [Fact]
     public async Task PostReport_BadEnumInitialValue_FailsCandidate63WithTheFinding()
     {
         var client = _factory.CreateClient();

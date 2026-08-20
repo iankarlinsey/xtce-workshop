@@ -1214,6 +1214,34 @@ describe('App', () => {
       flushRevalidate();
     }));
 
+    it('saves the open report as text via the backend renderer, and as JSON locally', () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Report'
+      ) as HTMLButtonElement).click();
+      httpMock.expectOne('/api/xtce/report').flush(sampleReport('Pass'));
+      fixture.detectChanges();
+
+      const objectUrlSpy = spyOn(URL, 'createObjectURL').and.returnValue('blob:test');
+      spyOn(URL, 'revokeObjectURL');
+
+      (Array.from(compiled.querySelectorAll('.report-header button')).find(
+        (b) => b.textContent?.trim() === 'Save text'
+      ) as HTMLButtonElement).click();
+      const request = httpMock.expectOne('/api/xtce/report/text');
+      expect(request.request.body.name).toBe('Sat');
+      request.flush('XTCE 1.2 conformance report: Sat\n');
+      expect(objectUrlSpy).toHaveBeenCalledTimes(1);
+
+      (Array.from(compiled.querySelectorAll('.report-header button')).find(
+        (b) => b.textContent?.trim() === 'Save JSON'
+      ) as HTMLButtonElement).click();
+      expect(objectUrlSpy).toHaveBeenCalledTimes(2); // JSON path is client-side, no HTTP
+    });
+
     it('computes and renders document metrics for the root, cleared by any edit', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       createDocumentInline(fixture, 'Sat');

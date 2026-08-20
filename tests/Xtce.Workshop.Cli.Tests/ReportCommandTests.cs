@@ -79,6 +79,36 @@ public class ReportCommandTests : IDisposable
     }
 
     [Fact]
+    public void OutFlag_WritesTheReportToDisk()
+    {
+        var path = WriteTempFile("clean.xml", CleanDocument);
+        var outPath = Path.Combine(_tempDir, "report.txt");
+        var output = new StringWriter();
+
+        var exitCode = ReportCommand.Run(path, json: false, output, new StringWriter(), outPath);
+
+        Assert.Equal(ReportCommand.ExitClean, exitCode);
+        Assert.Contains($"wrote {outPath}", output.ToString());
+        var text = File.ReadAllText(outPath);
+        Assert.StartsWith("XTCE 1.2 conformance report: clean.xml", text);
+        Assert.Contains("Generated: ", text);
+        Assert.Contains("#109 ", text);
+    }
+
+    [Fact]
+    public void OutFlagWithJson_WritesJsonToDisk()
+    {
+        var path = WriteTempFile("clean.xml", CleanDocument);
+        var outPath = Path.Combine(_tempDir, "report.json");
+
+        var exitCode = ReportCommand.Run(path, json: true, new StringWriter(), new StringWriter(), outPath);
+
+        Assert.Equal(ReportCommand.ExitClean, exitCode);
+        using var json = JsonDocument.Parse(File.ReadAllText(outPath));
+        Assert.Equal(109, json.RootElement.GetProperty("candidates").GetArrayLength());
+    }
+
+    [Fact]
     public void MissingFile_WritesErrorToStderrAndExitsTwo()
     {
         var errorOutput = new StringWriter();

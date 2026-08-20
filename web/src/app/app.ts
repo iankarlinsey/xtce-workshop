@@ -295,6 +295,28 @@ export class App {
     this.conformanceReport.set(null);
   }
 
+  /** Saves the open conformance report to disk: machine-readable JSON or rendered text. */
+  onSaveReport(format: 'json' | 'text'): void {
+    const doc = this.currentDocument();
+    const report = this.conformanceReport();
+    if (!doc || !report) {
+      return;
+    }
+    if (format === 'json') {
+      const payload = {
+        documentName: doc.name,
+        generatedAt: new Date().toISOString(),
+        report,
+      };
+      this.downloadBlob(JSON.stringify(payload, null, 2), 'application/json', `${doc.name}-conformance-report.json`);
+      return;
+    }
+    this.http.post('/api/xtce/report/text', doc, { responseType: 'text' }).subscribe({
+      next: (text) => this.downloadBlob(text, 'text/plain', `${doc.name}-conformance-report.txt`),
+      error: () => this.reportError.set('Failed to render the report as text.'),
+    });
+  }
+
   onComputeMetrics(): void {
     const doc = this.currentDocument();
     if (!doc) {
