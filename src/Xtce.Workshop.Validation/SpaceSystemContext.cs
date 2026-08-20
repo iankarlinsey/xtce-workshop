@@ -104,6 +104,13 @@ public sealed class SpaceSystemContext
                 modeledContainers[container.Name] = container;
             }
 
+            foreach (var fragment in telemetry.PreservedContainerEntries ?? [])
+            {
+                if (XmlFragmentInspector.RootAttribute(fragment.OuterXml, "name") is { } name)
+                {
+                    containerNames.Add(name);
+                }
+            }
             foreach (var fragment in telemetry.PreservedParameterTypes ?? [])
             {
                 if (XmlFragmentInspector.RootAttribute(fragment.OuterXml, "name") is { } name)

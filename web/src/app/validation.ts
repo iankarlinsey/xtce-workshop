@@ -88,3 +88,11 @@ export interface UsageMatch {
   location: string;
   detail: string;
 }
+
+export interface LoadDiagnostic {
+  kind: 'MalformedXml' | 'ModelError';
+  message: string;
+  path: string;
+  line: number | null;
+  column: number | null;
+}

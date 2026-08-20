@@ -30,7 +30,7 @@ import {
   collectMetaCommandNames,
   moveEntry,
 } from './document-tree';
-import { ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics, SearchMatch, UsageMatch } from './validation';
+import { ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics, SearchMatch, UsageMatch, LoadDiagnostic } from './validation';
 import { XTCE_REFERENCE, ReferenceEntry } from './xtce-reference';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
@@ -39,6 +39,8 @@ interface LoadResult {
   name: string;
   document: SpaceSystemDocument;
   validationIssues: ValidationIssue[];
+  diagnostics?: LoadDiagnostic[];
+  schemaErrors?: string[];
 }
 
 @Component({
@@ -73,6 +75,8 @@ export class App {
   protected readonly reportError = signal<string | null>(null);
   protected readonly documentMetrics = signal<DocumentMetrics | null>(null);
   protected readonly searchMatches = signal<SearchMatch[] | null>(null);
+  protected readonly loadDiagnostics = signal<LoadDiagnostic[]>([]);
+  protected readonly loadSchemaErrors = signal<string[]>([]);
   protected readonly parameterUsages = signal<UsageMatch[] | null>(null);
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -212,6 +216,8 @@ export class App {
 
     this.selectedFileName.set(file.name);
     this.loadError.set(null);
+    this.loadDiagnostics.set([]);
+    this.loadSchemaErrors.set([]);
     this.saveError.set(null);
     this.validationIssues.set([]);
     this.treeSearchTerm.set('');
@@ -229,8 +235,14 @@ export class App {
         this.selection.set({ systemPath: [] });
         this.validationIssues.set(result.validationIssues ?? []);
         this.conformanceReport.set(null);
+        this.loadDiagnostics.set(result.diagnostics ?? []);
+        this.loadSchemaErrors.set(result.schemaErrors ?? []);
       },
-      error: (err) => this.loadError.set(err?.error?.error ?? 'Failed to load file.'),
+      error: (err) => {
+        this.loadError.set(err?.error?.error ?? 'Failed to load file.');
+        this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
+        this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
+      },
     });
   }
 

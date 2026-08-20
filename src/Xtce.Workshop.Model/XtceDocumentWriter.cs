@@ -168,15 +168,18 @@ public static class XtceDocumentWriter
             }));
         }
 
-        if (telemetryMetaData.ContainerSet is { Count: > 0 })
+        if (telemetryMetaData.ContainerSet is { Count: > 0 } || telemetryMetaData.PreservedContainerEntries is { Count: > 0 })
         {
             slots.Add(("ContainerSet", () =>
             {
                 writer.WriteStartElement("ContainerSet", XtceNamespace);
-                foreach (var container in telemetryMetaData.ContainerSet)
+                foreach (var container in telemetryMetaData.ContainerSet ?? [])
                 {
                     WriteSequenceContainer(writer, container);
                 }
+                // Quarantined (unparseable) containers ride verbatim at the set's end —
+                // the set is choice-unbounded, so placement stays schema-shaped.
+                WriteFragments(writer, telemetryMetaData.PreservedContainerEntries);
                 writer.WriteEndElement();
             }));
         }

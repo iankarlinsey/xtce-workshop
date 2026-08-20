@@ -824,3 +824,53 @@
   color: var(--text-muted);
   word-break: break-all;
 }
+
+/* --- Load diagnostics ------------------------------------------------------------------- */
+
+.load-diagnostics {
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  margin: 0.4rem 0;
+  font-size: 0.75rem;
+}
+
+.load-diagnostics-partial {
+  border-color: var(--warning);
+}
+
+.load-diagnostics-summary {
+  margin: 0 0 0.3rem;
+  color: var(--warning);
+}
+
+.load-diagnostics-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.load-diagnostic {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.load-diagnostic-kind {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--error);
+  min-width: 3.5rem;
+}
+
+.load-diagnostic-pos,
+.load-diagnostic-path {
+  font-family: var(--mono);
+  color: var(--text-faint);
+  word-break: break-all;
+}

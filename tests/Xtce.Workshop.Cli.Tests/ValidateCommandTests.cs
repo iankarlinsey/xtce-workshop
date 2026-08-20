@@ -70,6 +70,28 @@ public class ValidateCommandTests : IDisposable
     }
 
     [Fact]
+    public void UnloadableModel_PrintsAllDiagnosticsAndSchemaErrors()
+    {
+        var path = WriteTempFile("broken-model.xml", """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204">
+              <TelemetryMetaData>
+                <ParameterSet><Parameter name="NoTypeRef"/></ParameterSet>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """);
+        var errorOutput = new StringWriter();
+
+        var exitCode = ValidateCommand.Run(path, json: false, new StringWriter(), errorOutput);
+        var text = errorOutput.ToString();
+
+        Assert.Equal(ValidateCommand.ExitError, exitCode);
+        Assert.Contains("error:", text);
+        Assert.Contains("model", text);        // positioned reader diagnostics
+        Assert.Contains("schema:", text);      // full XSD error list for the raw input
+    }
+
+    [Fact]
     public void MalformedXml_WritesErrorToStderrAndExitsTwo()
     {
         var path = WriteTempFile("malformed.xml", "<SpaceSystem name=\"Oops\"");

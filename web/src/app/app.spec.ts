@@ -1287,6 +1287,51 @@ describe('App', () => {
     });
   });
 
+  describe('Load diagnostics', () => {
+    function postFile(fixture: ReturnType<typeof createAppAndFlushHealth>) {
+      const file = new File(['<xml/>'], 'broken.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+    }
+
+    it('renders quarantine diagnostics on a partial load', () => {
+      const fixture = createAppAndFlushHealth();
+      postFile(fixture);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [],
+        diagnostics: [{ kind: 'ModelError', message: "missing 'parameterTypeRef'", path: 'Sat/ParameterSet/Parameter[NoTypeRef]', line: 7, column: 8 }],
+        schemaErrors: ['The required attribute parameterTypeRef is missing.'],
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('1 quarantined element(s)');
+      expect(compiled.textContent).toContain('Parameter[NoTypeRef]');
+      expect(compiled.textContent).toContain('7:8');
+      expect(compiled.textContent).toContain('required attribute');
+    });
+
+    it('renders the full evidence when the load fails outright', () => {
+      const fixture = createAppAndFlushHealth();
+      postFile(fixture);
+      httpMock.expectOne('/api/xtce/load').flush(
+        {
+          error: 'Not well-formed XML: unexpected end of file.',
+          diagnostics: [{ kind: 'MalformedXml', message: 'Not well-formed XML: unexpected end of file.', path: '(document)', line: 2, column: 1 }],
+          schemaErrors: [],
+        },
+        { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Not well-formed XML');
+      expect(compiled.textContent).toContain('XML');
+      expect(compiled.textContent).toContain('2:1');
+      expect(compiled.querySelector('.load-diagnostics-summary')).toBeNull(); // hard failure, not partial
+    });
+  });
+
   describe('Search and usages', () => {
     function loadSearchableDocument(fixture: ReturnType<typeof createAppAndFlushHealth>) {
       const file = new File(['<xml/>'], 'telemetry.xml', { type: 'application/xml' });

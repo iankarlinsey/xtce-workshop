@@ -85,6 +85,10 @@ public static class FragmentEnumerator
         {
             yield return (fragment, $"{path}/ParameterSet");
         }
+        foreach (var fragment in telemetry.PreservedContainerEntries ?? [])
+        {
+            yield return (fragment, $"{path}/ContainerSet");
+        }
 
         foreach (var type in telemetry.ParameterTypeSet)
         {

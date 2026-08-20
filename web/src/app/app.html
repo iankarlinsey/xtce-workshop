@@ -50,6 +50,31 @@
       @if (loadError()) {
         <p class="error">{{ loadError() }}</p>
       }
+      @if (loadDiagnostics().length > 0 || loadSchemaErrors().length > 0) {
+        <div class="load-diagnostics" [class.load-diagnostics-partial]="!loadError()">
+          @if (!loadError()) {
+            <p class="load-diagnostics-summary">Loaded with {{ loadDiagnostics().length }} quarantined element(s) — carried verbatim, not editable as forms.</p>
+          }
+          <ul class="load-diagnostics-list">
+            @for (diagnostic of loadDiagnostics(); track diagnostic.path + diagnostic.message) {
+              <li class="load-diagnostic">
+                <span class="load-diagnostic-kind">{{ diagnostic.kind === 'MalformedXml' ? 'XML' : 'MODEL' }}</span>
+                @if (diagnostic.line !== null) {
+                  <span class="load-diagnostic-pos">{{ diagnostic.line }}:{{ diagnostic.column ?? 0 }}</span>
+                }
+                <span class="load-diagnostic-path">{{ diagnostic.path }}</span>
+                <span class="load-diagnostic-msg">{{ diagnostic.message }}</span>
+              </li>
+            }
+            @for (schemaError of loadSchemaErrors(); track schemaError) {
+              <li class="load-diagnostic">
+                <span class="load-diagnostic-kind">SCHEMA</span>
+                <span class="load-diagnostic-msg">{{ schemaError }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
       @if (saveError()) {
         <p class="error">{{ saveError() }}</p>
       }

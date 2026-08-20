@@ -15,29 +15,57 @@ public sealed class XtceDocumentController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>Loads an uploaded XTCE file into the editable document model.</summary>
+    /// <summary>
+    /// Loads an uploaded XTCE file into the editable document model, best-effort: broken
+    /// modeled elements are quarantined (preserved verbatim) with positioned diagnostics,
+    /// and any load problem also triggers full XSD validation of the raw input so the
+    /// response carries the complete evidence rather than a single message.
+    /// </summary>
     [HttpPost("load")]
     public async Task<IActionResult> Load(IFormFile file)
     {
-        await using var stream = file.OpenReadStream();
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer);
+        buffer.Position = 0;
 
-        try
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var result = XtceDocumentReader.LoadWithRecovery(buffer);
+
+        IReadOnlyList<string> schemaErrors = [];
+        if (result.Diagnostics.Count > 0)
         {
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            var spaceSystem = XtceDocumentReader.Load(stream);
-            var tree = TreeNode.FromSpaceSystem(spaceSystem);
-            var validationIssues = XtceValidator.Validate(spaceSystem);
-            _logger.LogInformation(
-                "Loaded {Document} ({SizeBytes} bytes): {IssueCount} validation issue(s) in {ElapsedMs} ms",
-                spaceSystem.Name, file.Length, validationIssues.Count, stopwatch.ElapsedMilliseconds);
-            return Ok(new { name = spaceSystem.Name, tree, document = spaceSystem, validationIssues });
+            buffer.Position = 0;
+            using var text = new StreamReader(buffer, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+            schemaErrors = SchemaValidator.Validate(await text.ReadToEndAsync());
         }
-        catch (XtceParseException ex)
+
+        if (result.Document is null)
         {
-            _logger.LogWarning("Rejected unloadable file {FileName} ({SizeBytes} bytes): {Reason}",
-                file.FileName, file.Length, ex.Message);
-            return BadRequest(new { error = ex.Message });
+            _logger.LogWarning("Rejected unloadable file {FileName} ({SizeBytes} bytes): {DiagnosticCount} diagnostic(s), {SchemaErrorCount} schema error(s)",
+                file.FileName, file.Length, result.Diagnostics.Count, schemaErrors.Count);
+            return BadRequest(new
+            {
+                error = result.Diagnostics.FirstOrDefault()?.Message ?? "The file could not be loaded.",
+                diagnostics = result.Diagnostics,
+                schemaErrors,
+            });
         }
+
+        var spaceSystem = result.Document;
+        var tree = TreeNode.FromSpaceSystem(spaceSystem);
+        var validationIssues = XtceValidator.Validate(spaceSystem);
+        _logger.LogInformation(
+            "Loaded {Document} ({SizeBytes} bytes): {IssueCount} validation issue(s), {DiagnosticCount} load diagnostic(s) in {ElapsedMs} ms",
+            spaceSystem.Name, file.Length, validationIssues.Count, result.Diagnostics.Count, stopwatch.ElapsedMilliseconds);
+        return Ok(new
+        {
+            name = spaceSystem.Name,
+            tree,
+            document = spaceSystem,
+            validationIssues,
+            diagnostics = result.Diagnostics,
+            schemaErrors,
+        });
     }
 
     /// <summary>Writes the document back out as XTCE XML.</summary>

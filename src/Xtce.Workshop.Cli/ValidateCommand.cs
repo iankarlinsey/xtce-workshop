@@ -33,6 +33,10 @@ public static class ValidateCommand
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or XtceParseException)
         {
             errorOutput.WriteLine($"error: {ex.Message}");
+            if (ex is XtceParseException)
+            {
+                LoadFailure.Describe(filePath, errorOutput);
+            }
             return ExitError;
         }
 

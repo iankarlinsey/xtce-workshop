@@ -137,6 +137,59 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task PostLoad_BrokenModelElements_LoadsPartiallyWithDiagnosticsAndSchemaErrors()
+    {
+        var client = _factory.CreateClient();
+        var xml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="Sat">
+              <TelemetryMetaData>
+                <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
+                <ParameterSet>
+                  <Parameter name="Good" parameterTypeRef="T"/>
+                  <Parameter name="NoTypeRef"/>
+                </ParameterSet>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
+
+        var response = await PostFile(client, xml);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var diagnostic = Assert.Single(body.GetProperty("diagnostics").EnumerateArray());
+        Assert.Equal("ModelError", diagnostic.GetProperty("kind").GetString());
+        Assert.Contains("Parameter[NoTypeRef]", diagnostic.GetProperty("path").GetString());
+        Assert.True(diagnostic.GetProperty("line").GetInt32() > 0);
+        Assert.True(body.GetProperty("schemaErrors").GetArrayLength() > 0);
+        // The good parameter loaded; the broken one is quarantined, not dropped.
+        Assert.Equal(1, body.GetProperty("document").GetProperty("telemetryMetaData").GetProperty("parameterSet").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task PostLoad_MalformedXml_Returns400WithPositionedDiagnostics()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await PostFile(client, "<SpaceSystem name='X'><Unclosed>");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var diagnostic = Assert.Single(body.GetProperty("diagnostics").EnumerateArray());
+        Assert.Equal("MalformedXml", diagnostic.GetProperty("kind").GetString());
+        Assert.True(diagnostic.GetProperty("line").GetInt32() > 0);
+    }
+
+    private static async Task<HttpResponseMessage> PostFile(HttpClient client, string xml)
+    {
+        using var content = new MultipartFormDataContent
+        {
+            { new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(xml)), "file", "upload.xml" },
+        };
+        return await client.PostAsync("/api/xtce/load", content);
+    }
+
+    [Fact]
     public async Task PostLoad_MalformedFile_Returns400()
     {
         var client = _factory.CreateClient();

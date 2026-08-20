@@ -42,6 +42,32 @@ public static class XtceDocumentReader
 
     public static SpaceSystem Load(Stream xmlStream)
     {
+        var result = LoadCore(xmlStream, recovery: null);
+        return result.Document!; // non-recovery mode throws instead of returning diagnostics
+    }
+
+    /// <summary>
+    /// Best-effort load: parses everything it can, quarantining each unparseable modeled
+    /// element as a preserved fragment (verbatim round-trip) with one positioned
+    /// diagnostic per problem. Document is null only when nothing was loadable
+    /// (malformed XML, unusable root element).
+    /// </summary>
+    public static XtceLoadResult LoadWithRecovery(Stream xmlStream)
+    {
+        var recovery = new RecoveryContext();
+        try
+        {
+            return LoadCore(xmlStream, recovery);
+        }
+        catch (XtceParseException ex)
+        {
+            recovery.Add(new LoadDiagnostic(LoadDiagnosticKind.ModelError, ex.Message, "(document root)", null, null));
+            return new XtceLoadResult(null, recovery.Diagnostics);
+        }
+    }
+
+    private static XtceLoadResult LoadCore(Stream xmlStream, RecoveryContext? recovery)
+    {
         var settings = new XmlReaderSettings
         {
             DtdProcessing = DtdProcessing.Prohibit,
@@ -68,7 +94,7 @@ public static class XtceDocumentReader
                 }
             }
 
-            var root = ReadSpaceSystem(reader, depth: 0, TakeLeadingComments(ref prologComments));
+            var root = ReadSpaceSystem(reader, depth: 0, TakeLeadingComments(ref prologComments), recovery);
 
             // Document-epilog comments after the root's end tag.
             List<string>? epilogComments = null;
@@ -86,11 +112,86 @@ public static class XtceDocumentReader
                 root = root with { Preserved = [.. root.Preserved ?? [], .. trailing] };
             }
 
-            return root;
+            return new XtceLoadResult(root, recovery?.Diagnostics ?? []);
         }
         catch (XmlException ex)
         {
-            throw new XtceParseException("The document is not well-formed XML.", ex);
+            if (recovery is null)
+            {
+                throw new XtceParseException("The document is not well-formed XML.", ex);
+            }
+            recovery.Add(new LoadDiagnostic(
+                LoadDiagnosticKind.MalformedXml,
+                $"Not well-formed XML: {ex.Message}",
+                "(document)",
+                ex.LineNumber > 0 ? ex.LineNumber : null,
+                ex.LinePosition > 0 ? ex.LinePosition : null));
+            return new XtceLoadResult(null, recovery.Diagnostics);
+        }
+    }
+
+    // ---- best-effort recovery (quarantine + diagnostics) -------------------------------
+
+    private sealed class RecoveryContext
+    {
+        private const int MaxDiagnostics = 200;
+        public List<LoadDiagnostic> Diagnostics { get; } = new();
+
+        /// <summary>
+        /// Sub-readers report positions relative to their fragment; this offset maps them
+        /// back to document lines (fragment line 1 == the wrapped element's line).
+        /// </summary>
+        public int LineOffset { get; set; }
+
+        public void Add(LoadDiagnostic diagnostic)
+        {
+            if (Diagnostics.Count < MaxDiagnostics)
+            {
+                Diagnostics.Add(diagnostic);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads one modeled element in recovery mode: the subtree is captured FIRST (with
+    /// its position), then parsed from a sub-reader — so a failure mid-element cannot
+    /// strand the outer reader. On failure the verbatim subtree goes to the quarantine
+    /// list and one diagnostic is recorded; the sibling loop continues either way.
+    /// </summary>
+    private static void ReadItemWithRecovery(
+        XmlReader reader,
+        RecoveryContext recovery,
+        string parentPath,
+        Action<XmlReader> parse,
+        ref List<RawXmlFragment>? quarantine)
+    {
+        var lineInfo = reader as IXmlLineInfo;
+        int? line = lineInfo?.HasLineInfo() == true ? lineInfo.LineNumber + recovery.LineOffset : null;
+        int? column = lineInfo?.HasLineInfo() == true ? lineInfo.LinePosition : null;
+        var elementName = reader.LocalName;
+        var nameAttribute = reader.GetAttribute("name");
+        var outerXml = reader.ReadOuterXml();
+
+        var savedOffset = recovery.LineOffset;
+        try
+        {
+            recovery.LineOffset = (line ?? 1) - 1; // nested sub-reader line 1 == this element's document line
+            using var subReader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            subReader.MoveToContent();
+            parse(subReader);
+        }
+        catch (XtceParseException ex)
+        {
+            var path = nameAttribute is null
+                ? $"{parentPath}/{elementName}"
+                : $"{parentPath}/{elementName}[{nameAttribute}]";
+            recovery.Add(new LoadDiagnostic(LoadDiagnosticKind.ModelError, ex.Message, path, line, column));
+            (quarantine ??= new List<RawXmlFragment>()).Add(new RawXmlFragment(elementName, outerXml));
+        }
+        finally
+        {
+            recovery.LineOffset = savedOffset;
         }
     }
 
@@ -99,7 +200,8 @@ public static class XtceDocumentReader
     /// matching end tag (or itself, if empty) — so the caller's reader ends up positioned
     /// exactly where a sibling-or-parent's own loop expects it next.
     /// </summary>
-    private static SpaceSystem ReadSpaceSystem(XmlReader reader, int depth, List<RawXmlFragment>? leadingComments = null)
+    private static SpaceSystem ReadSpaceSystem(
+        XmlReader reader, int depth, List<RawXmlFragment>? leadingComments = null, RecoveryContext? recovery = null, string parentPath = "")
     {
         if (depth >= MaxSpaceSystemDepth)
         {
@@ -120,6 +222,7 @@ public static class XtceDocumentReader
         }
 
         var preservedAttributes = CapturePreservedAttributes(reader, "name");
+        var path = parentPath.Length == 0 ? name : $"{parentPath}/{name}";
 
         var children = new List<SpaceSystem>();
         TelemetryMetaData? telemetryMetaData = null;
@@ -139,17 +242,42 @@ public static class XtceDocumentReader
         {
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == ExpectedRootElementName)
             {
-                children.Add(ReadSpaceSystem(reader, depth + 1, TakeLeadingComments(ref pendingComments)));
+                var leading = TakeLeadingComments(ref pendingComments);
+                if (recovery is null)
+                {
+                    children.Add(ReadSpaceSystem(reader, depth + 1, leading));
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, path,
+                        r => children.Add(ReadSpaceSystem(r, depth + 1, leading, recovery, path)), ref preserved);
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "TelemetryMetaData")
             {
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
-                telemetryMetaData = ReadTelemetryMetaData(reader);
+                if (recovery is null)
+                {
+                    telemetryMetaData = ReadTelemetryMetaData(reader);
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, path,
+                        r => telemetryMetaData = ReadTelemetryMetaData(r, recovery, path), ref preserved);
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CommandMetaData")
             {
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
-                commandMetaData = ReadCommandMetaData(reader);
+                if (recovery is null)
+                {
+                    commandMetaData = ReadCommandMetaData(reader);
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, path,
+                        r => commandMetaData = ReadCommandMetaData(r, recovery, path), ref preserved);
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
@@ -170,7 +298,7 @@ public static class XtceDocumentReader
         return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData);
     }
 
-    private static CommandMetaData ReadCommandMetaData(XmlReader reader)
+    private static CommandMetaData ReadCommandMetaData(XmlReader reader, RecoveryContext? recovery = null, string path = "")
     {
         var metaCommands = new List<MetaCommand>();
         List<RawXmlFragment>? preservedEntries = null;
@@ -190,7 +318,7 @@ public static class XtceDocumentReader
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MetaCommandSet")
             {
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
-                ReadMetaCommandSet(reader, metaCommands, ref preservedEntries);
+                ReadMetaCommandSet(reader, metaCommands, ref preservedEntries, recovery, path);
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
@@ -213,7 +341,8 @@ public static class XtceDocumentReader
     }
 
     private static void ReadMetaCommandSet(
-        XmlReader reader, List<MetaCommand> metaCommands, ref List<RawXmlFragment>? preservedEntries)
+        XmlReader reader, List<MetaCommand> metaCommands, ref List<RawXmlFragment>? preservedEntries,
+        RecoveryContext? recovery = null, string path = "")
     {
         if (reader.IsEmptyElement)
         {
@@ -228,7 +357,16 @@ public static class XtceDocumentReader
         {
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MetaCommand")
             {
-                metaCommands.Add(ReadMetaCommand(reader, TakeLeadingComments(ref pendingComments)));
+                var leading = TakeLeadingComments(ref pendingComments);
+                if (recovery is null)
+                {
+                    metaCommands.Add(ReadMetaCommand(reader, leading));
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, $"{path}/CommandMetaData/MetaCommandSet",
+                        r => metaCommands.Add(ReadMetaCommand(r, leading)), ref preservedEntries);
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
@@ -442,7 +580,7 @@ public static class XtceDocumentReader
         reader.ReadEndElement();
     }
 
-    private static TelemetryMetaData ReadTelemetryMetaData(XmlReader reader)
+    private static TelemetryMetaData ReadTelemetryMetaData(XmlReader reader, RecoveryContext? recovery = null, string path = "")
     {
         var parameterTypes = new List<ParameterTypeDefinition>();
         var parameters = new List<Parameter>();
@@ -450,6 +588,7 @@ public static class XtceDocumentReader
         MessageSet? messageSet = null;
         List<RawXmlFragment>? preservedTypes = null;
         List<RawXmlFragment>? preservedParameters = null;
+        List<RawXmlFragment>? preservedContainers = null;
         List<RawXmlFragment>? preserved = null;
 
         if (reader.IsEmptyElement)
@@ -470,19 +609,19 @@ public static class XtceDocumentReader
 
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterTypeSet")
             {
-                ReadParameterTypeSet(reader, parameterTypes, ref preservedTypes);
+                ReadParameterTypeSet(reader, parameterTypes, ref preservedTypes, recovery, path);
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterSet")
             {
-                ReadParameterSet(reader, parameters, ref preservedParameters);
+                ReadParameterSet(reader, parameters, ref preservedParameters, recovery, path);
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContainerSet")
             {
-                containers = ReadContainerSet(reader);
+                containers = ReadContainerSet(reader, ref preservedContainers, recovery, path);
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MessageSet")
             {
-                messageSet = ReadMessageSet(reader);
+                messageSet = ReadMessageSet(reader, recovery, path);
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
@@ -500,10 +639,11 @@ public static class XtceDocumentReader
         reader.ReadEndElement();
 
         return new TelemetryMetaData(
-            parameterTypes, parameters, preservedTypes, preservedParameters, preserved, containers, messageSet);
+            parameterTypes, parameters, preservedTypes, preservedParameters, preserved, containers, messageSet,
+            preservedContainers);
     }
 
-    private static MessageSet ReadMessageSet(XmlReader reader)
+    private static MessageSet ReadMessageSet(XmlReader reader, RecoveryContext? recovery = null, string path = "")
     {
         var preservedAttributes = CapturePreservedAttributes(reader);
         var messages = new List<Message>();
@@ -522,7 +662,16 @@ public static class XtceDocumentReader
         {
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Message")
             {
-                messages.Add(ReadMessage(reader, TakeLeadingComments(ref pendingComments)));
+                var leading = TakeLeadingComments(ref pendingComments);
+                if (recovery is null)
+                {
+                    messages.Add(ReadMessage(reader, leading));
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, $"{path}/MessageSet",
+                        r => messages.Add(ReadMessage(r, leading)), ref preserved);
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
@@ -596,7 +745,8 @@ public static class XtceDocumentReader
         return new Message(name, containerRef, preserved, preservedAttributes);
     }
 
-    private static List<SequenceContainer> ReadContainerSet(XmlReader reader)
+    private static List<SequenceContainer> ReadContainerSet(
+        XmlReader reader, ref List<RawXmlFragment>? preservedContainers, RecoveryContext? recovery = null, string path = "")
     {
         var containers = new List<SequenceContainer>();
 
@@ -613,7 +763,16 @@ public static class XtceDocumentReader
         {
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "SequenceContainer")
             {
-                containers.Add(ReadSequenceContainer(reader, TakeLeadingComments(ref pendingComments)));
+                var leading = TakeLeadingComments(ref pendingComments);
+                if (recovery is null)
+                {
+                    containers.Add(ReadSequenceContainer(reader, leading));
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, $"{path}/ContainerSet",
+                        r => containers.Add(ReadSequenceContainer(r, leading)), ref preservedContainers);
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
@@ -918,7 +1077,9 @@ public static class XtceDocumentReader
     private static void ReadParameterTypeSet(
         XmlReader reader,
         List<ParameterTypeDefinition> parameterTypes,
-        ref List<RawXmlFragment>? preservedTypes)
+        ref List<RawXmlFragment>? preservedTypes,
+        RecoveryContext? recovery = null,
+        string path = "")
     {
         if (reader.IsEmptyElement)
         {
@@ -934,7 +1095,16 @@ public static class XtceDocumentReader
             if (reader.NodeType == XmlNodeType.Element &&
                 ParameterTypeElementKinds.TryGetValue(reader.LocalName, out var kind))
             {
-                parameterTypes.Add(ReadParameterTypeDefinition(reader, kind, TakeLeadingComments(ref pendingComments)));
+                var leading = TakeLeadingComments(ref pendingComments);
+                if (recovery is null)
+                {
+                    parameterTypes.Add(ReadParameterTypeDefinition(reader, kind, leading));
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, $"{path}/ParameterTypeSet",
+                        r => parameterTypes.Add(ReadParameterTypeDefinition(r, kind, leading)), ref preservedTypes);
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
@@ -1278,7 +1448,9 @@ public static class XtceDocumentReader
     private static void ReadParameterSet(
         XmlReader reader,
         List<Parameter> parameters,
-        ref List<RawXmlFragment>? preservedParameters)
+        ref List<RawXmlFragment>? preservedParameters,
+        RecoveryContext? recovery = null,
+        string path = "")
     {
         if (reader.IsEmptyElement)
         {
@@ -1293,7 +1465,16 @@ public static class XtceDocumentReader
         {
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Parameter")
             {
-                parameters.Add(ReadParameter(reader, TakeLeadingComments(ref pendingComments)));
+                var leading = TakeLeadingComments(ref pendingComments);
+                if (recovery is null)
+                {
+                    parameters.Add(ReadParameter(reader, leading));
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, $"{path}/ParameterSet",
+                        r => parameters.Add(ReadParameter(r, leading)), ref preservedParameters);
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
