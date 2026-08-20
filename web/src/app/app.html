@@ -95,6 +95,8 @@
           }
         </div>
 
+        <app-preserved-xml [item]="system" />
+
         <div class="node-actions add-type-row">
           <select #newTypeKind class="kind-select" aria-label="New parameter type kind">
             <option value="Integer">Integer</option>
@@ -198,6 +200,8 @@
           </div>
         }
 
+        <app-preserved-xml [item]="type" />
+
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
@@ -219,6 +223,8 @@
           <label for="param-initial">Initial value <span class="hint">(overrides the type's)</span></label>
           <input id="param-initial" [value]="parameter.initialValue ?? ''" (input)="onItemFieldInput('initialValue', $event)" />
         </div>
+
+        <app-preserved-xml [item]="parameter" />
 
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
@@ -357,6 +363,8 @@
           }
         </div>
 
+        <app-preserved-xml [item]="container" />
+
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
@@ -375,6 +383,8 @@
           <input id="message-containerref" list="known-container-names" [value]="message.containerRef" (input)="onItemFieldInput('containerRef', $event)" />
         </div>
         <p class="meta-text">Match criteria are preserved as XML (editing them is future work).</p>
+
+        <app-preserved-xml [item]="message" />
 
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
@@ -403,6 +413,8 @@
           Verifiers: {{ (metaCommand.completeVerifiers ?? []).length }} complete,
           {{ (metaCommand.executionVerifiers ?? []).length }} execution (preserved as XML).
         </p>
+
+        <app-preserved-xml [item]="metaCommand" />
 
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>

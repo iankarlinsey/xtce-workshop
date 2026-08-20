@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { EditableTreeNodeComponent } from './editable-tree-node/editable-tree-node';
+import { PreservedXmlComponent } from './preserved-xml/preserved-xml';
 import {
   SpaceSystemDocument,
   ParameterTypeDoc,
@@ -42,7 +43,7 @@ interface LoadResult {
 
 @Component({
   selector: 'app-root',
-  imports: [EditableTreeNodeComponent],
+  imports: [EditableTreeNodeComponent, PreservedXmlComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

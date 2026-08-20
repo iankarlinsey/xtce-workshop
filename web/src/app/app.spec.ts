@@ -1014,6 +1014,39 @@ describe('App', () => {
       expect(compiled.querySelector('input[aria-label="Comparison 0 parameter"]')).toBeNull();
     });
 
+    it('shows preserved XML transparently for items carrying unmodeled content', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'pres.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [{
+              name: 'Enc_Type', kind: 'Integer',
+              preserved: [{ elementName: 'IntegerDataEncoding', outerXml: '<IntegerDataEncoding sizeInBits="16"/>' }],
+              preservedAttributes: [{ name: 'baseType', value: 'Base_Type' }],
+            }],
+            parameterSet: [{ name: 'Plain', parameterTypeRef: 'Enc_Type' }],
+          },
+        },
+      });
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      clickTreeRowByText(fixture, 'Enc_Type');
+      expect(compiled.querySelector('.preserved-panel')).toBeTruthy();
+      expect(compiled.textContent).toContain('1 element(s), 1 attribute(s)');
+      expect(compiled.querySelector('.preserved-fragment-name')?.textContent).toContain('IntegerDataEncoding');
+      expect(compiled.querySelector('.preserved-attr')?.textContent).toContain('baseType="Base_Type"');
+
+      // An item with nothing preserved shows no panel at all.
+      clickTreeRowByText(fixture, 'Plain');
+      expect(compiled.querySelector('.preserved-panel')).toBeNull();
+    });
+
     it('shows the XSD reference sheet for the selected construct', () => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

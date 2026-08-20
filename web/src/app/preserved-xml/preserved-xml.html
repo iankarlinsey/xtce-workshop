@@ -1,0 +1,23 @@
+@if (hasContent()) {
+  <details class="preserved-panel">
+    <summary class="preserved-summary">
+      Preserved XML
+      <span class="hint">({{ fragments().length }} element(s), {{ attributes().length }} attribute(s) carried verbatim)</span>
+    </summary>
+
+    @if (attributes().length > 0) {
+      <p class="preserved-attrs">
+        @for (attribute of attributes(); track attribute.name) {
+          <span class="preserved-attr">{{ attribute.name }}="{{ attribute.value }}"</span>
+        }
+      </p>
+    }
+
+    @for (fragment of fragments(); track $index) {
+      <details class="preserved-fragment">
+        <summary class="preserved-fragment-name">{{ fragment.elementName }}</summary>
+        <pre class="preserved-xml">{{ fragment.outerXml }}</pre>
+      </details>
+    }
+  </details>
+}
