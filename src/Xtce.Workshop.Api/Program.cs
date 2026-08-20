@@ -20,10 +20,19 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
     options.SuppressModelStateInvalidFilter = true);
 
+// Kestrel serves the Angular build directly (wwwroot in the container image) — there is
+// no reverse proxy in front, so compression happens here.
+builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+app.UseResponseCompression();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.MapControllers();
+// SPA deep links (any non-API, non-file route) resolve to the Angular entry point.
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

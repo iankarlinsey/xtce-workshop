@@ -34,12 +34,10 @@ command:
 docker compose up --build
 ```
 
-- Frontend: http://localhost:4200
-- Backend directly: http://localhost:5299/api/health
+- App (UI + API): http://localhost:4200 (health check: http://localhost:4200/api/health)
 
-The frontend's nginx proxies `/api/*` requests to the backend container, so
-just opening http://localhost:4200 in a browser is enough — no separate API
-URL configuration needed.
+A single container runs Kestrel serving both the Angular frontend and the
+`/api/*` endpoints — opening http://localhost:4200 in a browser is enough.
 
 ## Repository layout
 
@@ -47,7 +45,7 @@ URL configuration needed.
 src/
   Xtce.Workshop.Model/       Domain model + XTCE XML reader/writer (no API/UI concerns)
   Xtce.Workshop.Validation/  Validation rules + name-reference resolver
-  Xtce.Workshop.Api/         .NET 8 backend (ASP.NET Core minimal API)
+  Xtce.Workshop.Api/         .NET 8 backend (ASP.NET Core, controllers; also serves the built frontend)
   Xtce.Workshop.Cli/         `xtce-workshop validate` command-line tool
   Xtce.SpecTools/            Standalone CLI for XTCE spec rule-extraction research —
                               unrelated to the app itself, see its own project for context

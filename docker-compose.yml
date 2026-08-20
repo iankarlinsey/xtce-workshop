@@ -1,15 +1,6 @@
 services:
-  api:
+  app:
     build:
       context: .
-      dockerfile: src/Xtce.Workshop.Api/Dockerfile
     ports:
-      - "5299:8080"
-
-  web:
-    build:
-      context: ./web
-    ports:
-      - "4200:80"
-    depends_on:
-      - api
+      - "4200:8080"
