@@ -516,3 +516,19 @@
   line-height: 1.55;
   color: var(--text);
 }
+
+.criteria-editor {
+  margin-top: 10px;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+}
+
+.criteria-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 8px;
+}

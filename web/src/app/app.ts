@@ -11,6 +11,8 @@ import {
   Selection,
   ItemKind,
   SequenceEntryDoc,
+  ComparisonDoc,
+  RestrictionCriteriaDoc,
   MessageDoc,
   MetaCommandDoc,
   TelemetryItem,
@@ -538,6 +540,74 @@ export class App {
 
   onRemoveBaseContainer(): void {
     this.mutateSelectedContainer((container) => ({ ...container, baseContainer: null }));
+  }
+
+  /**
+   * Comparisons shown in the criteria editor: the single-Comparison and ComparisonList
+   * model shapes flatten to one array here; the editor re-normalizes on write (one row ->
+   * Comparison, several -> ComparisonList).
+   */
+  protected criteriaComparisons(container: SequenceContainerDoc): ComparisonDoc[] {
+    const criteria = container.baseContainer?.restrictionCriteria;
+    if (!criteria) {
+      return [];
+    }
+    return criteria.comparison ? [criteria.comparison] : (criteria.comparisonList ?? []);
+  }
+
+  private mutateCriteriaComparisons(update: (comparisons: ComparisonDoc[]) => ComparisonDoc[]): void {
+    this.mutateSelectedContainer((container) => {
+      if (!container.baseContainer) {
+        return container;
+      }
+      const criteria: RestrictionCriteriaDoc = container.baseContainer.restrictionCriteria ?? {};
+      const updated = update(this.criteriaComparisons(container));
+      return {
+        ...container,
+        baseContainer: {
+          ...container.baseContainer,
+          restrictionCriteria: {
+            ...criteria,
+            comparison: updated.length === 1 ? updated[0] : null,
+            comparisonList: updated.length > 1 ? updated : null,
+          },
+        },
+      };
+    });
+  }
+
+  onAddCriteriaComparison(): void {
+    this.mutateCriteriaComparisons((comparisons) => [...comparisons, { parameterRef: '', value: '' }]);
+  }
+
+  onRemoveCriteriaComparison(index: number): void {
+    this.mutateCriteriaComparisons((comparisons) => comparisons.filter((_, i) => i !== index));
+  }
+
+  onCriteriaComparisonInput(index: number, field: 'parameterRef' | 'value' | 'comparisonOperator', event: Event): void {
+    const raw = (event.target as HTMLInputElement | HTMLSelectElement).value;
+    this.mutateCriteriaComparisons((comparisons) =>
+      comparisons.map((comparison, i) =>
+        i === index
+          ? { ...comparison, [field]: field === 'comparisonOperator' && raw === '==' ? null : raw }
+          : comparison));
+  }
+
+  onNextContainerInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value.trim();
+    this.mutateSelectedContainer((container) => {
+      if (!container.baseContainer) {
+        return container;
+      }
+      const criteria: RestrictionCriteriaDoc = container.baseContainer.restrictionCriteria ?? {};
+      return {
+        ...container,
+        baseContainer: {
+          ...container.baseContainer,
+          restrictionCriteria: { ...criteria, nextContainerRef: value === '' ? null : value },
+        },
+      };
+    });
   }
 
   private mutateSelectedContainer(updater: (container: SequenceContainerDoc) => SequenceContainerDoc): void {

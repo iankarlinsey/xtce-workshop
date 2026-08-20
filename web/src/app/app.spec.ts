@@ -928,6 +928,92 @@ describe('App', () => {
       expect(compiled.textContent).toContain('Compute layout');
     }));
 
+    it('editing restriction criteria flows into Save with single/list normalization', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Frame');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      // Give the container a base first.
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add base container'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      // One comparison -> serialized as the single-Comparison shape.
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add comparison'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const paramInput = compiled.querySelector('input[aria-label="Comparison 0 parameter"]') as HTMLInputElement;
+      paramInput.value = 'BusVoltage';
+      paramInput.dispatchEvent(new Event('input'));
+      const valueInput = compiled.querySelector('input[aria-label="Comparison 0 value"]') as HTMLInputElement;
+      valueInput.value = '28.5';
+      valueInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      // A second comparison with an explicit operator -> ComparisonList shape.
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '+ Add comparison'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const param2 = compiled.querySelector('input[aria-label="Comparison 1 parameter"]') as HTMLInputElement;
+      param2.value = 'BusVoltage';
+      param2.dispatchEvent(new Event('input'));
+      const op2 = compiled.querySelector('select[aria-label="Comparison 1 operator"]') as HTMLSelectElement;
+      op2.value = '>=';
+      op2.dispatchEvent(new Event('change'));
+      const value2 = compiled.querySelector('input[aria-label="Comparison 1 value"]') as HTMLInputElement;
+      value2.value = '1';
+      value2.dispatchEvent(new Event('input'));
+      const nextInput = compiled.querySelector('input[aria-label="Next container reference"]') as HTMLInputElement;
+      nextInput.value = 'Frame';
+      nextInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const criteria = req.request.body.telemetryMetaData.containerSet[0].baseContainer.restrictionCriteria;
+      expect(criteria.comparison).toBeNull();
+      expect(criteria.comparisonList).toEqual([
+        { parameterRef: 'BusVoltage', value: '28.5' },
+        { parameterRef: 'BusVoltage', value: '1', comparisonOperator: '>=' },
+      ]);
+      expect(criteria.nextContainerRef).toBe('Frame');
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('raw restriction criteria display as preserved XML, not editable rows', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'raw.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [], parameterSet: [],
+            containerSet: [{
+              name: 'Frame', entryList: [],
+              baseContainer: {
+                containerRef: 'Base',
+                restrictionCriteria: { raw: { elementName: 'BooleanExpression', outerXml: '<BooleanExpression/>' } },
+              },
+            }],
+          },
+        },
+      });
+      fixture.detectChanges();
+      clickTreeRowByText(fixture, 'Frame');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('BooleanExpression criteria preserved as XML');
+      expect(compiled.querySelector('input[aria-label="Comparison 0 parameter"]')).toBeNull();
+    });
+
     it('shows the XSD reference sheet for the selected construct', () => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

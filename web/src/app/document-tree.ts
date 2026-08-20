@@ -66,9 +66,24 @@ export interface SequenceEntryDoc {
   [key: string]: unknown;
 }
 
+export interface ComparisonDoc {
+  parameterRef: string;
+  value: string;
+  comparisonOperator?: string | null;
+  [key: string]: unknown;
+}
+
+export interface RestrictionCriteriaDoc {
+  comparison?: ComparisonDoc | null;
+  comparisonList?: ComparisonDoc[] | null;
+  nextContainerRef?: string | null;
+  raw?: { elementName: string; outerXml: string } | null;
+  [key: string]: unknown;
+}
+
 export interface BaseContainerDoc {
   containerRef: string;
-  restrictionCriteria?: unknown | null;
+  restrictionCriteria?: RestrictionCriteriaDoc | null;
   [key: string]: unknown;
 }
 

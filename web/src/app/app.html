@@ -287,9 +287,36 @@
               />
               <button type="button" class="btn btn-danger entry-btn" (click)="onRemoveBaseContainer()" aria-label="Remove base container">&times;</button>
             </div>
-            @if (base.restrictionCriteria) {
-              <p class="meta-text">Has restriction criteria (edited as XML for now).</p>
-            }
+            <div class="criteria-editor">
+              <label class="criteria-label">Restriction criteria <span class="hint">(all comparisons must hold)</span></label>
+              @if (base.restrictionCriteria?.raw; as raw) {
+                <p class="meta-text">{{ raw.elementName }} criteria preserved as XML (expression editing not supported).</p>
+              } @else {
+                @for (comparison of criteriaComparisons(container); track $index; let i = $index) {
+                  <div class="enum-row">
+                    <input class="member-name" list="known-parameter-names" [value]="comparison.parameterRef"
+                           (input)="onCriteriaComparisonInput(i, 'parameterRef', $event)" [attr.aria-label]="'Comparison ' + i + ' parameter'" placeholder="parameterRef" />
+                    <select class="kind-select" [value]="comparison.comparisonOperator ?? '=='"
+                            (change)="onCriteriaComparisonInput(i, 'comparisonOperator', $event)" [attr.aria-label]="'Comparison ' + i + ' operator'">
+                      <option value="==">==</option>
+                      <option value="!=">!=</option>
+                      <option value="&lt;">&lt;</option>
+                      <option value="&lt;=">&lt;=</option>
+                      <option value="&gt;">&gt;</option>
+                      <option value="&gt;=">&gt;=</option>
+                    </select>
+                    <input class="member-initial" [value]="comparison.value"
+                           (input)="onCriteriaComparisonInput(i, 'value', $event)" [attr.aria-label]="'Comparison ' + i + ' value'" placeholder="value" />
+                    <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveCriteriaComparison(i)" [attr.aria-label]="'Remove comparison ' + i">&times;</button>
+                  </div>
+                }
+                <div class="enum-row">
+                  <button type="button" class="btn" (click)="onAddCriteriaComparison()">+ Add comparison</button>
+                  <input class="member-name" list="known-container-names" [value]="base.restrictionCriteria?.nextContainerRef ?? ''"
+                         (input)="onNextContainerInput($event)" aria-label="Next container reference" placeholder="NextContainer (optional)" />
+                </div>
+              }
+            </div>
           } @else {
             <button type="button" class="btn" (click)="onAddBaseContainer()">+ Add base container</button>
           }
