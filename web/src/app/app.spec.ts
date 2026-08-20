@@ -1258,4 +1258,72 @@ describe('App', () => {
       expect(compiled.textContent).toContain('Failed to build the conformance report.');
     });
   });
+
+  describe('Search and usages', () => {
+    function loadSearchableDocument(fixture: ReturnType<typeof createAppAndFlushHealth>) {
+      const file = new File(['<xml/>'], 'telemetry.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [{ name: 'Volt_Type', kind: 'Float' }],
+            parameterSet: [{ name: 'BattVoltage', parameterTypeRef: 'Volt_Type' }],
+          },
+        },
+      });
+      fixture.detectChanges();
+    }
+
+    it('debounces a backend search and selects the clicked match', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadSearchableDocument(fixture);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const searchInput = compiled.querySelector('.search-field input') as HTMLInputElement;
+      searchInput.value = 'EPS_V';
+      searchInput.dispatchEvent(new Event('input'));
+      tick(App.revalidateDelayMs);
+
+      const request = httpMock.expectOne('/api/xtce/search');
+      expect(request.request.body.query).toBe('EPS_V');
+      request.flush({ matches: [{ kind: 'Parameter', systemPath: 'Sat', name: 'BattVoltage', matchedAlias: 'EPS_V_BATT' }] });
+      fixture.detectChanges();
+
+      const result = compiled.querySelector('.search-result') as HTMLButtonElement;
+      expect(result.textContent).toContain('BattVoltage');
+      expect(result.textContent).toContain('alias: EPS_V_BATT');
+
+      result.click();
+      fixture.detectChanges();
+      expect(compiled.querySelector('#param-name')).toBeTruthy(); // parameter editor opened
+      expect((compiled.querySelector('#param-name') as HTMLInputElement).value).toBe('BattVoltage');
+    }));
+
+    it('finds usages for the selected parameter and renders them', () => {
+      const fixture = createAppAndFlushHealth();
+      loadSearchableDocument(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      fixture.componentInstance.onSelectSearchMatch(
+        { kind: 'Parameter', systemPath: 'Sat', name: 'BattVoltage', matchedAlias: null });
+      fixture.detectChanges();
+
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Find usages'
+      ) as HTMLButtonElement).click();
+
+      const request = httpMock.expectOne('/api/xtce/usages');
+      expect(request.request.body.systemPath).toBe('Sat');
+      expect(request.request.body.parameterName).toBe('BattVoltage');
+      request.flush({ usages: [{ kind: 'ParameterRefEntry', location: 'Sat/ContainerSet/Hk', detail: 'BattVoltage' }] });
+      fixture.detectChanges();
+
+      const row = compiled.querySelector('.usage-row') as HTMLElement;
+      expect(row.textContent).toContain('ParameterRefEntry');
+      expect(row.textContent).toContain('Sat/ContainerSet/Hk');
+    });
+  });
 });

@@ -75,3 +75,16 @@ export interface DocumentMetrics {
   totals: MetricCounts;
   systems: SpaceSystemMetrics[];
 }
+
+export interface SearchMatch {
+  kind: 'Parameter' | 'ParameterType' | 'Container' | 'Message' | 'MetaCommand';
+  systemPath: string;
+  name: string;
+  matchedAlias: string | null;
+}
+
+export interface UsageMatch {
+  kind: string;
+  location: string;
+  detail: string;
+}

@@ -30,7 +30,7 @@ import {
   collectMetaCommandNames,
   moveEntry,
 } from './document-tree';
-import { ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics } from './validation';
+import { ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics, SearchMatch, UsageMatch } from './validation';
 import { XTCE_REFERENCE, ReferenceEntry } from './xtce-reference';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
@@ -72,6 +72,9 @@ export class App {
   protected readonly conformanceReport = signal<ConformanceReport | null>(null);
   protected readonly reportError = signal<string | null>(null);
   protected readonly documentMetrics = signal<DocumentMetrics | null>(null);
+  protected readonly searchMatches = signal<SearchMatch[] | null>(null);
+  protected readonly parameterUsages = signal<UsageMatch[] | null>(null);
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Summary entries in severity order for the report header chips. */
   protected readonly reportSummary = computed(() => {
@@ -254,6 +257,7 @@ export class App {
   onSelect(selection: Selection): void {
     this.selection.set(selection);
     this.packetLayout.set(null); // layouts are per-container and computed on demand
+    this.parameterUsages.set(null); // usages are per-parameter and computed on demand
   }
 
   onComputeLayout(): void {
@@ -742,6 +746,97 @@ export class App {
   onTreeSearchInput(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.treeSearchTerm.set(input.value);
+    this.scheduleSearch(input.value);
+  }
+
+  /** Debounced backend search: alias-aware and cross-tree, unlike the client-side tree filter. */
+  private scheduleSearch(query: string): void {
+    if (this.searchTimer !== null) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = null;
+    }
+    if (query.trim() === '') {
+      this.searchMatches.set(null);
+      return;
+    }
+    this.searchTimer = setTimeout(() => {
+      this.searchTimer = null;
+      const doc = this.currentDocument();
+      if (!doc) {
+        return;
+      }
+      this.http.post<{ matches: SearchMatch[] }>('/api/xtce/search', { document: doc, query }).subscribe({
+        next: (result) => this.searchMatches.set(result.matches ?? []),
+        error: () => this.searchMatches.set(null),
+      });
+    }, App.revalidateDelayMs);
+  }
+
+  /** Maps a backend search match (name-based paths) onto a tree Selection and selects it. */
+  onSelectSearchMatch(match: SearchMatch): void {
+    const doc = this.currentDocument();
+    if (!doc) {
+      return;
+    }
+    const path: number[] = [];
+    let node = doc;
+    for (const segment of match.systemPath.split('/').slice(1)) {
+      const index = node.children.findIndex((child) => child.name === segment);
+      if (index < 0) {
+        return;
+      }
+      path.push(index);
+      node = node.children[index];
+    }
+
+    const lists: Record<SearchMatch['kind'], { kind: ItemKind; items: { name: string }[] | undefined }> = {
+      Parameter: { kind: 'parameter', items: node.telemetryMetaData?.parameterSet },
+      ParameterType: { kind: 'parameterType', items: node.telemetryMetaData?.parameterTypeSet },
+      Container: { kind: 'container', items: node.telemetryMetaData?.containerSet ?? undefined },
+      Message: { kind: 'message', items: node.telemetryMetaData?.messageSet?.messages },
+      MetaCommand: { kind: 'metaCommand', items: node.commandMetaData?.metaCommands },
+    };
+    const target = lists[match.kind];
+    const itemIndex = target.items?.findIndex((item) => item.name === match.name) ?? -1;
+    this.onSelect(itemIndex >= 0
+      ? { systemPath: path, item: { kind: target.kind, index: itemIndex } }
+      : { systemPath: path });
+  }
+
+  /** The selected system's name path ("Root/Bus") — the backend's SystemPath convention. */
+  private selectedSystemNamePath(): string | null {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection) {
+      return null;
+    }
+    const names = [doc.name];
+    let node = doc;
+    for (const index of selection.systemPath) {
+      node = node.children[index];
+      if (!node) {
+        return null;
+      }
+      names.push(node.name);
+    }
+    return names.join('/');
+  }
+
+  onFindUsages(): void {
+    const doc = this.currentDocument();
+    const parameter = this.selectedParameter();
+    const systemPath = this.selectedSystemNamePath();
+    if (!doc || !parameter || !systemPath) {
+      return;
+    }
+    this.http.post<{ usages: UsageMatch[] }>('/api/xtce/usages', {
+      document: doc,
+      systemPath,
+      parameterName: parameter.name,
+    }).subscribe({
+      next: (result) => this.parameterUsages.set(result.usages ?? []),
+      error: () => this.parameterUsages.set(null),
+    });
   }
 
   private mutateSelectedSystem(updater: (system: SpaceSystemDocument) => SpaceSystemDocument): void {
@@ -777,6 +872,8 @@ export class App {
     this.packetLayout.set(null); // any edit invalidates a computed layout
     this.conformanceReport.set(null); // ...and any computed conformance report
     this.documentMetrics.set(null);
+    this.parameterUsages.set(null);
+    this.searchMatches.set(null);
     this.scheduleRevalidate();
   }
 

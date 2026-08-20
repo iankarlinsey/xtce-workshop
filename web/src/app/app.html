@@ -71,8 +71,24 @@
       @if (currentDocument(); as doc) {
         <label class="search-field">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input type="search" (input)="onTreeSearchInput($event)" placeholder="Filter by name" />
+          <input type="search" (input)="onTreeSearchInput($event)" placeholder="Filter by name, alias, or glob" />
         </label>
+        @if (searchMatches(); as matches) {
+          <div class="search-results">
+            @if (matches.length === 0) {
+              <p class="meta-text">No name or alias matches.</p>
+            }
+            @for (match of matches; track match.kind + match.systemPath + match.name) {
+              <button type="button" class="search-result" (click)="onSelectSearchMatch(match)">
+                <span class="search-result-kind">{{ match.kind }}</span>
+                <span class="search-result-name">{{ match.systemPath }}/{{ match.name }}</span>
+                @if (match.matchedAlias) {
+                  <span class="search-result-alias">alias: {{ match.matchedAlias }}</span>
+                }
+              </button>
+            }
+          </div>
+        }
         <div class="tree-container">
           <app-editable-tree-node
             [node]="doc"
@@ -334,6 +350,24 @@
         <div class="form-field">
           <label for="param-initial">Initial value <span class="hint">(overrides the type's)</span></label>
           <input id="param-initial" [value]="parameter.initialValue ?? ''" (input)="onItemFieldInput('initialValue', $event)" />
+        </div>
+
+        <div class="usages-section">
+          <button type="button" class="btn" (click)="onFindUsages()">Find usages</button>
+          @if (parameterUsages(); as usages) {
+            @if (usages.length === 0) {
+              <p class="meta-text">No references to this parameter.</p>
+            } @else {
+              <ul class="usages-list">
+                @for (usage of usages; track usage.kind + usage.location + usage.detail) {
+                  <li class="usage-row">
+                    <span class="usage-kind">{{ usage.kind }}</span>
+                    <span class="usage-location">{{ usage.location }}</span>
+                  </li>
+                }
+              </ul>
+            }
+          }
         </div>
 
         <app-preserved-xml [item]="parameter" />
