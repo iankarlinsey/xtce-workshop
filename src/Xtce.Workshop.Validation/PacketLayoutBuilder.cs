@@ -114,6 +114,10 @@ public static class PacketLayoutBuilder
                 case SequenceEntryKind.Raw:
                 {
                     var fragment = entry.RawXml!;
+                    if (fragment.ElementName == CommentAnchor.ElementName)
+                    {
+                        break; // a preserved XML comment riding in entry position — no bits
+                    }
                     var sizeAttr = XmlFragmentInspector.RootAttribute(fragment.OuterXml, "sizeInBits");
                     long? size = long.TryParse(sizeAttr, out var parsed) ? parsed : null;
                     var label = XmlFragmentInspector.RootAttribute(fragment.OuterXml, "parameterRef")

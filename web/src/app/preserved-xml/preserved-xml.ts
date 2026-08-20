@@ -3,6 +3,8 @@ import { Component, computed, input } from '@angular/core';
 interface RawFragment {
   elementName: string;
   outerXml: string;
+  /** Comment fragments ("#comment") record where they sat; see backend issue #51. */
+  anchor?: string | null;
 }
 
 interface RawAttribute {

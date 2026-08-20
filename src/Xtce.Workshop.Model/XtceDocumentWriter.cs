@@ -95,6 +95,10 @@ public static class XtceDocumentWriter
 
     private static void WriteSpaceSystem(XmlWriter writer, SpaceSystem spaceSystem)
     {
+        // Leading comments precede the start tag: for the root these are the document
+        // prolog (license headers); for nested systems, comments that sat before them.
+        WriteLeadingComments(writer, spaceSystem.Preserved);
+
         // Namespace must be passed explicitly on every element, not just the root —
         // WriteStartElement(localName) without one writes an unqualified (no-namespace)
         // element even when a default namespace is already in scope, which would produce
@@ -123,6 +127,9 @@ public static class XtceDocumentWriter
         EmitInSchemaOrder(SpaceSystemChildOrder, slots);
 
         writer.WriteEndElement();
+
+        // Trailing comments follow the end tag: document epilog for the root.
+        WriteTrailingComments(writer, spaceSystem.Preserved);
     }
 
     private static void WriteTelemetryMetaData(XmlWriter writer, TelemetryMetaData telemetryMetaData)
@@ -208,6 +215,7 @@ public static class XtceDocumentWriter
             var captured = message;
             slots.Add(("Message", () =>
             {
+                WriteLeadingComments(writer, captured.Preserved);
                 writer.WriteStartElement("Message", XtceNamespace);
                 writer.WriteAttributeString("name", captured.Name);
                 WritePreservedAttributes(writer, captured.PreservedAttributes);
@@ -279,6 +287,7 @@ public static class XtceDocumentWriter
 
     private static void WriteMetaCommand(XmlWriter writer, MetaCommand metaCommand)
     {
+        WriteLeadingComments(writer, metaCommand.Preserved);
         writer.WriteStartElement("MetaCommand", XtceNamespace);
         writer.WriteAttributeString("name", metaCommand.Name);
         if (metaCommand.Abstract is { } isAbstract)
@@ -351,6 +360,7 @@ public static class XtceDocumentWriter
 
     private static void WriteSequenceContainer(XmlWriter writer, SequenceContainer container)
     {
+        WriteLeadingComments(writer, container.Preserved);
         writer.WriteStartElement("SequenceContainer", XtceNamespace);
         writer.WriteAttributeString("name", container.Name);
         if (container.Abstract is { } isAbstract)
@@ -382,14 +392,26 @@ public static class XtceDocumentWriter
         EmitInSchemaOrder(SequenceContainerChildOrder, slots);
 
         writer.WriteEndElement();
+
+        // ContainerSet has no preserved list of its own, so comments trailing the set ride
+        // on its last container and are re-emitted here, after the container's end tag.
+        WriteTrailingComments(writer, container.Preserved);
     }
 
     private static void WriteSequenceEntry(XmlWriter writer, SequenceEntry entry)
     {
         if (entry.Kind == SequenceEntryKind.Raw)
         {
-            writer.WriteRaw(entry.RawXml?.OuterXml
-                ?? throw new InvalidOperationException("A Raw sequence entry has no RawXml payload."));
+            var rawXml = entry.RawXml
+                ?? throw new InvalidOperationException("A Raw sequence entry has no RawXml payload.");
+            if (rawXml.ElementName == CommentAnchor.ElementName)
+            {
+                WriteCommentText(writer, rawXml.OuterXml); // a comment kept in entry-list position
+            }
+            else
+            {
+                writer.WriteRaw(rawXml.OuterXml);
+            }
             return;
         }
 
@@ -478,6 +500,7 @@ public static class XtceDocumentWriter
 
     private static void WriteParameter(XmlWriter writer, Parameter parameter)
     {
+        WriteLeadingComments(writer, parameter.Preserved);
         writer.WriteStartElement("Parameter", XtceNamespace);
         writer.WriteAttributeString("name", parameter.Name);
         writer.WriteAttributeString("parameterTypeRef", parameter.ParameterTypeRef);
@@ -512,6 +535,7 @@ public static class XtceDocumentWriter
                 nameof(parameterType), parameterType.Kind, "Unsupported parameter type kind."),
         };
 
+        WriteLeadingComments(writer, parameterType.Preserved);
         writer.WriteStartElement(elementName, XtceNamespace);
         writer.WriteAttributeString("name", parameterType.Name);
 
@@ -632,6 +656,16 @@ public static class XtceDocumentWriter
         writer.WriteEndElement();
     }
 
+    /// <summary>
+    /// Slot-name prefix marking "emit just BEFORE the named element's slot" — used by
+    /// anchored comment fragments (issue #51). U+0001 can't occur in an XML element name,
+    /// so it can't collide with a real slot.
+    /// </summary>
+    private const char BeforeSlotPrefix = '\u0001';
+
+    /// <summary>Slot name that sorts after every table entry — trailing comments.</summary>
+    private const string EndSlotName = "\uFFFF#end";
+
     private static void AddPreservedSlots(
         List<(string Name, Action Emit)> slots, XmlWriter writer, IReadOnlyList<RawXmlFragment>? preserved)
     {
@@ -642,7 +676,19 @@ public static class XtceDocumentWriter
         foreach (var fragment in preserved)
         {
             var captured = fragment;
-            slots.Add((fragment.ElementName, () => writer.WriteRaw(captured.OuterXml)));
+            if (fragment.ElementName == CommentAnchor.ElementName)
+            {
+                if (fragment.Anchor is CommentAnchor.Leading or CommentAnchor.Trailing)
+                {
+                    continue; // emitted around the owning element's tags, not among children
+                }
+                var slotName = fragment.Anchor is null ? EndSlotName : BeforeSlotPrefix + fragment.Anchor;
+                slots.Add((slotName, () => WriteCommentText(writer, captured.OuterXml)));
+            }
+            else
+            {
+                slots.Add((fragment.ElementName, () => writer.WriteRaw(captured.OuterXml)));
+            }
         }
     }
 
@@ -654,7 +700,53 @@ public static class XtceDocumentWriter
         }
         foreach (var fragment in fragments)
         {
-            writer.WriteRaw(fragment.OuterXml);
+            if (fragment.ElementName == CommentAnchor.ElementName)
+            {
+                WriteCommentText(writer, fragment.OuterXml);
+            }
+            else
+            {
+                writer.WriteRaw(fragment.OuterXml);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Writes a comment, defensively adjusting text that XML forbids inside comments
+    /// ("--", or a trailing "-"). Documents loaded from XML can't contain those (they'd
+    /// have been unparseable), but documents posted as JSON through the API can.
+    /// </summary>
+    private static void WriteCommentText(XmlWriter writer, string text)
+    {
+        var safe = text.Replace("--", "- -");
+        if (safe.EndsWith('-'))
+        {
+            safe += " ";
+        }
+        writer.WriteComment(safe);
+    }
+
+    /// <summary>Comment fragments captured before the owning element's start tag (issue #51).</summary>
+    private static void WriteLeadingComments(XmlWriter writer, IReadOnlyList<RawXmlFragment>? preserved)
+    {
+        foreach (var fragment in preserved ?? [])
+        {
+            if (fragment.ElementName == CommentAnchor.ElementName && fragment.Anchor == CommentAnchor.Leading)
+            {
+                WriteCommentText(writer, fragment.OuterXml);
+            }
+        }
+    }
+
+    /// <summary>Comment fragments captured after the owning element's end tag (issue #51).</summary>
+    private static void WriteTrailingComments(XmlWriter writer, IReadOnlyList<RawXmlFragment>? preserved)
+    {
+        foreach (var fragment in preserved ?? [])
+        {
+            if (fragment.ElementName == CommentAnchor.ElementName && fragment.Anchor == CommentAnchor.Trailing)
+            {
+                WriteCommentText(writer, fragment.OuterXml);
+            }
         }
     }
 
@@ -663,14 +755,19 @@ public static class XtceDocumentWriter
     /// XSD sequence table — preserved fragments interleave correctly with modeled elements,
     /// and same-named entries keep their captured relative order (OrderBy is stable). A name
     /// missing from the table (shouldn't happen for schema-valid input) sorts last rather
-    /// than throwing: emitting it somewhere beats losing it.
+    /// than throwing: emitting it somewhere beats losing it. Comment slots prefixed with
+    /// BeforeSlotPrefix sort a half-step ahead of their anchor element's slot, landing the
+    /// comment immediately before the element it originally preceded.
     /// </summary>
     private static void EmitInSchemaOrder(string[] orderTable, List<(string Name, Action Emit)> slots)
     {
         foreach (var slot in slots.OrderBy(s =>
                  {
-                     var index = Array.IndexOf(orderTable, s.Name);
-                     return index < 0 ? orderTable.Length : index;
+                     var before = s.Name.Length > 0 && s.Name[0] == BeforeSlotPrefix;
+                     var lookup = before ? s.Name[1..] : s.Name;
+                     var index = Array.IndexOf(orderTable, lookup);
+                     double key = index < 0 ? orderTable.Length : index;
+                     return before ? key - 0.5 : key;
                  }))
         {
             slot.Emit();

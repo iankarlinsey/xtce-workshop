@@ -11,8 +11,30 @@ namespace Xtce.Workshop.Model;
 /// declarations, and WriteRaw re-emits the markup verbatim into the writer's scope. A
 /// prefix declared on a modeled ancestor element survives because namespace-declaration
 /// attributes are captured as RawAttributes on that element.
+///
+/// XML comments (issue #51) also travel as fragments, with ElementName == "#comment" and
+/// OuterXml holding the comment TEXT (not the &lt;!-- --&gt; markup). Anchor records where
+/// the comment sat: the local name of the sibling element it immediately preceded (the
+/// writer re-emits it just before that element's slot), CommentAnchor.Leading (emit before
+/// the owning element's own start tag — also used for document-prolog comments on the root
+/// SpaceSystem), CommentAnchor.Trailing (emit after the owning element's end tag — also
+/// used for document-epilog comments on the root), or null (emit at the end of the owning
+/// element's children). Anchor is null and meaningless for ordinary element fragments.
 /// </summary>
-public sealed record RawXmlFragment(string ElementName, string OuterXml);
+public sealed record RawXmlFragment(string ElementName, string OuterXml, string? Anchor = null);
+
+/// <summary>The special ElementName/Anchor values used by comment fragments (issue #51).</summary>
+public static class CommentAnchor
+{
+    /// <summary>ElementName marking a fragment as a comment (OuterXml = comment text).</summary>
+    public const string ElementName = "#comment";
+
+    /// <summary>Emit before the owning element's start tag (document prolog on the root).</summary>
+    public const string Leading = "#leading";
+
+    /// <summary>Emit after the owning element's end tag (document epilog on the root).</summary>
+    public const string Trailing = "#trailing";
+}
 
 /// <summary>
 /// An unmodeled attribute captured on load. Name keeps its prefix ("xsi:schemaLocation",

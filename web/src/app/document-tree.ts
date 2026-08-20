@@ -20,7 +20,7 @@ export type ParameterTypeKind =
 
 export interface DimensionIndexDoc {
   fixedValue?: number | null;
-  raw?: { elementName: string; outerXml: string } | null;
+  raw?: { elementName: string; outerXml: string; anchor?: string | null } | null;
   [key: string]: unknown;
 }
 
@@ -62,7 +62,7 @@ export interface ParameterDoc {
 export interface SequenceEntryDoc {
   kind: 'ParameterRef' | 'ContainerRef' | 'Raw';
   ref?: string | null;
-  rawXml?: { elementName: string; outerXml: string } | null;
+  rawXml?: { elementName: string; outerXml: string; anchor?: string | null } | null;
   [key: string]: unknown;
 }
 
@@ -77,7 +77,7 @@ export interface RestrictionCriteriaDoc {
   comparison?: ComparisonDoc | null;
   comparisonList?: ComparisonDoc[] | null;
   nextContainerRef?: string | null;
-  raw?: { elementName: string; outerXml: string } | null;
+  raw?: { elementName: string; outerXml: string; anchor?: string | null } | null;
   [key: string]: unknown;
 }
 
