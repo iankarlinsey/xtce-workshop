@@ -3,3 +3,8 @@ obj/
 *.user
 .vs/
 out/
+
+# Coverage outputs (issue #55) — produced by dotnet test --collect and ng test --code-coverage
+TestResults/
+coverage-report/
+web/coverage/

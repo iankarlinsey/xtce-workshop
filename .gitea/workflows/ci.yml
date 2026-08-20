@@ -27,7 +27,26 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results.trx"
+        # Coverage collection (issue #55) rides the test run via the coverlet.collector
+        # package every test project already references.
+        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory TestResults
+
+      - name: Coverage report and gate
+        # Merges the per-project Cobertura files, prints the summary into the job log,
+        # renders the browsable HTML report, and FAILS the job when line coverage drops
+        # below the floor. Floors are ratchets pinned just under the measured baseline
+        # (backend: 88.8% line / 84.6% branch on 2026-08-20) — raise them deliberately,
+        # never lower them to make a red build green.
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.3.11
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:coverage-report "-reporttypes:TextSummary;Html"
+          cat coverage-report/Summary.txt
+          LINE=$(grep -oP 'Line coverage: \K[0-9]+(?=\.?[0-9]*%)' coverage-report/Summary.txt | head -1)
+          BRANCH=$(grep -oP 'Branch coverage: \K[0-9]+(?=\.?[0-9]*%)' coverage-report/Summary.txt | head -1)
+          echo "line=$LINE% (floor 85%), branch=$BRANCH% (floor 80%)"
+          [ "$LINE" -ge 85 ] || { echo "::error::line coverage $LINE% is below the 85% floor"; exit 1; }
+          [ "$BRANCH" -ge 80 ] || { echo "::error::branch coverage $BRANCH% is below the 80% floor"; exit 1; }
 
       - name: Publish test results
         if: always()
@@ -38,6 +57,13 @@ jobs:
         with:
           name: backend-test-results
           path: '**/test-results.trx'
+
+      - name: Publish coverage report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-coverage-report
+          path: coverage-report/
 
   frontend-build-and-test:
     runs-on: dind
@@ -63,6 +89,17 @@ jobs:
 
       - name: Test
         working-directory: web
-        run: npx ng test --watch=false
+        # --code-coverage activates the karma-coverage reporter configured in
+        # karma.conf.js, whose check thresholds (issue #55) fail this step when global
+        # coverage drops below the floors pinned under the 2026-08-20 baseline
+        # (83.2% lines / 66.9% branches).
+        run: npx ng test --watch=false --code-coverage
         env:
           CHROME_BIN: /usr/bin/chromium
+
+      - name: Publish coverage report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-coverage-report
+          path: web/coverage/
