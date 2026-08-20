@@ -28,7 +28,12 @@
         </label>
         <button type="button" class="btn" (click)="onOpenCreator('document')">New&hellip;</button>
         <button type="button" class="btn btn-primary" (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</button>
+        <button type="button" class="btn" (click)="onRunReport()" [disabled]="!currentDocument()">Report</button>
       </div>
+
+      @if (reportError()) {
+        <p class="error">{{ reportError() }}</p>
+      }
 
       @if (creating() === 'document') {
         <div class="creator-row">
@@ -523,4 +528,64 @@
       }
     </main>
   </div>
+
+  @if (conformanceReport(); as report) {
+    <div class="report-overlay">
+      <div class="report-panel">
+        <div class="report-header">
+          <span class="report-title">XTCE 1.2 conformance report</span>
+          <span class="report-schema" [class.report-status-pass]="report.schemaValid" [class.report-status-fail]="!report.schemaValid">
+            Schema: {{ report.schemaValid ? 'VALID' : 'INVALID' }}
+          </span>
+          <div class="spacer"></div>
+          <button type="button" class="btn" (click)="onCloseReport()">Close</button>
+        </div>
+
+        @if (report.schemaErrors.length > 0) {
+          <ul class="report-schema-errors">
+            @for (schemaError of report.schemaErrors; track $index) {
+              <li>{{ schemaError }}</li>
+            }
+          </ul>
+        }
+
+        <div class="report-summary">
+          @for (entry of reportSummary(); track entry.status) {
+            <span class="report-chip" [class]="'report-chip ' + reportStatusClass(entry.status)">
+              {{ entry.label }}: {{ entry.count }}
+            </span>
+          }
+        </div>
+
+        <div class="report-table-container">
+          <table class="report-table">
+            <thead>
+              <tr><th>#</th><th>Status</th><th>Rule</th><th>Owner (XSD)</th><th>Details</th></tr>
+            </thead>
+            <tbody>
+              @for (row of report.candidates; track row.candidateNumber) {
+                <tr [class]="reportStatusClass(row.status)">
+                  <td class="report-cand">{{ row.candidateNumber }}</td>
+                  <td class="report-status">{{ reportStatusLabel(row.status) }}</td>
+                  <td class="report-rule">{{ row.ruleId ?? '—' }}</td>
+                  <td class="report-owner">{{ row.ownerPath }}</td>
+                  <td class="report-notes">
+                    @if (row.findings.length > 0) {
+                      <ul class="report-findings">
+                        @for (finding of row.findings; track $index) {
+                          <li><span class="report-finding-location">{{ finding.location }}</span> {{ finding.message }}</li>
+                        }
+                      </ul>
+                    } @else {
+                      {{ row.notes }}
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
 </div>

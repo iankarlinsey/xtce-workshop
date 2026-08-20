@@ -1113,4 +1113,117 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
   });
+
+  describe('Conformance report', () => {
+    function sampleReport(status: string, findings: unknown[] = []) {
+      return {
+        schemaValid: true,
+        schemaErrors: [],
+        candidates: [
+          {
+            candidateNumber: 63,
+            ownerPath: 'EnumeratedDataType/initialValue',
+            disposition: 'SEMANTIC',
+            ruleId: 'XTCE-1.2-R07-enum-initial-value-must-be-valid-label',
+            status,
+            findings,
+            notes: 'Check executed; no findings at this site.',
+          },
+        ],
+        rules: [{ ruleId: 'XTCE-1.2-R07-enum-initial-value-must-be-valid-label', executed: true, findingCount: findings.length }],
+        summary: { [status]: 1 },
+      };
+    }
+
+    it('posts the current document to /api/xtce/report and renders the rows', () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Report'
+      ) as HTMLButtonElement).click();
+
+      const req = httpMock.expectOne('/api/xtce/report');
+      expect(req.request.body.name).toBe('Sat');
+      req.flush(sampleReport('Pass'));
+      fixture.detectChanges();
+
+      expect(compiled.querySelector('.report-panel')).toBeTruthy();
+      expect(compiled.textContent).toContain('Schema: VALID');
+      expect(compiled.textContent).toContain('PASS: 1');
+      const row = compiled.querySelector('.report-table tbody tr') as HTMLElement;
+      expect(row.textContent).toContain('63');
+      expect(row.textContent).toContain('EnumeratedDataType/initialValue');
+    });
+
+    it('renders failing rows with their tagged findings', () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Report'
+      ) as HTMLButtonElement).click();
+      httpMock.expectOne('/api/xtce/report').flush(sampleReport('Fail', [
+        {
+          ruleId: 'XTCE-1.2-R07-enum-initial-value-must-be-valid-label',
+          severity: 'Error',
+          location: 'Sat/ParameterTypeSet/Mode',
+          message: "initialValue 'BAD' is not a valid label in Mode's EnumerationList.",
+          candidateNumber: 63,
+        },
+      ]));
+      fixture.detectChanges();
+
+      expect(compiled.textContent).toContain('FAIL: 1');
+      const findingItem = compiled.querySelector('.report-findings li') as HTMLElement;
+      expect(findingItem.textContent).toContain('Sat/ParameterTypeSet/Mode');
+      expect(findingItem.textContent).toContain('not a valid label');
+    });
+
+    it('closes the report panel, and any document edit clears a stale report', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Report'
+      ) as HTMLButtonElement).click();
+      httpMock.expectOne('/api/xtce/report').flush(sampleReport('Pass'));
+      fixture.detectChanges();
+      expect(compiled.querySelector('.report-panel')).toBeTruthy();
+
+      (Array.from(compiled.querySelectorAll('.report-header button')).find(
+        (b) => b.textContent?.trim() === 'Close'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(compiled.querySelector('.report-panel')).toBeNull();
+
+      // Reopen, then edit the document — the stale report must vanish.
+      fixture.componentInstance.onRunReport();
+      httpMock.expectOne('/api/xtce/report').flush(sampleReport('Pass'));
+      fixture.detectChanges();
+      expect(compiled.querySelector('.report-panel')).toBeTruthy();
+
+      const nameInput = compiled.querySelector('#node-name') as HTMLInputElement;
+      nameInput.value = 'RenamedSat';
+      nameInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(compiled.querySelector('.report-panel')).toBeNull();
+      flushRevalidate();
+    }));
+
+    it('shows an error when the report request fails', () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+
+      fixture.componentInstance.onRunReport();
+      httpMock.expectOne('/api/xtce/report').flush('boom', { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Failed to build the conformance report.');
+    });
+  });
 });

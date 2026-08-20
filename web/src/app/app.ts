@@ -30,7 +30,7 @@ import {
   collectMetaCommandNames,
   moveEntry,
 } from './document-tree';
-import { ValidationIssue, PacketLayout } from './validation';
+import { ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus } from './validation';
 import { XTCE_REFERENCE, ReferenceEntry } from './xtce-reference';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
@@ -69,6 +69,20 @@ export class App {
   protected readonly saveError = signal<string | null>(null);
   protected readonly validationIssues = signal<ValidationIssue[]>([]);
   protected readonly packetLayout = signal<PacketLayout | null>(null);
+  protected readonly conformanceReport = signal<ConformanceReport | null>(null);
+  protected readonly reportError = signal<string | null>(null);
+
+  /** Summary entries in severity order for the report header chips. */
+  protected readonly reportSummary = computed(() => {
+    const report = this.conformanceReport();
+    if (!report) {
+      return [];
+    }
+    const order: CandidateStatus[] = ['Fail', 'SchemaFail', 'Pass', 'SchemaPass', 'NotEvaluated', 'Info', 'NotApplicable'];
+    return order
+      .filter((status) => (report.summary[status] ?? 0) > 0)
+      .map((status) => ({ status, label: this.reportStatusLabel(status), count: report.summary[status] }));
+  });
 
   protected readonly selectedSystem = computed(() => {
     const doc = this.currentDocument();
@@ -210,6 +224,7 @@ export class App {
         this.currentDocument.set(result.document);
         this.selection.set({ systemPath: [] });
         this.validationIssues.set(result.validationIssues ?? []);
+        this.conformanceReport.set(null);
       },
       error: (err) => this.loadError.set(err?.error?.error ?? 'Failed to load file.'),
     });
@@ -255,6 +270,52 @@ export class App {
       next: (layout) => this.packetLayout.set(layout),
       error: () => this.packetLayout.set({ rows: [], totalSizeInBits: null }),
     });
+  }
+
+  // --- Conformance report ----------------------------------------------------------------
+
+  onRunReport(): void {
+    const doc = this.currentDocument();
+    if (!doc) {
+      return;
+    }
+    this.reportError.set(null);
+    this.http.post<ConformanceReport>('/api/xtce/report', doc).subscribe({
+      next: (report) => this.conformanceReport.set(report),
+      error: () => this.reportError.set('Failed to build the conformance report.'),
+    });
+  }
+
+  onCloseReport(): void {
+    this.conformanceReport.set(null);
+  }
+
+  protected reportStatusLabel(status: CandidateStatus): string {
+    switch (status) {
+      case 'Pass': return 'PASS';
+      case 'Fail': return 'FAIL';
+      case 'SchemaPass': return 'SCHEMA PASS';
+      case 'SchemaFail': return 'SCHEMA FAIL';
+      case 'NotEvaluated': return 'NOT EVALUATED';
+      case 'NotApplicable': return 'N/A';
+      case 'Info': return 'INFO';
+    }
+  }
+
+  /** CSS modifier for a report status chip/row. */
+  protected reportStatusClass(status: CandidateStatus): string {
+    switch (status) {
+      case 'Fail':
+      case 'SchemaFail':
+        return 'report-status-fail';
+      case 'Pass':
+      case 'SchemaPass':
+        return 'report-status-pass';
+      case 'Info':
+        return 'report-status-info';
+      default:
+        return 'report-status-muted';
+    }
   }
 
   // --- SpaceSystem editing -------------------------------------------------------------
@@ -702,6 +763,7 @@ export class App {
   private setDocument(doc: SpaceSystemDocument): void {
     this.currentDocument.set(doc);
     this.packetLayout.set(null); // any edit invalidates a computed layout
+    this.conformanceReport.set(null); // ...and any computed conformance report
     this.scheduleRevalidate();
   }
 
