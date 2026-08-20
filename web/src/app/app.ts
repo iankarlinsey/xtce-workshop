@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { EditableTreeNodeComponent } from './editable-tree-node/editable-tree-node';
 import { PreservedXmlComponent } from './preserved-xml/preserved-xml';
@@ -47,7 +47,9 @@ interface LoadResult {
   selector: 'app-root',
   imports: [EditableTreeNodeComponent, PreservedXmlComponent],
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrl: './app.css',
+  // Astro UXDS web components (rux-*) are custom elements, not Angular components.
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class App {
   /** Debounce for live revalidation; tests may shorten it. */

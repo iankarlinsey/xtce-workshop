@@ -10,7 +10,7 @@
     }
     <div class="spacer"></div>
     <div class="health-indicator" [class.health-ok]="healthStatus() === 'ok'" [class.health-down]="healthStatus() === 'unreachable'">
-      <span class="health-dot"></span>
+      <rux-status [attr.status]="healthStatus() === 'ok' ? 'normal' : healthStatus() === 'unreachable' ? 'critical' : 'off'"></rux-status>
       @switch (healthStatus()) {
         @case ('checking') { Checking backend&hellip; }
         @case ('ok') { Backend: OK }

@@ -1,19 +1,25 @@
-/* Mission Control theme. */
+/* Astro UXDS (astrouxds.com) design tokens drive the palette; the app's own variable
+   names stay as the indirection layer so component CSS is token-source agnostic. Each
+   mapping keeps the previous Mission Control value as fallback in case a token name
+   shifts in an Astro upgrade. */
+@import "@astrouxds/tokens/dist/css/index.css";
+@import "@astrouxds/astro-web-components/dist/astro-web-components/astro-web-components.css";
+
 :root {
-  --bg: oklch(0.16 0.012 250);
-  --panel: oklch(0.195 0.014 250);
-  --panel-2: oklch(0.225 0.015 250);
-  --border: oklch(0.32 0.014 250);
-  --border-soft: oklch(0.27 0.014 250);
-  --text: oklch(0.93 0.006 250);
-  --text-muted: oklch(0.63 0.012 250);
-  --text-faint: oklch(0.46 0.012 250);
-  --accent: oklch(0.78 0.13 195);
-  --accent-dim: oklch(0.30 0.06 195);
-  --ok: oklch(0.75 0.15 150);
-  --error: oklch(0.68 0.18 25);
-  --warning: oklch(0.78 0.15 85);
-  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --bg: var(--color-background-base-default, oklch(0.16 0.012 250));
+  --panel: var(--color-background-surface-default, oklch(0.195 0.014 250));
+  --panel-2: var(--color-background-surface-header, oklch(0.225 0.015 250));
+  --border: var(--color-border-interactive-muted, oklch(0.32 0.014 250));
+  --border-soft: var(--color-background-interactive-muted, oklch(0.27 0.014 250));
+  --text: var(--color-text-primary, oklch(0.93 0.006 250));
+  --text-muted: var(--color-text-secondary, oklch(0.63 0.012 250));
+  --text-faint: var(--color-text-placeholder, oklch(0.46 0.012 250));
+  --accent: var(--color-text-interactive-default, oklch(0.78 0.13 195));
+  --accent-dim: var(--color-background-interactive-muted, oklch(0.30 0.06 195));
+  --ok: var(--color-status-normal, oklch(0.75 0.15 150));
+  --error: var(--color-status-critical, oklch(0.68 0.18 25));
+  --warning: var(--color-status-caution, oklch(0.78 0.15 85));
+  --sans: 'Roboto', 'IBM Plex Sans', system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
