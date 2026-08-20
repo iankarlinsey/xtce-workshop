@@ -8,3 +8,15 @@ out/
 TestResults/
 coverage-report/
 web/coverage/
+
+# Restricted spec documents (issue #56) — download locally per reference/README.md,
+# never commit. The .pdf.md placeholder stubs ARE committed.
+reference/**/*.pdf
+reference/1.0/xtce-1.0-spec.md
+reference/1.1/xtce-1.1-spec.md
+reference/1.1/xtce-1.1-spec-changebar.md
+reference/1.2/xtce-1.2-spec.md
+reference/1.2/xtce-1.2-spec-changebar.md
+reference/1.2/ccsds-660.0-b2-blue-book.md
+reference/1.2/ccsds-660.1-g2-element-description.md
+reference/1.2/ccsds-660.2-g2-overview.md
