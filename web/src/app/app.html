@@ -184,6 +184,45 @@
           }
         }
 
+        @if (isRootSelected()) {
+          <div class="metrics-section">
+            <button type="button" class="btn" (click)="onComputeMetrics()">Document metrics</button>
+            @if (documentMetrics(); as metrics) {
+              <div class="metrics-table-container">
+                <table class="metrics-table">
+                  <thead>
+                    <tr><th>System</th><th>Params</th><th>Types</th><th>Containers</th><th>Msgs</th><th>Cmds</th><th>Preserved</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (system of metrics.systems; track system.systemPath) {
+                      <tr>
+                        <td class="metrics-path">{{ system.systemPath }}</td>
+                        <td>{{ system.local.parameters }}</td>
+                        <td>{{ system.local.parameterTypes }}</td>
+                        <td>{{ system.local.containers }}</td>
+                        <td>{{ system.local.messages }}</td>
+                        <td>{{ system.local.metaCommands }}</td>
+                        <td>{{ system.local.preservedFragments }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td class="metrics-path">Total ({{ metrics.systems.length }} system(s))</td>
+                      <td>{{ metrics.totals.parameters }}</td>
+                      <td>{{ metrics.totals.parameterTypes }}</td>
+                      <td>{{ metrics.totals.containers }}</td>
+                      <td>{{ metrics.totals.messages }}</td>
+                      <td>{{ metrics.totals.metaCommands }}</td>
+                      <td>{{ metrics.totals.preservedFragments }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            }
+          </div>
+        }
+
         <app-preserved-xml [item]="system" />
       } @else if (selectedParameterType(); as type) {
         <div class="node-title">

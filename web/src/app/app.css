@@ -698,3 +698,47 @@
   font-family: var(--mono);
   color: var(--text-faint);
 }
+
+/* --- Document metrics ------------------------------------------------------------------ */
+
+.metrics-section {
+  margin-top: 1rem;
+}
+
+.metrics-table-container {
+  margin-top: 0.6rem;
+  overflow-x: auto;
+}
+
+.metrics-table {
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.metrics-table th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  padding: 0.35rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.metrics-table td {
+  padding: 0.3rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.metrics-table td.metrics-path {
+  font-family: var(--mono);
+  text-align: left;
+}
+
+.metrics-table tfoot td {
+  color: var(--text);
+  border-top: 1px solid var(--text-faint);
+}

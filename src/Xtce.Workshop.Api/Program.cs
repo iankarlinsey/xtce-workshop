@@ -41,6 +41,12 @@ app.MapPost("/api/xtce/validate", (SpaceSystem spaceSystem) =>
     return Results.Ok(new { validationIssues });
 });
 
+app.MapPost("/api/xtce/metrics", (SpaceSystem spaceSystem) =>
+{
+    var metrics = XtceDocumentMetrics.Compute(XtceDocumentNormalizer.Normalize(spaceSystem));
+    return Results.Ok(metrics);
+});
+
 app.MapPost("/api/xtce/report", (SpaceSystem spaceSystem) =>
 {
     var report = ConformanceReportBuilder.Build(XtceDocumentNormalizer.Normalize(spaceSystem));

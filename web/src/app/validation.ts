@@ -53,3 +53,25 @@ export interface PacketLayout {
   rows: PacketLayoutRow[];
   totalSizeInBits: number | null;
 }
+
+export interface MetricCounts {
+  childSystems: number;
+  parameters: number;
+  parameterTypes: number;
+  parameterTypesByKind: Record<string, number>;
+  containers: number;
+  messages: number;
+  metaCommands: number;
+  preservedFragments: number;
+}
+
+export interface SpaceSystemMetrics {
+  systemPath: string;
+  local: MetricCounts;
+  deep: MetricCounts;
+}
+
+export interface DocumentMetrics {
+  totals: MetricCounts;
+  systems: SpaceSystemMetrics[];
+}

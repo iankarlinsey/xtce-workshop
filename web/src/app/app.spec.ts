@@ -1214,6 +1214,38 @@ describe('App', () => {
       flushRevalidate();
     }));
 
+    it('computes and renders document metrics for the root, cleared by any edit', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Document metrics'
+      ) as HTMLButtonElement).click();
+
+      const counts = {
+        childSystems: 0, parameters: 3, parameterTypes: 2, parameterTypesByKind: { Integer: 2 },
+        containers: 1, messages: 0, metaCommands: 0, preservedFragments: 4,
+      };
+      httpMock.expectOne('/api/xtce/metrics').flush({
+        totals: counts,
+        systems: [{ systemPath: 'Sat', local: counts, deep: counts }],
+      });
+      fixture.detectChanges();
+
+      const table = compiled.querySelector('.metrics-table') as HTMLElement;
+      expect(table).toBeTruthy();
+      expect(table.textContent).toContain('Sat');
+      expect(table.textContent).toContain('3');
+
+      const nameInput = compiled.querySelector('#node-name') as HTMLInputElement;
+      nameInput.value = 'RenamedSat';
+      nameInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(compiled.querySelector('.metrics-table')).toBeNull();
+      flushRevalidate();
+    }));
+
     it('shows an error when the report request fails', () => {
       const fixture = createAppAndFlushHealth();
       createDocumentInline(fixture, 'Sat');

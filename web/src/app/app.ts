@@ -30,7 +30,7 @@ import {
   collectMetaCommandNames,
   moveEntry,
 } from './document-tree';
-import { ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus } from './validation';
+import { ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics } from './validation';
 import { XTCE_REFERENCE, ReferenceEntry } from './xtce-reference';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
@@ -71,6 +71,7 @@ export class App {
   protected readonly packetLayout = signal<PacketLayout | null>(null);
   protected readonly conformanceReport = signal<ConformanceReport | null>(null);
   protected readonly reportError = signal<string | null>(null);
+  protected readonly documentMetrics = signal<DocumentMetrics | null>(null);
 
   /** Summary entries in severity order for the report header chips. */
   protected readonly reportSummary = computed(() => {
@@ -288,6 +289,17 @@ export class App {
 
   onCloseReport(): void {
     this.conformanceReport.set(null);
+  }
+
+  onComputeMetrics(): void {
+    const doc = this.currentDocument();
+    if (!doc) {
+      return;
+    }
+    this.http.post<DocumentMetrics>('/api/xtce/metrics', doc).subscribe({
+      next: (metrics) => this.documentMetrics.set(metrics),
+      error: () => this.documentMetrics.set(null),
+    });
   }
 
   protected reportStatusLabel(status: CandidateStatus): string {
@@ -764,6 +776,7 @@ export class App {
     this.currentDocument.set(doc);
     this.packetLayout.set(null); // any edit invalidates a computed layout
     this.conformanceReport.set(null); // ...and any computed conformance report
+    this.documentMetrics.set(null);
     this.scheduleRevalidate();
   }
 
