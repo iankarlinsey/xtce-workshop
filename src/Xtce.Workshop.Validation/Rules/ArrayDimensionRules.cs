@@ -30,7 +30,8 @@ public sealed class ArrayDimCountMatchTypeRule : IValidationRule
             {
                 yield return new ValidationIssue(RuleId, Severity,
                     $"{context.Path}/ContainerSet/{container.Name}",
-                    $"ArrayParameterRefEntry has {entryDimensions.Count} dimension(s) but referenced type '{arrayType.Name}' declares {typeCount}.");
+                    $"ArrayParameterRefEntry has {entryDimensions.Count} dimension(s) but referenced type '{arrayType.Name}' declares {typeCount}.",
+                    CandidateNumber: 5);
             }
         }
     }
@@ -77,7 +78,8 @@ public sealed class DimSubsetLessThanTypeRule : IValidationRule
                 if (entryEnd > typeEnd)
                 {
                     yield return new ValidationIssue(RuleId, Severity, location,
-                        $"ArrayParameterRefEntry dimension {i} EndingIndex {entryEnd} exceeds type '{arrayType.Name}' bound {typeEnd}.");
+                        $"ArrayParameterRefEntry dimension {i} EndingIndex {entryEnd} exceeds type '{arrayType.Name}' bound {typeEnd}.",
+                        CandidateNumber: 6);
                 }
                 else if (entryEnd == typeEnd)
                 {
@@ -88,7 +90,8 @@ public sealed class DimSubsetLessThanTypeRule : IValidationRule
             if (comparableCount > 0 && comparableCount == entryDimensions.Count && equalCount == comparableCount)
             {
                 yield return new ValidationIssue(RuleId, Severity, location,
-                    $"ArrayParameterRefEntry DimensionList equals type '{arrayType.Name}' in every dimension — the same size is not a subset.");
+                    $"ArrayParameterRefEntry DimensionList equals type '{arrayType.Name}' in every dimension — the same size is not a subset.",
+                    CandidateNumber: 6);
             }
         }
     }
@@ -121,7 +124,8 @@ public sealed class DimensionOrderMustAscendRule : IValidationRule
                 {
                     yield return new ValidationIssue(RuleId, Severity,
                         $"{context.Path}/ParameterTypeSet/{type.Name}",
-                        $"Dimension {i} StartingIndex {start} is greater than EndingIndex {end} — dimension order must ascend.");
+                        $"Dimension {i} StartingIndex {start} is greater than EndingIndex {end} — dimension order must ascend.",
+                        CandidateNumber: 61);
                 }
             }
         }
@@ -141,7 +145,8 @@ public sealed class DimensionOrderMustAscendRule : IValidationRule
                     {
                         yield return new ValidationIssue(RuleId, Severity,
                             $"{context.Path}/ContainerSet/{container.Name}",
-                            $"ArrayParameterRefEntry dimension {i} StartingIndex {start} is greater than EndingIndex {end} — dimension order must ascend.");
+                            $"ArrayParameterRefEntry dimension {i} StartingIndex {start} is greater than EndingIndex {end} — dimension order must ascend.",
+                            CandidateNumber: 61);
                     }
                 }
             }

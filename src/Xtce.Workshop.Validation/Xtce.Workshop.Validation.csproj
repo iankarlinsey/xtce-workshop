@@ -10,4 +10,13 @@
     <ProjectReference Include="..\Xtce.Workshop.Model\Xtce.Workshop.Model.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Ground truth for the per-candidate conformance report (issue #48): the Phase B
+         triage log and the schemas, embedded so the validator is self-contained at
+         runtime (API container, CLI) without the repo checkout. -->
+    <EmbeddedResource Include="..\..\research\xtce-1.2-triage-log.csv" LogicalName="TriageLog.csv" />
+    <EmbeddedResource Include="..\..\reference\1.2\SpaceSystem.xsd" LogicalName="SpaceSystem.xsd" />
+    <EmbeddedResource Include="..\..\reference\1.2\xml.xsd" LogicalName="xml.xsd" />
+  </ItemGroup>
+
 </Project>

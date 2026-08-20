@@ -34,12 +34,14 @@ public sealed class LocationInContainerFlagsRule : IValidationRule
                         if (info.ReferenceLocation == "nextEntry")
                         {
                             yield return new ValidationIssue(RuleId, Severity, location,
-                                "LocationInContainerInBits uses referenceLocation=\"nextEntry\", which is proposed for deprecation and should be avoided.");
+                                "LocationInContainerInBits uses referenceLocation=\"nextEntry\", which is proposed for deprecation and should be avoided.",
+                                CandidateNumber: 12);
                         }
                         else if (info.ReferenceLocation is "containerStart" or "containerEnd" && info.FixedValue < 0)
                         {
                             yield return new ValidationIssue(RuleId, Severity, location,
-                                $"LocationInContainerInBits has a negative {info.ReferenceLocation} offset ({info.FixedValue}) — implementation dependent and a likely error.");
+                                $"LocationInContainerInBits has a negative {info.ReferenceLocation} offset ({info.FixedValue}) — implementation dependent and a likely error.",
+                                CandidateNumber: 12);
                         }
                     }
                 }

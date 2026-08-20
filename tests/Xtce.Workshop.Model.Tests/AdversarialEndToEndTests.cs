@@ -162,6 +162,14 @@ public class AdversarialEndToEndTests
             CommandContainerDoc(childBase: ""),
             CommandContainerDoc(childBase: "<BaseContainer containerRef=\"ParentCC\"/>"));
 
+        data.Add("XTCE-1.2-R22-fixedvalue-bitlength-sufficient",
+            FixedValueDoc(binaryValue: "5A", sizeInBits: 16),
+            FixedValueDoc(binaryValue: "5A", sizeInBits: 8));
+
+        data.Add("XTCE-1.2-R23-constant-datasource-should-be-readonly",
+            ConstantParameterDoc(readOnly: "false"),
+            ConstantParameterDoc(readOnly: "true"));
+
         return data;
     }
 
@@ -223,14 +231,14 @@ public class AdversarialEndToEndTests
 
     // ---- document builders (each returns a complete, schema-valid XTCE document) --------
 
-    private static string Doc(string body) =>
+    internal static string Doc(string body) =>
         $"""<?xml version="1.0" encoding="UTF-8"?><SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="E2E">{body}</SpaceSystem>""";
 
-    private static string TwoDims(string endA, string endB) =>
+    internal static string TwoDims(string endA, string endB) =>
         $"<Dimension><StartingIndex><FixedValue>0</FixedValue></StartingIndex><EndingIndex><FixedValue>{endA}</FixedValue></EndingIndex></Dimension>" +
         $"<Dimension><StartingIndex><FixedValue>0</FixedValue></StartingIndex><EndingIndex><FixedValue>{endB}</FixedValue></EndingIndex></Dimension>";
 
-    private static string ArrayDoc(string entryDims) => Doc($"""
+    internal static string ArrayDoc(string entryDims) => Doc($"""
         <TelemetryMetaData>
           <ParameterTypeSet>
             <IntegerParameterType name="E"/>
@@ -243,7 +251,7 @@ public class AdversarialEndToEndTests
         </TelemetryMetaData>
         """);
 
-    private static string BinaryEncodingDoc(string checksum) => Doc($"""
+    internal static string BinaryEncodingDoc(string checksum) => Doc($"""
         <TelemetryMetaData><ParameterTypeSet>
           <BinaryParameterType name="B">
             <BinaryDataEncoding>
@@ -254,7 +262,7 @@ public class AdversarialEndToEndTests
         </ParameterTypeSet></TelemetryMetaData>
         """);
 
-    private static string SegmentDoc(string orderA, string orderB) => Doc($"""
+    internal static string SegmentDoc(string orderA, string orderB) => Doc($"""
         <TelemetryMetaData>
           <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
           <ParameterSet><Parameter name="P" parameterTypeRef="T"/></ParameterSet>
@@ -265,7 +273,7 @@ public class AdversarialEndToEndTests
         </TelemetryMetaData>
         """);
 
-    private static string EnumDoc(string initialValue) => Doc($"""
+    internal static string EnumDoc(string initialValue) => Doc($"""
         <TelemetryMetaData><ParameterTypeSet>
           <EnumeratedParameterType name="Mode" initialValue="{initialValue}">
             <EnumerationList><Enumeration value="0" label="SAFE"/></EnumerationList>
@@ -273,7 +281,7 @@ public class AdversarialEndToEndTests
         </ParameterTypeSet></TelemetryMetaData>
         """);
 
-    private static string LocationDoc(string fixedValue) => Doc($"""
+    internal static string LocationDoc(string fixedValue) => Doc($"""
         <TelemetryMetaData>
           <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
           <ParameterSet><Parameter name="P" parameterTypeRef="T"/></ParameterSet>
@@ -285,7 +293,7 @@ public class AdversarialEndToEndTests
         </TelemetryMetaData>
         """);
 
-    private static string MessageDoc(string target) => Doc($"""
+    internal static string MessageDoc(string target) => Doc($"""
         <TelemetryMetaData>
           <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
           <ParameterSet><Parameter name="P" parameterTypeRef="T"/></ParameterSet>
@@ -301,7 +309,7 @@ public class AdversarialEndToEndTests
         </TelemetryMetaData>
         """);
 
-    private static string NextContainerDoc(string next) => Doc($"""
+    internal static string NextContainerDoc(string next) => Doc($"""
         <TelemetryMetaData>
           <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
           <ParameterSet><Parameter name="P" parameterTypeRef="T"/></ParameterSet>
@@ -317,7 +325,7 @@ public class AdversarialEndToEndTests
         </TelemetryMetaData>
         """);
 
-    private static string VerifierDoc(string childValue) => Doc($"""
+    internal static string VerifierDoc(string childValue) => Doc($"""
         <TelemetryMetaData>
           <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
           <ParameterSet><Parameter name="Ack" parameterTypeRef="T"/></ParameterSet>
@@ -332,7 +340,7 @@ public class AdversarialEndToEndTests
         </MetaCommandSet></CommandMetaData>
         """);
 
-    private static string SplineDoc(int order, int points)
+    internal static string SplineDoc(int order, int points)
     {
         var pointXml = string.Join("", Enumerable.Range(0, points).Select(i =>
             $"""<SplinePoint raw="{i}" calibrated="{i}"/>"""));
@@ -345,7 +353,7 @@ public class AdversarialEndToEndTests
             """);
     }
 
-    private static string InitialValueDoc(string value) => Doc($"""
+    internal static string InitialValueDoc(string value) => Doc($"""
         <TelemetryMetaData>
           <ParameterTypeSet><IntegerParameterType name="U8" signed="false" sizeInBits="8"/></ParameterTypeSet>
           <ParameterSet><Parameter name="P" parameterTypeRef="U8" initialValue="{value}"/></ParameterSet>
@@ -381,6 +389,27 @@ public class AdversarialEndToEndTests
           <ParameterSet>
             <Parameter name="P" parameterTypeRef="T">
               <ParameterProperties dataSource="{dataSource}"/>
+            </Parameter>
+          </ParameterSet>
+        </TelemetryMetaData>
+        """);
+
+    internal static string FixedValueDoc(string binaryValue, int sizeInBits) => Doc($"""
+        <CommandMetaData><MetaCommandSet>
+          <MetaCommand name="Cmd">
+            <CommandContainer name="Frame">
+              <EntryList><FixedValueEntry binaryValue="{binaryValue}" sizeInBits="{sizeInBits}"/></EntryList>
+            </CommandContainer>
+          </MetaCommand>
+        </MetaCommandSet></CommandMetaData>
+        """);
+
+    internal static string ConstantParameterDoc(string readOnly) => Doc($"""
+        <TelemetryMetaData>
+          <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
+          <ParameterSet>
+            <Parameter name="P" parameterTypeRef="T" initialValue="7">
+              <ParameterProperties dataSource="constant" readOnly="{readOnly}"/>
             </Parameter>
           </ParameterSet>
         </TelemetryMetaData>

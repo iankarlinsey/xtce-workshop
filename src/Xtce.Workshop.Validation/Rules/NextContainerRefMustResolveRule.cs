@@ -22,7 +22,8 @@ public sealed class NextContainerRefMustResolveRule : IValidationRule
                     RuleId,
                     Severity,
                     $"{context.Path}/ContainerSet/{container.Name}",
-                    $"NextContainer containerRef '{nextContainerRef}' does not resolve to any container.");
+                    $"NextContainer containerRef '{nextContainerRef}' does not resolve to any container.",
+                    CandidateNumber: 19);
             }
         }
     }

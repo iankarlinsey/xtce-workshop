@@ -39,19 +39,22 @@ public sealed class MessageContainerRefMustBeRootRule : IValidationRule
                 if (!resolution.Found)
                 {
                     yield return new ValidationIssue(RuleId, Severity, location,
-                        $"ContainerRef '{message.ContainerRef}' does not resolve to any container.");
+                        $"ContainerRef '{message.ContainerRef}' does not resolve to any container.",
+                        CandidateNumber: 16);
                 }
                 else if (resolution.Container is { } container)
                 {
                     if (container.Abstract == true)
                     {
                         yield return new ValidationIssue(RuleId, Severity, location,
-                            $"ContainerRef '{message.ContainerRef}' targets an abstract container — not instantiable, so it cannot describe a whole packet.");
+                            $"ContainerRef '{message.ContainerRef}' targets an abstract container — not instantiable, so it cannot describe a whole packet.",
+                            CandidateNumber: 16);
                     }
                     else if (subPieces.Contains(container))
                     {
                         yield return new ValidationIssue(RuleId, Severity, location,
-                            $"ContainerRef '{message.ContainerRef}' targets a container that other containers include as a sub-piece — a Message must reference a root-level container.");
+                            $"ContainerRef '{message.ContainerRef}' targets a container that other containers include as a sub-piece — a Message must reference a root-level container.",
+                            CandidateNumber: 16);
                     }
                 }
             }

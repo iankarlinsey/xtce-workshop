@@ -173,6 +173,17 @@ public static class XmlFragmentInspector
         return results;
     }
 
+    /// <summary>One FixedValueEntry found in a fragment: its binaryValue hex and sizeInBits.</summary>
+    public sealed record FixedValueEntryInfo(string? BinaryValue, long? SizeInBits);
+
+    public static IReadOnlyList<FixedValueEntryInfo> FindFixedValueEntries(string outerXml) =>
+        ScanElements(outerXml, "FixedValueEntry", (reader, _) =>
+        {
+            var binaryValue = reader.GetAttribute("binaryValue");
+            long? sizeInBits = long.TryParse(reader.GetAttribute("sizeInBits"), out var parsed) ? parsed : null;
+            return new FixedValueEntryInfo(binaryValue, sizeInBits);
+        });
+
     /// <summary>One SplineCalibrator found in a fragment: order attribute + point count.</summary>
     public sealed record SplineInfo(long Order, int PointCount);
 

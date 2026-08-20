@@ -36,7 +36,8 @@ public sealed class EnumInitialValueMustBeValidLabelRule : IValidationRule
                     RuleId,
                     Severity,
                     $"{context.Path}/ParameterTypeSet/{type.Name}",
-                    $"initialValue '{type.InitialValue}' is not a valid label in {type.Name}'s EnumerationList.");
+                    $"initialValue '{type.InitialValue}' is not a valid label in {type.Name}'s EnumerationList.",
+                    CandidateNumber: 63);
             }
         }
     }

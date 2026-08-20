@@ -54,7 +54,8 @@ public sealed class ContainerSegmentsNoOverlapRule : IValidationRule
                         RuleId,
                         Severity,
                         $"{context.Path}/ContainerSet/{container.Name}",
-                        $"Multiple {fragment.ElementName} entries for '{target}' share order=\"{order}\" — segments composing a whole must not overlap in sequence.");
+                        $"Multiple {fragment.ElementName} entries for '{target}' share order=\"{order}\" — segments composing a whole must not overlap in sequence.",
+                        CandidateNumber: fragment.ElementName == "ContainerSegmentRefEntry" ? 10 : 13);
                 }
             }
         }

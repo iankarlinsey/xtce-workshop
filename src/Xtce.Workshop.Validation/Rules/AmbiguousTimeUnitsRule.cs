@@ -40,7 +40,8 @@ public sealed class AmbiguousTimeUnitsRule : IValidationRule
                         RuleId,
                         Severity,
                         $"{context.Path}/ParameterTypeSet/{type.Name}",
-                        $"Encoding units '{units}' is calendar-variable and ambiguous — prefer seconds or picoSeconds.");
+                        $"Encoding units '{units}' is calendar-variable and ambiguous — prefer seconds or picoSeconds.",
+                        CandidateNumber: 106);
                 }
             }
         }

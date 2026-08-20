@@ -46,7 +46,8 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
             var error = Describe(type, parameter.InitialValue);
             if (error is not null)
             {
-                yield return new ValidationIssue(RuleId, Severity, $"{context.Path}/ParameterSet/{parameter.Name}", error);
+                yield return new ValidationIssue(RuleId, Severity, $"{context.Path}/ParameterSet/{parameter.Name}", error,
+                    CandidateNumber: 29);
             }
         }
 
@@ -104,7 +105,8 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
                 {
                     yield return new ValidationIssue(RuleId, Severity,
                         $"{context.Path}/ContainerSet/{container.Name}",
-                        $"Comparison against '{comparison.ParameterRef}': {error}");
+                        $"Comparison against '{comparison.ParameterRef}': {error}",
+                        CandidateNumber: 88);
                 }
             }
         }

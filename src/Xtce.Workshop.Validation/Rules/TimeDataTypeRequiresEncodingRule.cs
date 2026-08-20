@@ -35,7 +35,8 @@ public sealed class TimeDataTypeRequiresEncodingRule : IValidationRule
                     RuleId,
                     Severity,
                     $"{context.Path}/ParameterTypeSet/{type.Name}",
-                    $"{type.Name} is a time data type and must have an Encoding element, even when not telemetered.");
+                    $"{type.Name} is a time data type and must have an Encoding element, even when not telemetered.",
+                    CandidateNumber: 59);
             }
         }
     }

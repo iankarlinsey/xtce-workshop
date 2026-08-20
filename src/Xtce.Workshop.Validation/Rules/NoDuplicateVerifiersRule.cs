@@ -29,14 +29,16 @@ public sealed class NoDuplicateVerifiersRule : IValidationRule
             foreach (var duplicate in FindDuplicates(mergedComplete))
             {
                 yield return new ValidationIssue(RuleId, Severity, location,
-                    $"Duplicate CompleteVerifier after resolving BaseMetaCommand inheritance: {duplicate}");
+                    $"Duplicate CompleteVerifier after resolving BaseMetaCommand inheritance: {duplicate}",
+                    CandidateNumber: 48);
             }
 
             var mergedExecution = MergeInheritedVerifiers(context, metaCommand, m => m.ExecutionVerifiers);
             foreach (var duplicate in FindDuplicates(mergedExecution))
             {
                 yield return new ValidationIssue(RuleId, Severity, location,
-                    $"Duplicate ExecutionVerifier after resolving BaseMetaCommand inheritance: {duplicate}");
+                    $"Duplicate ExecutionVerifier after resolving BaseMetaCommand inheritance: {duplicate}",
+                    CandidateNumber: 48);
             }
         }
     }

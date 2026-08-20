@@ -31,7 +31,12 @@ public static class XtceValidator
         new ChangePerSecondRequiresPositiveSpanRule(),
         new TelemeteredParameterRequiresEncodingRule(),
         new CommandContainerInheritanceRule(),
+        new FixedValueBitLengthRule(),
+        new ConstantDataSourceReadOnlyRule(),
     ];
+
+    /// <summary>Every registered rule's id, in registration order (for the conformance report).</summary>
+    public static IReadOnlyList<string> RuleIds => Rules.Select(r => r.RuleId).ToList();
 
     public static IReadOnlyList<ValidationIssue> Validate(SpaceSystem root)
     {

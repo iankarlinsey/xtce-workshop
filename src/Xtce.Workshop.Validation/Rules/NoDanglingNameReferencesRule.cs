@@ -117,5 +117,5 @@ public sealed class NoDanglingNameReferencesRule : IValidationRule
     }
 
     private ValidationIssue Issue(string location, string message) =>
-        new(RuleId, Severity, location, message);
+        new(RuleId, Severity, location, message, CandidateNumber: 91);
 }

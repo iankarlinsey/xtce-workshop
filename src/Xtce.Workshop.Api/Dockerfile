@@ -15,6 +15,10 @@ RUN dotnet restore src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj
 COPY src/Xtce.Workshop.Model/ src/Xtce.Workshop.Model/
 COPY src/Xtce.Workshop.Validation/ src/Xtce.Workshop.Validation/
 COPY src/Xtce.Workshop.Api/ src/Xtce.Workshop.Api/
+# Embedded resources for the conformance report (issue #48): the triage log and the
+# XTCE 1.2 schemas live outside src/ and are baked into Xtce.Workshop.Validation.dll.
+COPY research/xtce-1.2-triage-log.csv research/
+COPY reference/1.2/SpaceSystem.xsd reference/1.2/xml.xsd reference/1.2/
 RUN dotnet publish src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0@sha256:b0beb9cc1dee1c1b0749796110d4734292071b814207ad0d4f40611f7db04f7b AS runtime

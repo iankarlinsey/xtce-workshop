@@ -22,7 +22,8 @@ public sealed class SplineOrderRequiresMinPointsRule : IValidationRule
                 if (spline.PointCount < spline.Order + 1)
                 {
                     yield return new ValidationIssue(RuleId, Severity, location,
-                        $"SplineCalibrator of order {spline.Order} has {spline.PointCount} point(s) — order {spline.Order} requires at least {spline.Order + 1}.");
+                        $"SplineCalibrator of order {spline.Order} has {spline.PointCount} point(s) — order {spline.Order} requires at least {spline.Order + 1}.",
+                        CandidateNumber: 55);
                 }
             }
         }
@@ -49,7 +50,8 @@ public sealed class ChecksumCustomRequiresInputAlgorithmRule : IValidationRule
                 if (checksum.Name == "custom" && !checksum.HasInputAlgorithm)
                 {
                     yield return new ValidationIssue(RuleId, Severity, location,
-                        "Checksum name=\"custom\" requires an InputAlgorithm element defining the custom computation.");
+                        "Checksum name=\"custom\" requires an InputAlgorithm element defining the custom computation.",
+                        CandidateNumber: 49);
                 }
             }
         }
