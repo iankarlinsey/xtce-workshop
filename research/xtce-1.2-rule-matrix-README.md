@@ -132,8 +132,15 @@ same depth of scrutiny.
   telemetered-without-encoding warning, MetaCommand CommandContainer
   inheritance), several corroborations of existing rules (incl. R06's
   ascending interpretation), and a third occurrence of the `order="0"`
-  doc-vs-schema inconsistency. The matrix now has 21 rules; R16–R21 are
-  the new Phase D backlog.
+  doc-vs-schema inconsistency. #39 implemented R16 (`yes`), R17 (`yes`),
+  R18 (`partial` — modeled parents only), R19 (`partial` — explicit
+  attributes only; notably the schema's own defaults
+  changeType=changePerSecond + span=0 violate the book's rule, so the
+  all-defaults case is both undetectable and arguably invalid), and R20
+  (`partial` warning — explicit dataSource only; the "implied" case would
+  flag every minimal document). The matrix now has 21 rules, **20 of them
+  implemented** (10 `yes`, 10 `partial`); only R21 remains, blocked on
+  CommandContainer modeling.
 
 **Phase D first pass is complete** (see above). What remains for the
 validation pipeline: Phase E (a dedicated adversarial-verification pass),

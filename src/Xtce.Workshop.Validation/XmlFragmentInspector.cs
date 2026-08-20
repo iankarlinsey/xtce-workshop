@@ -48,6 +48,82 @@ public static class XmlFragmentInspector
         }
     }
 
+    /// <summary>
+    /// One StringDataEncoding found in a fragment: which length form it uses and which
+    /// optional length markers are present inside that form (rule R17).
+    /// </summary>
+    public sealed record StringEncodingInfo(bool IsVariable, bool HasTerminationChar, bool HasLeadingSize);
+
+    public static IReadOnlyList<StringEncodingInfo> FindStringEncodings(string outerXml) =>
+        ScanElements(outerXml, "StringDataEncoding", (reader, depth) =>
+        {
+            var isVariable = false;
+            var hasTermination = false;
+            var hasLeadingSize = false;
+            if (!reader.IsEmptyElement)
+            {
+                while (reader.Read() && !(reader.NodeType == XmlNodeType.EndElement && reader.Depth == depth))
+                {
+                    if (reader.NodeType != XmlNodeType.Element)
+                    {
+                        continue;
+                    }
+                    switch (reader.LocalName)
+                    {
+                        case "Variable":
+                            isVariable = true;
+                            break;
+                        case "TerminationChar":
+                            hasTermination = true;
+                            break;
+                        case "LeadingSize":
+                            hasLeadingSize = true;
+                            break;
+                    }
+                }
+            }
+            return new StringEncodingInfo(isVariable, hasTermination, hasLeadingSize);
+        });
+
+    /// <summary>
+    /// Change-alarm attributes found on any element in a fragment (rule R19): only elements
+    /// that EXPLICITLY carry changeType or spanOfInterestInSeconds are reported — which
+    /// elements would receive the schema defaults can't be known from the fragment alone.
+    /// </summary>
+    public sealed record ChangeAlarmInfo(string? ChangeType, double? SpanOfInterestInSeconds);
+
+    public static IReadOnlyList<ChangeAlarmInfo> FindChangeAlarmAttributes(string outerXml)
+    {
+        var results = new List<ChangeAlarmInfo>();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
+            while (reader.Read())
+            {
+                if (reader.NodeType != XmlNodeType.Element)
+                {
+                    continue;
+                }
+                var changeType = reader.GetAttribute("changeType");
+                var spanText = reader.GetAttribute("spanOfInterestInSeconds");
+                if (changeType is null && spanText is null)
+                {
+                    continue;
+                }
+                double? span = double.TryParse(spanText, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+                results.Add(new ChangeAlarmInfo(changeType, span));
+            }
+        }
+        catch (XmlException)
+        {
+        }
+
+        return results;
+    }
+
     /// <summary>One SplineCalibrator found in a fragment: order attribute + point count.</summary>
     public sealed record SplineInfo(long Order, int PointCount);
 

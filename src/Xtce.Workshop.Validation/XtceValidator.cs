@@ -25,6 +25,11 @@ public static class XtceValidator
         new SplineOrderRequiresMinPointsRule(),
         new ChecksumCustomRequiresInputAlgorithmRule(),
         new NoDuplicateVerifiersRule(),
+        new NoInheritanceCyclesRule(),
+        new StringLengthSpecConflictsRule(),
+        new TypeInheritanceOverrideRestrictionsRule(),
+        new ChangePerSecondRequiresPositiveSpanRule(),
+        new TelemeteredParameterRequiresEncodingRule(),
     ];
 
     public static IReadOnlyList<ValidationIssue> Validate(SpaceSystem root)

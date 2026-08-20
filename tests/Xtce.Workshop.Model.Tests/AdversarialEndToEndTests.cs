@@ -119,6 +119,45 @@ public class AdversarialEndToEndTests
             InitialValueDoc(value: "9999"),
             InitialValueDoc(value: "99"));
 
+        data.Add("XTCE-1.2-R16-no-inheritance-cycles",
+            Doc("""
+                <TelemetryMetaData><ContainerSet>
+                  <SequenceContainer name="A"><EntryList/><BaseContainer containerRef="B"/></SequenceContainer>
+                  <SequenceContainer name="B"><EntryList/><BaseContainer containerRef="A"/></SequenceContainer>
+                </ContainerSet></TelemetryMetaData>
+                """),
+            Doc("""
+                <TelemetryMetaData><ContainerSet>
+                  <SequenceContainer name="A"><EntryList/><BaseContainer containerRef="B"/></SequenceContainer>
+                  <SequenceContainer name="B"><EntryList/></SequenceContainer>
+                </ContainerSet></TelemetryMetaData>
+                """));
+
+        data.Add("XTCE-1.2-R17-string-length-spec-conflicts",
+            StringEncodingDoc("""
+                <SizeInBits><Fixed><FixedValue>64</FixedValue></Fixed>
+                  <TerminationChar>00</TerminationChar>
+                  <LeadingSize/>
+                </SizeInBits>
+                """),
+            StringEncodingDoc("""
+                <SizeInBits><Fixed><FixedValue>64</FixedValue></Fixed>
+                  <TerminationChar>00</TerminationChar>
+                </SizeInBits>
+                """));
+
+        data.Add("XTCE-1.2-R18-type-inheritance-override-restrictions",
+            InheritedIntegerDoc(childAttributes: "signed=\"false\" sizeInBits=\"16\" baseType=\"Base_Type\""),
+            InheritedIntegerDoc(childAttributes: "baseType=\"Base_Type\""));
+
+        data.Add("XTCE-1.2-R19-changepersecond-requires-positive-span",
+            ChangeAlarmDoc(alarmAttributes: "changeType=\"changePerSecond\""),
+            ChangeAlarmDoc(alarmAttributes: "changeType=\"changePerSecond\" spanOfInterestInSeconds=\"5\""));
+
+        data.Add("XTCE-1.2-R20-telemetered-parameter-requires-encoding",
+            TelemeteredDoc(dataSource: "telemetered"),
+            TelemeteredDoc(dataSource: "local"));
+
         return data;
     }
 
@@ -306,6 +345,40 @@ public class AdversarialEndToEndTests
         <TelemetryMetaData>
           <ParameterTypeSet><IntegerParameterType name="U8" signed="false" sizeInBits="8"/></ParameterTypeSet>
           <ParameterSet><Parameter name="P" parameterTypeRef="U8" initialValue="{value}"/></ParameterSet>
+        </TelemetryMetaData>
+        """);
+
+    private static string StringEncodingDoc(string sizeSpec) => Doc($"""
+        <TelemetryMetaData><ParameterTypeSet>
+          <StringParameterType name="S"><StringDataEncoding>{sizeSpec}</StringDataEncoding></StringParameterType>
+        </ParameterTypeSet></TelemetryMetaData>
+        """);
+
+    private static string InheritedIntegerDoc(string childAttributes) => Doc($"""
+        <TelemetryMetaData><ParameterTypeSet>
+          <IntegerParameterType name="Base_Type" signed="true" sizeInBits="32"/>
+          <IntegerParameterType name="Derived_Type" {childAttributes}/>
+        </ParameterTypeSet></TelemetryMetaData>
+        """);
+
+    private static string ChangeAlarmDoc(string alarmAttributes) => Doc($"""
+        <TelemetryMetaData><ParameterTypeSet>
+          <IntegerParameterType name="T">
+            <DefaultAlarm>
+              <ChangeAlarmRanges {alarmAttributes}/>
+            </DefaultAlarm>
+          </IntegerParameterType>
+        </ParameterTypeSet></TelemetryMetaData>
+        """);
+
+    private static string TelemeteredDoc(string dataSource) => Doc($"""
+        <TelemetryMetaData>
+          <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
+          <ParameterSet>
+            <Parameter name="P" parameterTypeRef="T">
+              <ParameterProperties dataSource="{dataSource}"/>
+            </Parameter>
+          </ParameterSet>
         </TelemetryMetaData>
         """);
 }
