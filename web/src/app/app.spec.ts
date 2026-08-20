@@ -1293,6 +1293,18 @@ describe('App', () => {
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
     }
 
+    it('a 200 response without a document surfaces an error instead of silence', () => {
+      const fixture = createAppAndFlushHealth();
+      postFile(fixture);
+      // e.g. an intermediary (proxy/auth layer) swallowing the API response shape
+      httpMock.expectOne('/api/xtce/load').flush({ unexpected: 'shape' });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('response did not contain a document');
+      expect(compiled.querySelector('.tree-container')).toBeNull();
+    });
+
     it('renders quarantine diagnostics on a partial load', () => {
       const fixture = createAppAndFlushHealth();
       postFile(fixture);

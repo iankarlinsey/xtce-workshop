@@ -233,6 +233,13 @@ export class App {
       // which is what carries the backend's preserved raw-XML fields through untouched —
       // see document-tree.ts.
       next: (result) => {
+        if (!result?.document) {
+          // A 200 whose body isn't our shape (e.g. an intermediary proxy/auth layer
+          // answering in the app's place) must never leave the UI silently empty.
+          this.loadError.set('The server response did not contain a document — '
+            + 'something between the browser and the API may have intercepted the request.');
+          return;
+        }
         this.currentDocument.set(result.document);
         this.selection.set({ systemPath: [] });
         this.validationIssues.set(result.validationIssues ?? []);
