@@ -46,6 +46,9 @@ public sealed class SpaceSystemContext
     public required IReadOnlySet<string> MetaCommandNames { get; init; }
     public required IReadOnlyDictionary<string, MetaCommand> ModeledMetaCommands { get; init; }
 
+    /// <summary>Inline MetaCommand/CommandContainer names → owning MetaCommand (rule R21).</summary>
+    public required IReadOnlyDictionary<string, MetaCommand> InlineCommandContainerOwners { get; init; }
+
     public SpaceSystemContext Root => Parent?.Root ?? this;
 
     public IReadOnlySet<string> NamesOf(NamedItemKind kind) => kind switch
@@ -81,6 +84,7 @@ public sealed class SpaceSystemContext
         var modeledParameters = new Dictionary<string, Parameter>();
         var metaCommandNames = new HashSet<string>();
         var modeledMetaCommands = new Dictionary<string, MetaCommand>();
+        var inlineCommandContainerOwners = new Dictionary<string, MetaCommand>();
 
         if (node.TelemetryMetaData is { } telemetry)
         {
@@ -135,6 +139,13 @@ public sealed class SpaceSystemContext
             {
                 metaCommandNames.Add(metaCommand.Name);
                 modeledMetaCommands[metaCommand.Name] = metaCommand;
+                if (metaCommand.CommandContainer is { } inlineContainer)
+                {
+                    // Inline command containers are referencable containers (BaseContainer
+                    // refs to them are legal), and R21 needs to know who owns them.
+                    containerNames.Add(inlineContainer.Name);
+                    inlineCommandContainerOwners[inlineContainer.Name] = metaCommand;
+                }
             }
             foreach (var fragment in commandMetaData.PreservedEntries ?? [])
             {
@@ -177,6 +188,7 @@ public sealed class SpaceSystemContext
             ModeledParameters = modeledParameters,
             MetaCommandNames = metaCommandNames,
             ModeledMetaCommands = modeledMetaCommands,
+            InlineCommandContainerOwners = inlineCommandContainerOwners,
         };
 
         foreach (var child in node.Children)

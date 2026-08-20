@@ -138,9 +138,15 @@ same depth of scrutiny.
   changeType=changePerSecond + span=0 violate the book's rule, so the
   all-defaults case is both undetectable and arguably invalid), and R20
   (`partial` warning — explicit dataSource only; the "implied" case would
-  flag every minimal document). The matrix now has 21 rules, **20 of them
-  implemented** (10 `yes`, 10 `partial`); only R21 remains, blocked on
-  CommandContainer modeling.
+  flag every minimal document). #40 modeled MetaCommand/CommandContainer
+  and implemented R21 (`partial` warning — severity refined from the
+  provisional row since both green-book statements are conditional-intent
+  /"should" language; inheritance-without-wiring and
+  wiring-without-inheritance directions). **The matrix is fully
+  implemented: all 21 rules (10 `yes`, 11 `partial`), every rule Phase E
+  adversarially verified.** Remaining validator depth comes from closing
+  the recorded `partial` gaps as modeling deepens, not from unimplemented
+  rules.
 
 **Phase D first pass is complete** (see above). What remains for the
 validation pipeline: Phase E (a dedicated adversarial-verification pass),

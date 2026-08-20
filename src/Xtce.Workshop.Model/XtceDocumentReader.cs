@@ -205,6 +205,7 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? completeVerifiers = null;
         List<RawXmlFragment>? preservedVerifiers = null;
         List<RawXmlFragment>? preserved = null;
+        CommandContainer? commandContainer = null;
 
         if (reader.IsEmptyElement)
         {
@@ -244,6 +245,10 @@ public static class XtceDocumentReader
                 {
                     ReadVerifierSet(reader, ref executionVerifiers, ref completeVerifiers, ref preservedVerifiers);
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CommandContainer")
+                {
+                    commandContainer = ReadCommandContainer(reader);
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
                     Preserve(ref preserved, reader);
@@ -259,7 +264,69 @@ public static class XtceDocumentReader
 
         return new MetaCommand(
             name, isAbstract, baseMetaCommandRef, basePreserved,
-            executionVerifiers, completeVerifiers, preservedVerifiers, preserved, preservedAttributes);
+            executionVerifiers, completeVerifiers, preservedVerifiers, preserved, preservedAttributes,
+            commandContainer);
+    }
+
+    private static CommandContainer ReadCommandContainer(XmlReader reader)
+    {
+        var name = RequireAttribute(reader, "name", "a CommandContainer");
+        var preservedAttributes = CapturePreservedAttributes(reader, "name");
+
+        string? baseContainerRef = null;
+        List<RawXmlFragment>? basePreserved = null;
+        List<RawXmlFragment>? preserved = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "BaseContainer")
+                {
+                    baseContainerRef = RequireAttribute(reader, "containerRef", "a CommandContainer BaseContainer");
+                    if (reader.IsEmptyElement)
+                    {
+                        reader.Read();
+                    }
+                    else
+                    {
+                        reader.ReadStartElement();
+                        while (reader.NodeType != XmlNodeType.EndElement)
+                        {
+                            if (reader.NodeType == XmlNodeType.Element)
+                            {
+                                Preserve(ref basePreserved, reader);
+                            }
+                            else
+                            {
+                                reader.Read();
+                            }
+                        }
+                        reader.ReadEndElement();
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // EntryList (required, with its command-specific entry kinds),
+                    // description children, encodings — preserved verbatim.
+                    Preserve(ref preserved, reader);
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            reader.ReadEndElement();
+        }
+
+        return new CommandContainer(name, baseContainerRef, basePreserved, preserved, preservedAttributes);
     }
 
     private static void ReadVerifierSet(

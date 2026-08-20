@@ -54,6 +54,17 @@ public static class FragmentEnumerator
                 {
                     yield return (fragment, metaCommandPath);
                 }
+                if (metaCommand.CommandContainer is { } inlineContainer)
+                {
+                    foreach (var fragment in inlineContainer.Preserved ?? [])
+                    {
+                        yield return (fragment, $"{metaCommandPath}/CommandContainer");
+                    }
+                    foreach (var fragment in inlineContainer.BaseContainerPreserved ?? [])
+                    {
+                        yield return (fragment, $"{metaCommandPath}/CommandContainer");
+                    }
+                }
             }
         }
 

@@ -30,6 +30,7 @@ public static class XtceValidator
         new TypeInheritanceOverrideRestrictionsRule(),
         new ChangePerSecondRequiresPositiveSpanRule(),
         new TelemeteredParameterRequiresEncodingRule(),
+        new CommandContainerInheritanceRule(),
     ];
 
     public static IReadOnlyList<ValidationIssue> Validate(SpaceSystem root)

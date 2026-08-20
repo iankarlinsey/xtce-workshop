@@ -301,6 +301,32 @@ public static class XtceDocumentWriter
             }));
         }
 
+        if (metaCommand.CommandContainer is { } commandContainer)
+        {
+            slots.Add(("CommandContainer", () =>
+            {
+                writer.WriteStartElement("CommandContainer", XtceNamespace);
+                writer.WriteAttributeString("name", commandContainer.Name);
+                WritePreservedAttributes(writer, commandContainer.PreservedAttributes);
+
+                var containerSlots = new List<(string Name, Action Emit)>();
+                AddPreservedSlots(containerSlots, writer, commandContainer.Preserved);
+                if (commandContainer.BaseContainerRef is { } baseRef)
+                {
+                    containerSlots.Add(("BaseContainer", () =>
+                    {
+                        writer.WriteStartElement("BaseContainer", XtceNamespace);
+                        writer.WriteAttributeString("containerRef", baseRef);
+                        WriteFragments(writer, commandContainer.BaseContainerPreserved);
+                        writer.WriteEndElement();
+                    }));
+                }
+                EmitInSchemaOrder(SequenceContainerChildOrder, containerSlots);
+
+                writer.WriteEndElement();
+            }));
+        }
+
         var hasVerifiers = metaCommand.ExecutionVerifiers is { Count: > 0 }
             || metaCommand.CompleteVerifiers is { Count: > 0 }
             || metaCommand.PreservedVerifiers is { Count: > 0 };

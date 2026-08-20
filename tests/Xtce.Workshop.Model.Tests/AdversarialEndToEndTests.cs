@@ -158,6 +158,10 @@ public class AdversarialEndToEndTests
             TelemeteredDoc(dataSource: "telemetered"),
             TelemeteredDoc(dataSource: "local"));
 
+        data.Add("XTCE-1.2-R21-metacommand-commandcontainer-inheritance-requires-basecontainer",
+            CommandContainerDoc(childBase: ""),
+            CommandContainerDoc(childBase: "<BaseContainer containerRef=\"ParentCC\"/>"));
+
         return data;
     }
 
@@ -380,5 +384,22 @@ public class AdversarialEndToEndTests
             </Parameter>
           </ParameterSet>
         </TelemetryMetaData>
+        """);
+
+    private static string CommandContainerDoc(string childBase) => Doc($"""
+        <CommandMetaData><MetaCommandSet>
+          <MetaCommand name="Parent" abstract="true">
+            <CommandContainer name="ParentCC">
+              <EntryList><FixedValueEntry binaryValue="5A" sizeInBits="8"/></EntryList>
+            </CommandContainer>
+          </MetaCommand>
+          <MetaCommand name="Child">
+            <BaseMetaCommand metaCommandRef="Parent"/>
+            <CommandContainer name="ChildCC">
+              <EntryList><FixedValueEntry binaryValue="0F" sizeInBits="8"/></EntryList>
+              {childBase}
+            </CommandContainer>
+          </MetaCommand>
+        </MetaCommandSet></CommandMetaData>
         """);
 }

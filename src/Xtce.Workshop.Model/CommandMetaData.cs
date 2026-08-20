@@ -1,6 +1,39 @@
 namespace Xtce.Workshop.Model;
 
 /// <summary>
+/// A MetaCommand's inline CommandContainer, modeled just deeply enough for rule R21 and
+/// lossless round-trips: name, the BaseContainer reference (inheritance wiring), and
+/// everything else — including the required EntryList with its command-specific entry
+/// kinds (FixedValueEntry, ArgumentRefEntry, ...) — preserved verbatim.
+/// </summary>
+public sealed record CommandContainer(
+    string Name,
+    string? BaseContainerRef = null,
+    IReadOnlyList<RawXmlFragment>? BaseContainerPreserved = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(CommandContainer? other) =>
+        other is not null
+        && Name == other.Name
+        && BaseContainerRef == other.BaseContainerRef
+        && Structural.ListEquals(BaseContainerPreserved, other.BaseContainerPreserved)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Name);
+        hash.Add(BaseContainerRef);
+        Structural.AddList(ref hash, BaseContainerPreserved);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
 /// A MetaCommand in a CommandMetaData's MetaCommandSet — modeled just deeply enough for
 /// verifier-inheritance validation (rule R12): name, abstract flag, the BaseMetaCommand
 /// reference, and the verifier lists. ExecutionVerifiers/CompleteVerifiers are kept as raw
@@ -19,7 +52,8 @@ public sealed record MetaCommand(
     IReadOnlyList<RawXmlFragment>? CompleteVerifiers = null,
     IReadOnlyList<RawXmlFragment>? PreservedVerifiers = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    CommandContainer? CommandContainer = null)
 {
     public bool Equals(MetaCommand? other) =>
         other is not null
@@ -31,7 +65,8 @@ public sealed record MetaCommand(
         && Structural.ListEquals(CompleteVerifiers, other.CompleteVerifiers)
         && Structural.ListEquals(PreservedVerifiers, other.PreservedVerifiers)
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(CommandContainer, other.CommandContainer);
 
     public override int GetHashCode()
     {
@@ -45,6 +80,7 @@ public sealed record MetaCommand(
         Structural.AddList(ref hash, PreservedVerifiers);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(CommandContainer);
         return hash.ToHashCode();
     }
 }
