@@ -28,8 +28,12 @@ jobs:
 
       - name: Test
         # Coverage collection (issue #55) rides the test run via the coverlet.collector
-        # package every test project already references.
+        # package every test project already references. XTCE_COVERAGE_RUN tells
+        # wall-clock performance guards to skip their timing assertion — instrumentation
+        # roughly doubles hot-loop cost, so timing bounds are meaningless here.
         run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory TestResults
+        env:
+          XTCE_COVERAGE_RUN: '1'
 
       - name: Coverage report and gate
         # Merges the per-project Cobertura files, prints the summary into the job log,

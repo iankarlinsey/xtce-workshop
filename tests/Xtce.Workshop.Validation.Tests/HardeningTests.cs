@@ -93,8 +93,14 @@ public class HardeningTests
 
         Assert.Empty(issues);
         // Generous bound (CI containers are slow); the point is catching accidental
-        // quadratic blowups, not micro-benchmarks.
-        Assert.True(stopwatch.ElapsedMilliseconds < 10_000,
-            $"Validation of {count}x3 items took {stopwatch.ElapsedMilliseconds}ms.");
+        // quadratic blowups, not micro-benchmarks. Under coverage instrumentation
+        // (issue #55: CI sets XTCE_COVERAGE_RUN) wall-clock is meaningless — coverlet's
+        // per-branch hit tracking roughly doubles this workload — so only the functional
+        // assertion applies there.
+        if (Environment.GetEnvironmentVariable("XTCE_COVERAGE_RUN") is null)
+        {
+            Assert.True(stopwatch.ElapsedMilliseconds < 10_000,
+                $"Validation of {count}x3 items took {stopwatch.ElapsedMilliseconds}ms.");
+        }
     }
 }
