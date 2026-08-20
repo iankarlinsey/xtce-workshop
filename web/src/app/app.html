@@ -404,6 +404,16 @@
           <option [value]="name"></option>
         }
       </datalist>
+
+      @if (referenceEntry(); as reference) {
+        <aside class="reference-panel">
+          <p class="reference-heading">
+            XTCE reference
+            <span class="reference-source">{{ reference.source }}</span>
+          </p>
+          <p class="reference-text">{{ reference.text }}</p>
+        </aside>
+      }
     </main>
   </div>
 </div>

@@ -28,6 +28,7 @@ import {
   moveEntry,
 } from './document-tree';
 import { ValidationIssue, PacketLayout } from './validation';
+import { XTCE_REFERENCE, ReferenceEntry } from './xtce-reference';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
 
@@ -142,6 +143,31 @@ export class App {
   protected readonly knownMetaCommandNames = computed(() => {
     const doc = this.currentDocument();
     return doc ? collectMetaCommandNames(doc) : [];
+  });
+
+  /** XSD documentation for whatever construct is selected — the reference sheet. */
+  protected readonly referenceEntry = computed<ReferenceEntry | null>(() => {
+    const selection = this.selection();
+    if (!selection) {
+      return null;
+    }
+    if (!selection.item) {
+      return XTCE_REFERENCE['SpaceSystem'] ?? null;
+    }
+    switch (selection.item.kind) {
+      case 'parameterType': {
+        const type = this.selectedParameterType();
+        return type ? XTCE_REFERENCE[`${type.kind}ParameterType`] ?? null : null;
+      }
+      case 'parameter':
+        return XTCE_REFERENCE['Parameter'] ?? null;
+      case 'container':
+        return XTCE_REFERENCE['SequenceContainer'] ?? null;
+      case 'message':
+        return XTCE_REFERENCE['Message'] ?? null;
+      case 'metaCommand':
+        return XTCE_REFERENCE['MetaCommand'] ?? null;
+    }
   });
 
   constructor() {

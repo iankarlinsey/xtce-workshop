@@ -480,3 +480,39 @@
   color: var(--text-faint);
   font-size: 10.5px;
 }
+
+.reference-panel {
+  max-width: 560px;
+  margin-top: 32px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 5px;
+}
+
+.reference-heading {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reference-source {
+  font-family: var(--mono);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-faint);
+}
+
+.reference-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+}

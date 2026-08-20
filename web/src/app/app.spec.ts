@@ -928,6 +928,22 @@ describe('App', () => {
       expect(compiled.textContent).toContain('Compute layout');
     }));
 
+    it('shows the XSD reference sheet for the selected construct', () => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      // Root SpaceSystem selected by default.
+      expect(compiled.querySelector('.reference-source')?.textContent).toContain('SpaceSystemType');
+
+      clickTreeRowByText(fixture, 'Volt_Type');
+      expect(compiled.querySelector('.reference-source')?.textContent).toContain('FloatParameterType');
+
+      clickTreeRowByText(fixture, 'Frame');
+      expect(compiled.querySelector('.reference-source')?.textContent).toContain('SequenceContainerType');
+      expect(compiled.querySelector('.reference-text')?.textContent).toContain('binary layout');
+    });
+
     it('preserved (unmodeled) document content passes through edits into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);
