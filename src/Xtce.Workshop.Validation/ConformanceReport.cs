@@ -59,6 +59,8 @@ public static class ConformanceReportBuilder
     /// <summary>SEMANTIC candidates whose sites the current implementation actually checks.</summary>
     private static readonly IReadOnlyDictionary<int, string> CoveredByTag = new Dictionary<int, string>
     {
+        [1] = "XTCE-1.2-R05-dim-subset-lt-type",
+        [2] = "XTCE-1.2-R05-dim-subset-lt-type",
         [3] = "XTCE-1.2-R22-fixedvalue-bitlength-sufficient",
         [5] = "XTCE-1.2-R02-array-dim-count-match-type",
         [6] = "XTCE-1.2-R05-dim-subset-lt-type",
@@ -69,30 +71,31 @@ public static class ConformanceReportBuilder
         [19] = "XTCE-1.2-R10-nextcontainer-ref-must-resolve",
         [27] = "XTCE-1.2-R23-constant-datasource-should-be-readonly",
         [29] = "XTCE-1.2-R15-typed-value-valid-for-type",
+        [33] = "XTCE-1.2-R15-typed-value-valid-for-type",
+        [34] = "XTCE-1.2-R15-typed-value-valid-for-type",
+        [35] = "XTCE-1.2-R15-typed-value-valid-for-type",
+        [39] = "XTCE-1.2-R15-typed-value-valid-for-type",
+        [45] = "XTCE-1.2-R15-typed-value-valid-for-type",
         [48] = "XTCE-1.2-R12-no-duplicate-verifiers-post-inheritance",
         [49] = "XTCE-1.2-R03-checksum-custom-requires-inputalgorithm",
         [55] = "XTCE-1.2-R13-spline-order-requires-min-points",
         [59] = "XTCE-1.2-R14-time-datatype-requires-encoding",
         [61] = "XTCE-1.2-R06-dimensionlist-order-must-ascend",
+        [62] = "XTCE-1.2-R07-enum-initial-value-must-be-valid-label",
         [63] = "XTCE-1.2-R07-enum-initial-value-must-be-valid-label",
+        [85] = "XTCE-1.2-R15-typed-value-valid-for-type",
         [88] = "XTCE-1.2-R15-typed-value-valid-for-type",
         [91] = "XTCE-1.2-R11-no-dangling-name-references",
         [106] = "XTCE-1.2-R01-ambiguous-time-units-flagged",
     };
 
-    /// <summary>SEMANTIC candidates whose sites are not statically reachable yet, with why.</summary>
-    private static readonly IReadOnlyDictionary<int, string> UnreachableReasons = new Dictionary<int, string>
-    {
-        [1] = "Argument-side array dimensions — command arguments are not modeled yet (R05's recorded partial gap).",
-        [2] = "Argument-side array dimensions — command arguments are not modeled yet (R05's recorded partial gap).",
-        [33] = "ArgumentAssignment values — command arguments are not modeled yet (R15's recorded partial gap).",
-        [34] = "Argument comparison values — command arguments are not modeled yet (R15's recorded partial gap).",
-        [35] = "Argument comparison-check values — command arguments are not modeled yet (R15's recorded partial gap).",
-        [39] = "Argument initial values — command arguments are not modeled yet (R15's recorded partial gap).",
-        [45] = "ParameterToSet values — command-side parameter setting is not modeled yet (R15's recorded partial gap).",
-        [62] = "Argument enumerated types — command arguments are not modeled yet (R07's recorded partial gap).",
-        [85] = "Verifier comparison-check values ride as preserved verifier XML — not statically inspected (R15's recorded partial gap).",
-    };
+    /// <summary>
+    /// SEMANTIC candidates whose sites are not statically reachable yet, with why. Empty
+    /// since issue #49 wired the command-argument sites through ArgumentScanner — kept so
+    /// a future rule with a genuinely unreachable site has a documented lane that renders
+    /// as NOT_EVALUATED instead of silently vanishing.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<int, string> UnreachableReasons = new Dictionary<int, string>();
 
     /// <summary>SEMANTIC candidates honored structurally rather than by an emission site.</summary>
     private static readonly IReadOnlyDictionary<int, string> StructuralNotes = new Dictionary<int, string>

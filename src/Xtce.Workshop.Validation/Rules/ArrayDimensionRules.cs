@@ -38,12 +38,15 @@ public sealed class ArrayDimCountMatchTypeRule : IValidationRule
 }
 
 /// <summary>
-/// XTCE-1.2-R05 (PARTIAL — FixedValue bounds only; the two Argument-side citations need
-/// command modeling): an entry's subsetting dimension bounds must be less than the
-/// referenced type's — "it's not a subset if it's the same size"
+/// XTCE-1.2-R05 (PARTIAL — FixedValue bounds only): an entry's subsetting dimension bounds
+/// must be less than the referenced type's — "it's not a subset if it's the same size"
 /// (ArrayParameterRefEntryType/DimensionList, XSD line 379). Flagged: a dimension whose
 /// fixed EndingIndex exceeds the type's, and a DimensionList whose every fixed bound
-/// equals the type's (same size, not a subset).
+/// equals the type's (same size, not a subset). All three citation sites are checked:
+/// telemetry ArrayParameterRefEntry (#6), and — since issue #49 — command-container
+/// ArrayArgumentRefEntry against its ArrayArgumentType (#1) and command-container
+/// ArrayParameterRefEntry against the parameter's array type (#2), both scanned from
+/// preserved CommandContainer EntryList fragments.
 /// </summary>
 public sealed class DimSubsetLessThanTypeRule : IValidationRule
 {
@@ -62,37 +65,125 @@ public sealed class DimSubsetLessThanTypeRule : IValidationRule
             }
 
             var location = $"{context.Path}/ContainerSet/{container.Name}";
-            var comparableCount = 0;
-            var equalCount = 0;
-
-            for (var i = 0; i < entryDimensions.Count; i++)
+            foreach (var issue in CompareBounds(location, "ArrayParameterRefEntry", arrayType.Name, entryDimensions, typeDimensions, candidateNumber: 6))
             {
-                var entryEnd = entryDimensions[i].EndingFixed;
-                var typeEnd = typeDimensions[i].EndingIndex.FixedValue;
-                if (entryEnd is null || typeEnd is null)
-                {
-                    continue;
-                }
+                yield return issue;
+            }
+        }
 
-                comparableCount++;
-                if (entryEnd > typeEnd)
+        foreach (var issue in ValidateCommandContainerEntries(context))
+        {
+            yield return issue;
+        }
+    }
+
+    /// <summary>Candidates #1/#2: array entries in preserved CommandContainer EntryLists.</summary>
+    private IEnumerable<ValidationIssue> ValidateCommandContainerEntries(SpaceSystemContext context)
+    {
+        foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
+        {
+            var entryList = (metaCommand.CommandContainer?.Preserved ?? []).FirstOrDefault(f => f.ElementName == "EntryList");
+            if (entryList is null)
+            {
+                continue;
+            }
+            var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}/CommandContainer";
+            IReadOnlyList<ArgumentScanner.ScopedArgument>? visibleArguments = null;
+
+            foreach (var (entryName, entryXml) in ArgumentScanner.ChildElements(entryList.OuterXml))
+            {
+                if (entryName == "ArrayArgumentRefEntry")
                 {
-                    yield return new ValidationIssue(RuleId, Severity, location,
-                        $"ArrayParameterRefEntry dimension {i} EndingIndex {entryEnd} exceeds type '{arrayType.Name}' bound {typeEnd}.",
-                        CandidateNumber: 6);
+                    if (XmlFragmentInspector.RootAttribute(entryXml, "argumentRef") is not { } argumentRef)
+                    {
+                        continue;
+                    }
+                    visibleArguments ??= ArgumentScanner.MergedArguments(context, metaCommand);
+                    var argument = visibleArguments.FirstOrDefault(a => a.Decl.Name == argumentRef);
+                    if (argument is null
+                        || ArgumentScanner.ResolveArgumentType(argument.Scope, argument.Decl.TypeRef)
+                            is not { Kind: ParameterTypeKind.Array } argumentArrayType)
+                    {
+                        continue;
+                    }
+                    foreach (var issue in CompareEntry(location, entryName, entryXml, argumentArrayType, candidateNumber: 1))
+                    {
+                        yield return issue;
+                    }
                 }
-                else if (entryEnd == typeEnd)
+                else if (entryName == "ArrayParameterRefEntry")
                 {
-                    equalCount++;
+                    if (XmlFragmentInspector.RootAttribute(entryXml, "parameterRef") is not { } parameterRef)
+                    {
+                        continue;
+                    }
+                    var parameterResolution = NameReferenceResolver.Resolve(context, parameterRef, NamedItemKind.Parameter);
+                    if (parameterResolution.Parameter is not { } parameter || parameterResolution.DefinedIn is not { } definedIn)
+                    {
+                        continue;
+                    }
+                    var typeResolution = NameReferenceResolver.Resolve(definedIn, parameter.ParameterTypeRef, NamedItemKind.ParameterType);
+                    if (typeResolution.ParameterType is not { Kind: ParameterTypeKind.Array } parameterArrayType)
+                    {
+                        continue;
+                    }
+                    foreach (var issue in CompareEntry(location, entryName, entryXml, parameterArrayType, candidateNumber: 2))
+                    {
+                        yield return issue;
+                    }
                 }
             }
+        }
+    }
 
-            if (comparableCount > 0 && comparableCount == entryDimensions.Count && equalCount == comparableCount)
+    private IEnumerable<ValidationIssue> CompareEntry(
+        string location, string entryName, string entryXml, ParameterTypeDefinition arrayType, int candidateNumber)
+    {
+        var entryDimensions = XmlFragmentInspector.FindDimensions(entryXml);
+        var typeDimensions = arrayType.Dimensions ?? [];
+        return entryDimensions.Count == 0 || entryDimensions.Count != typeDimensions.Count
+            ? []
+            : CompareBounds(location, entryName, arrayType.Name, entryDimensions, typeDimensions, candidateNumber);
+    }
+
+    private IEnumerable<ValidationIssue> CompareBounds(
+        string location,
+        string entryName,
+        string typeName,
+        IReadOnlyList<XmlFragmentInspector.DimensionInfo> entryDimensions,
+        IReadOnlyList<Dimension> typeDimensions,
+        int candidateNumber)
+    {
+        var comparableCount = 0;
+        var equalCount = 0;
+
+        for (var i = 0; i < entryDimensions.Count; i++)
+        {
+            var entryEnd = entryDimensions[i].EndingFixed;
+            var typeEnd = typeDimensions[i].EndingIndex.FixedValue;
+            if (entryEnd is null || typeEnd is null)
+            {
+                continue;
+            }
+
+            comparableCount++;
+            if (entryEnd > typeEnd)
             {
                 yield return new ValidationIssue(RuleId, Severity, location,
-                    $"ArrayParameterRefEntry DimensionList equals type '{arrayType.Name}' in every dimension — the same size is not a subset.",
-                    CandidateNumber: 6);
+                    $"{entryName} dimension {i} EndingIndex {entryEnd} exceeds type '{typeName}' bound {typeEnd}.",
+                    CandidateNumber: candidateNumber);
             }
+            else if (entryEnd == typeEnd)
+            {
+                equalCount++;
+            }
+        }
+
+        if (comparableCount > 0 && comparableCount == entryDimensions.Count && equalCount == comparableCount)
+        {
+            yield return new ValidationIssue(RuleId, Severity, location,
+                $"{entryName} DimensionList equals type '{typeName}' in every dimension — the same size is not a subset.",
+                CandidateNumber: candidateNumber);
         }
     }
 }

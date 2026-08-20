@@ -25,6 +25,11 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
 
     public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
+        foreach (var issue in ValidateCommandSide(context))
+        {
+            yield return issue;
+        }
+
         if (context.Node.TelemetryMetaData is null)
         {
             yield break;
@@ -109,7 +114,157 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
                         CandidateNumber: 88);
                 }
             }
+
+            // ComparisonCheckType/Value (candidate #85): a RestrictionCriteria
+            // BooleanExpression rides as a preserved fragment; its Conditions compare a
+            // ParameterInstanceRef against a Value literal.
+            if (container.BaseContainer?.RestrictionCriteria?.Raw is { } rawCriteria)
+            {
+                foreach (var condition in ArgumentScanner.ScanComparisons(rawCriteria.OuterXml))
+                {
+                    if (condition.Form != ArgumentScanner.ComparisonForm.ConditionValue || condition.ParameterRef is null)
+                    {
+                        continue;
+                    }
+                    var error = DescribeAgainstParameter(context, condition.ParameterRef, condition.Value);
+                    if (error is not null)
+                    {
+                        yield return new ValidationIssue(RuleId, Severity,
+                            $"{context.Path}/ContainerSet/{container.Name}",
+                            $"Condition against '{condition.ParameterRef}': {error}",
+                            CandidateNumber: 85);
+                    }
+                }
+            }
         }
+    }
+
+    /// <summary>
+    /// Command-side value literals (issue #49): argument initial values (#39), base-command
+    /// argument assignments (#33), ParameterToSet new values (#45), and the comparison
+    /// forms inside constraints/verifiers — ArgumentComparisonType values (#34),
+    /// ArgumentComparisonCheckType Condition values (#35), and plain ComparisonType values
+    /// riding in preserved command fragments (#88's site). Everything is evaluated from
+    /// preserved fragments via ArgumentScanner; argument types resolve unqualified-only.
+    /// </summary>
+    private IEnumerable<ValidationIssue> ValidateCommandSide(SpaceSystemContext context)
+    {
+        if (context.Node.CommandMetaData is not { } commandMetaData)
+        {
+            yield break;
+        }
+
+        foreach (var metaCommand in commandMetaData.MetaCommands)
+        {
+            var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}";
+            var visibleArguments = ArgumentScanner.MergedArguments(context, metaCommand);
+
+            // #39 — an Argument's initialValue must fit its argumentTypeRef'd type.
+            foreach (var declaration in ArgumentScanner.ScanArguments(metaCommand))
+            {
+                if (declaration.InitialValue is null)
+                {
+                    continue;
+                }
+                if (ArgumentScanner.ResolveArgumentType(context, declaration.TypeRef) is not { } argumentType)
+                {
+                    continue;
+                }
+                var error = Describe(argumentType, declaration.InitialValue);
+                if (error is not null)
+                {
+                    yield return new ValidationIssue(RuleId, Severity, location,
+                        $"Argument '{declaration.Name}': {error}", CandidateNumber: 39);
+                }
+            }
+
+            // #33 — ArgumentAssignment values must fit the (inherited) argument's type.
+            foreach (var assignment in ArgumentScanner.ScanArgumentAssignments(metaCommand))
+            {
+                var target = visibleArguments.FirstOrDefault(a => a.Decl.Name == assignment.ArgumentName);
+                if (target is null
+                    || ArgumentScanner.ResolveArgumentType(target.Scope, target.Decl.TypeRef) is not { } assignedType)
+                {
+                    continue;
+                }
+                var error = Describe(assignedType, assignment.ArgumentValue);
+                if (error is not null)
+                {
+                    yield return new ValidationIssue(RuleId, Severity, location,
+                        $"ArgumentAssignment '{assignment.ArgumentName}': {error}", CandidateNumber: 33);
+                }
+            }
+
+            // #45 — ParameterToSet NewValue must fit the target parameter's type
+            // (Derivation-based sets carry no literal and are skipped).
+            foreach (var parameterToSet in ArgumentScanner.ScanParameterToSets(metaCommand))
+            {
+                if (parameterToSet.NewValue is null)
+                {
+                    continue;
+                }
+                var error = DescribeAgainstParameter(context, parameterToSet.ParameterRef, parameterToSet.NewValue);
+                if (error is not null)
+                {
+                    yield return new ValidationIssue(RuleId, Severity, location,
+                        $"ParameterToSet '{parameterToSet.ParameterRef}': {error}", CandidateNumber: 45);
+                }
+            }
+
+            // #34 / #35 / #88 — comparison literals anywhere in this command's fragments.
+            foreach (var fragment in ArgumentScanner.CommandFragments(metaCommand))
+            {
+                foreach (var comparison in ArgumentScanner.ScanComparisons(fragment.OuterXml))
+                {
+                    string? error;
+                    string subject;
+                    if (comparison.ArgumentRef is { } argumentRef)
+                    {
+                        var target = visibleArguments.FirstOrDefault(a => a.Decl.Name == argumentRef);
+                        if (target is null
+                            || ArgumentScanner.ResolveArgumentType(target.Scope, target.Decl.TypeRef) is not { } argumentType)
+                        {
+                            continue;
+                        }
+                        error = Describe(argumentType, comparison.Value);
+                        subject = $"argument '{argumentRef}'";
+                    }
+                    else if (comparison.ParameterRef is { } parameterRef)
+                    {
+                        error = DescribeAgainstParameter(context, parameterRef, comparison.Value);
+                        subject = $"'{parameterRef}'";
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
+                    if (error is not null)
+                    {
+                        var candidate = comparison.Form switch
+                        {
+                            ArgumentScanner.ComparisonForm.ConditionValue => 35,
+                            ArgumentScanner.ComparisonForm.InstanceRef => 34,
+                            _ => 88,
+                        };
+                        yield return new ValidationIssue(RuleId, Severity, location,
+                            $"Comparison against {subject}: {error}", CandidateNumber: candidate);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Runs the typed-value check against a parameterRef's resolved modeled type; null if unresolvable/opaque.</summary>
+    private static string? DescribeAgainstParameter(SpaceSystemContext context, string parameterRef, string value)
+    {
+        var parameterResolution = NameReferenceResolver.Resolve(context, parameterRef, NamedItemKind.Parameter);
+        if (parameterResolution.Parameter is not { } parameter || parameterResolution.DefinedIn is not { } definedIn)
+        {
+            return null;
+        }
+        var typeResolution = NameReferenceResolver.Resolve(definedIn, parameter.ParameterTypeRef, NamedItemKind.ParameterType);
+        return typeResolution.ParameterType is { } parameterType ? Describe(parameterType, value) : null;
     }
 
     private static string? Describe(ParameterTypeDefinition type, string value) => type.Kind switch
