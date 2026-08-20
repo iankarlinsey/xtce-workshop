@@ -196,6 +196,24 @@ public class XtceLoadEndpointTests
         Assert.Contains("file", body.GetProperty("error").GetString()!);
     }
 
+    [Test]
+    public async Task PostLoad_FilePartWithoutFilename_Gets400NamingTheExactProblem()
+    {
+        var client = _factory.CreateClient();
+        // A part named 'file' with NO filename parses as a form FIELD, so IFormFile binds
+        // null — the server must say so, not emit a generic message.
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent("<x/>"), "file" },
+        };
+
+        var response = await client.PostAsync("/api/xtce/load", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("without a filename", body.GetProperty("error").GetString()!);
+    }
+
     private static async Task<HttpResponseMessage> PostFile(HttpClient client, string xml)
     {
         using var content = new MultipartFormDataContent
