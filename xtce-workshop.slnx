@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Xtce.SpecTools/Xtce.SpecTools.csproj" />
+    <Project Path="src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj" />
+    <Project Path="src/Xtce.Workshop.Cli/Xtce.Workshop.Cli.csproj" />
+    <Project Path="src/Xtce.Workshop.Model/Xtce.Workshop.Model.csproj" />
+    <Project Path="src/Xtce.Workshop.Validation/Xtce.Workshop.Validation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Xtce.SpecTools.Tests/Xtce.SpecTools.Tests.csproj" />
+    <Project Path="tests/Xtce.Workshop.Api.Tests/Xtce.Workshop.Api.Tests.csproj" />
+    <Project Path="tests/Xtce.Workshop.Cli.Tests/Xtce.Workshop.Cli.Tests.csproj" />
+    <Project Path="tests/Xtce.Workshop.Model.Tests/Xtce.Workshop.Model.Tests.csproj" />
+    <Project Path="tests/Xtce.Workshop.Validation.Tests/Xtce.Workshop.Validation.Tests.csproj" />
+  </Folder>
+</Solution>

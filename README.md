@@ -45,7 +45,7 @@ A single container runs Kestrel serving both the Angular frontend and the
 src/
   Xtce.Workshop.Model/       Domain model + XTCE XML reader/writer (no API/UI concerns)
   Xtce.Workshop.Validation/  Validation rules + name-reference resolver
-  Xtce.Workshop.Api/         .NET 8 backend (ASP.NET Core, controllers; also serves the built frontend)
+  Xtce.Workshop.Api/         .NET 10 backend (ASP.NET Core, controllers; also serves the built frontend)
   Xtce.Workshop.Cli/         `xtce-workshop validate` command-line tool
   Xtce.SpecTools/            Standalone CLI for XTCE spec rule-extraction research —
                               unrelated to the app itself, see its own project for context
@@ -58,7 +58,7 @@ samples/                  Small hand-authored XTCE fixture files used by tests
 
 ## Running without Docker
 
-Requires the .NET 8 SDK (pinned via `global.json`) and Node 20+.
+Requires the .NET 10 SDK (pinned via `global.json`) and Node 20+.
 
 **Backend:**
 ```
@@ -83,7 +83,7 @@ Opens on http://localhost:4200.
 
 ```
 docker run --rm -v "$(pwd)":/workspace -w /workspace \
-  mcr.microsoft.com/dotnet/sdk:8.0 \
+  mcr.microsoft.com/dotnet/sdk:10.0 \
   dotnet run --project src/Xtce.Workshop.Cli -- validate samples/telemetry-1.2.xml
 ```
 
@@ -113,7 +113,7 @@ npx ng test --watch=false
 
 `.gitea/workflows/ci.yml` runs on every push/PR to `master`: builds and
 tests both the backend and frontend, each in a digest-pinned container
-matching what's used for local Docker builds (`mcr.microsoft.com/dotnet/sdk:8.0`,
+matching what's used for local Docker builds (`mcr.microsoft.com/dotnet/sdk:10.0`,
 `node:20-bookworm@sha256:...`) — pinned by digest, not floating tag, so local
 builds and CI run identical toolchains.
 

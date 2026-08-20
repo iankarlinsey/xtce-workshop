@@ -9,7 +9,7 @@ RUN npm ci
 COPY web/ ./
 RUN npx ng build --configuration production
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0@sha256:306301580fcaa5b445180e759db59309979002d1000669cb4cf58a567d0014bc AS api-build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:e1ffd2a92ae84c1291bc1b6887501f8af98e6331e7af6d4c8d37168c5e87a64c AS api-build
 WORKDIR /src
 COPY src/Xtce.Workshop.Model/Xtce.Workshop.Model.csproj src/Xtce.Workshop.Model/
 COPY src/Xtce.Workshop.Validation/Xtce.Workshop.Validation.csproj src/Xtce.Workshop.Validation/
@@ -23,7 +23,7 @@ COPY research/xtce-1.2-triage-log.csv research/
 COPY reference/1.2/SpaceSystem.xsd reference/1.2/xml.xsd reference/1.2/
 RUN dotnet publish src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj -c Release -o /app --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0@sha256:b0beb9cc1dee1c1b0749796110d4734292071b814207ad0d4f40611f7db04f7b AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:a4556ed033fa96f984bb7a8d348851cb2d36b1281dd2420070045f664fbb5f94 AS runtime
 WORKDIR /app
 COPY --from=api-build /app .
 COPY --from=web-build /web/dist/xtce-workshop-web/browser ./wwwroot
