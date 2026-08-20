@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -12,7 +11,7 @@ public class PacketLayoutBuilderTests
             [new RawXmlFragment("IntegerDataEncoding",
                 $"""<IntegerDataEncoding sizeInBits="{sizeInBits}" xmlns="{Ns}"/>""")]);
 
-    [Fact]
+    [Test]
     public void SequentialParameterEntries_GetCumulativeOffsets()
     {
         var telemetry = new TelemetryMetaData(
@@ -36,7 +35,7 @@ public class PacketLayoutBuilderTests
         Assert.Equal(40, layout.TotalSizeInBits);
     }
 
-    [Fact]
+    [Test]
     public void InheritedParentEntries_ComeFirst()
     {
         var telemetry = new TelemetryMetaData(
@@ -58,7 +57,7 @@ public class PacketLayoutBuilderTests
         Assert.Equal(16, layout.TotalSizeInBits);
     }
 
-    [Fact]
+    [Test]
     public void IncludedContainer_ExpandsInline()
     {
         var telemetry = new TelemetryMetaData(
@@ -81,7 +80,7 @@ public class PacketLayoutBuilderTests
         Assert.Equal(16, layout.TotalSizeInBits);
     }
 
-    [Fact]
+    [Test]
     public void UnknownSize_MakesFollowingOffsetsAndTotalNull()
     {
         var telemetry = new TelemetryMetaData(
@@ -106,7 +105,7 @@ public class PacketLayoutBuilderTests
         Assert.Null(layout.TotalSizeInBits);
     }
 
-    [Fact]
+    [Test]
     public void FixedContainerStartLocation_ReanchorsTheOffset()
     {
         var telemetry = new TelemetryMetaData(
@@ -132,7 +131,7 @@ public class PacketLayoutBuilderTests
         Assert.Equal(40, layout.TotalSizeInBits);
     }
 
-    [Fact]
+    [Test]
     public void RawFixedValueEntry_ContributesItsOwnSize()
     {
         var telemetry = new TelemetryMetaData([], [],
@@ -154,7 +153,7 @@ public class PacketLayoutBuilderTests
         Assert.Equal(7, layout.TotalSizeInBits);
     }
 
-    [Fact]
+    [Test]
     public void InheritanceCycle_TruncatesInsteadOfHanging()
     {
         var telemetry = new TelemetryMetaData([], [],
@@ -171,7 +170,7 @@ public class PacketLayoutBuilderTests
         Assert.Null(layout.TotalSizeInBits);
     }
 
-    [Fact]
+    [Test]
     public void ContainerInAChildSystem_IsAddressableBySystemPath()
     {
         var child = new SpaceSystem("Bus", [], new TelemetryMetaData(

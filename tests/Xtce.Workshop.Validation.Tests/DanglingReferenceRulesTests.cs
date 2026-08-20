@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -9,7 +8,7 @@ public class DanglingReferenceRulesTests
     private const string R11 = "XTCE-1.2-R11-no-dangling-name-references";
     private const string R10 = "XTCE-1.2-R10-nextcontainer-ref-must-resolve";
 
-    [Fact]
+    [Test]
     public void DanglingParameterTypeRef_IsFlagged()
     {
         var spaceSystem = new SpaceSystem("S", [], new TelemetryMetaData(
@@ -22,7 +21,7 @@ public class DanglingReferenceRulesTests
         Assert.Equal("S/ParameterSet/P", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void ParameterTypeRefToPreservedUnmodeledType_IsNotFlagged()
     {
         var spaceSystem = new SpaceSystem("S", [], new TelemetryMetaData(
@@ -41,7 +40,7 @@ public class DanglingReferenceRulesTests
         Assert.Empty(issues);
     }
 
-    [Fact]
+    [Test]
     public void ParameterTypeRefResolvingToAncestor_IsNotFlagged()
     {
         var child = new SpaceSystem("Child", [], new TelemetryMetaData(
@@ -54,7 +53,7 @@ public class DanglingReferenceRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R11);
     }
 
-    [Fact]
+    [Test]
     public void DanglingEntryAndBaseContainerAndComparisonRefs_AreEachFlagged()
     {
         var container = new SequenceContainer(
@@ -77,7 +76,7 @@ public class DanglingReferenceRulesTests
         Assert.Contains(issues, i => i.Message.Contains("MissingCompareParam"));
     }
 
-    [Fact]
+    [Test]
     public void FullyResolvedContainerGraph_ProducesNoFindings()
     {
         var telemetry = new TelemetryMetaData(
@@ -101,7 +100,7 @@ public class DanglingReferenceRulesTests
         Assert.Empty(issues);
     }
 
-    [Fact]
+    [Test]
     public void DanglingNextContainerRef_IsFlaggedByR10NotR11()
     {
         var telemetry = new TelemetryMetaData(
@@ -129,7 +128,7 @@ public class DanglingReferenceRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R11);
     }
 
-    [Fact]
+    [Test]
     public void R15_ChecksInitialValueAgainstTypeDefinedInAncestor()
     {
         // The resolver upgrade's payoff: the bad initial value is caught even though the

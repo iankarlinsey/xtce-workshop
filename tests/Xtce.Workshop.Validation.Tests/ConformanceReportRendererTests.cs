@@ -1,12 +1,11 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
 /// <summary>Text rendering of the conformance report, shared by CLI and API.</summary>
 public class ConformanceReportRendererTests
 {
-    [Fact]
+    [Test]
     public void ToText_CarriesDocumentIdentity_AllRows_AndSummary()
     {
         var report = ConformanceReportBuilder.Build(new SpaceSystem("Sat", []));
@@ -25,7 +24,7 @@ public class ConformanceReportRendererTests
         Assert.Contains("Summary: ", text);
     }
 
-    [Fact]
+    [Test]
     public void ToText_ShowsFindingsOnFailingRows()
     {
         var document = new SpaceSystem("Sat", [], new TelemetryMetaData(

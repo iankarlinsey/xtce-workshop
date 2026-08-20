@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -16,7 +15,7 @@ public class TimeRulesTests
     private static SpaceSystem WithType(ParameterTypeDefinition type) =>
         new("S", [], new TelemetryMetaData([type], []));
 
-    [Fact]
+    [Test]
     public void TimeTypeWithEncoding_IsClean()
     {
         var type = new ParameterTypeDefinition("T", ParameterTypeKind.RelativeTime, Preserved: [Encoding("seconds")]);
@@ -27,7 +26,7 @@ public class TimeRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R01);
     }
 
-    [Fact]
+    [Test]
     public void TimeTypeWithoutEncodingOrBaseType_IsFlaggedByR14()
     {
         var type = new ParameterTypeDefinition("T", ParameterTypeKind.AbsoluteTime);
@@ -39,7 +38,7 @@ public class TimeRulesTests
         Assert.Equal("S/ParameterTypeSet/T", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void TimeTypeWithBaseType_IsNotFlagged_EncodingMayBeInherited()
     {
         var type = new ParameterTypeDefinition("T", ParameterTypeKind.AbsoluteTime,
@@ -50,7 +49,7 @@ public class TimeRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R14);
     }
 
-    [Fact]
+    [Test]
     public void NonTimeTypeWithoutEncoding_IsNotR14Business()
     {
         var type = new ParameterTypeDefinition("T", ParameterTypeKind.Integer);
@@ -60,10 +59,9 @@ public class TimeRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R14);
     }
 
-    [Theory]
-    [InlineData("days")]
-    [InlineData("months")]
-    [InlineData("years")]
+    [TestCase("days")]
+    [TestCase("months")]
+    [TestCase("years")]
     public void CalendarVariableUnits_AreFlaggedByR01AsWarning(string units)
     {
         var type = new ParameterTypeDefinition("T", ParameterTypeKind.AbsoluteTime, Preserved: [Encoding(units)]);
@@ -75,9 +73,8 @@ public class TimeRulesTests
         Assert.Contains(units, issue.Message);
     }
 
-    [Theory]
-    [InlineData("seconds")]
-    [InlineData("picoSeconds")]
+    [TestCase("seconds")]
+    [TestCase("picoSeconds")]
     public void FixedLengthUnits_AreNotFlagged(string units)
     {
         var type = new ParameterTypeDefinition("T", ParameterTypeKind.RelativeTime, Preserved: [Encoding(units)]);
@@ -87,14 +84,13 @@ public class TimeRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R01);
     }
 
-    [Theory]
-    [InlineData("Binary", "CAFEBABE", true)]
-    [InlineData("Binary", "0DDBA11", false)]  // odd digit count
-    [InlineData("Binary", "NOTHEX", false)]
-    [InlineData("RelativeTime", "P1DT2H", true)]
-    [InlineData("RelativeTime", "tomorrow", false)]
-    [InlineData("AbsoluteTime", "2026-08-19T12:00:00Z", true)]
-    [InlineData("AbsoluteTime", "yesterday", false)]
+    [TestCase("Binary", "CAFEBABE", true)]
+    [TestCase("Binary", "0DDBA11", false)]  // odd digit count
+    [TestCase("Binary", "NOTHEX", false)]
+    [TestCase("RelativeTime", "P1DT2H", true)]
+    [TestCase("RelativeTime", "tomorrow", false)]
+    [TestCase("AbsoluteTime", "2026-08-19T12:00:00Z", true)]
+    [TestCase("AbsoluteTime", "yesterday", false)]
     public void R15_ChecksInitialValuesForNewKinds(string kindName, string value, bool expectedValid)
     {
         var kind = Enum.Parse<ParameterTypeKind>(kindName);

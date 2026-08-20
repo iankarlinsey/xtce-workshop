@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -32,7 +31,7 @@ public class NameReferenceResolverTests
         return context;
     }
 
-    [Fact]
+    [Test]
     public void Unqualified_ResolvesInTheSameSpaceSystem()
     {
         var root = BuildTree();
@@ -41,7 +40,7 @@ public class NameReferenceResolverTests
         Assert.True(NameReferenceResolver.Resolve(eps, "EpsParam", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void Unqualified_FallsBackToAncestors()
     {
         var root = BuildTree();
@@ -51,7 +50,7 @@ public class NameReferenceResolverTests
         Assert.True(NameReferenceResolver.Resolve(eps, "RootParam", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void Unqualified_DoesNotSearchSiblingsOrDescendants()
     {
         var root = BuildTree();
@@ -62,7 +61,7 @@ public class NameReferenceResolverTests
         Assert.False(NameReferenceResolver.Resolve(bus, "EpsParam", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void Relative_WalksChildPath()
     {
         var root = BuildTree();
@@ -70,7 +69,7 @@ public class NameReferenceResolverTests
         Assert.True(NameReferenceResolver.Resolve(root, "Bus/Eps/EpsParam", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void Relative_SupportsDotDotAndDotSegments()
     {
         var root = BuildTree();
@@ -80,7 +79,7 @@ public class NameReferenceResolverTests
         Assert.True(NameReferenceResolver.Resolve(eps, "./EpsParam", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void Relative_FallsBackToAncestorScopes()
     {
         var root = BuildTree();
@@ -90,7 +89,7 @@ public class NameReferenceResolverTests
         Assert.True(NameReferenceResolver.Resolve(eps, "Payload/PayParam", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void Absolute_AcceptsBothRootInterpretations()
     {
         var root = BuildTree();
@@ -102,7 +101,7 @@ public class NameReferenceResolverTests
         Assert.True(NameReferenceResolver.Resolve(eps, "/Bus/BusParam", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void Absolute_CollapsesRepeatedSlashes()
     {
         var root = BuildTree();
@@ -110,7 +109,7 @@ public class NameReferenceResolverTests
         Assert.True(NameReferenceResolver.Resolve(root, "//Bus//Eps//EpsParam", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void NamespacesAreSeparate()
     {
         var root = BuildTree();
@@ -120,7 +119,7 @@ public class NameReferenceResolverTests
         Assert.False(NameReferenceResolver.Resolve(root, "RootParam", NamedItemKind.Container).Found);
     }
 
-    [Fact]
+    [Test]
     public void ParameterType_ResolvesToTheModeledDefinition()
     {
         var root = BuildTree();
@@ -132,7 +131,7 @@ public class NameReferenceResolverTests
         Assert.Equal("RootType", result.ParameterType!.Name);
     }
 
-    [Fact]
+    [Test]
     public void ParameterType_PreservedFragmentResolvesAsOpaque()
     {
         var telemetry = new TelemetryMetaData(
@@ -150,7 +149,7 @@ public class NameReferenceResolverTests
         Assert.Null(result.ParameterType);
     }
 
-    [Fact]
+    [Test]
     public void PreservedCommandMetaData_ContributesItsDefinitionsToTheNamespaces()
     {
         var commandMetaData = """
@@ -186,7 +185,7 @@ public class NameReferenceResolverTests
         Assert.False(NameReferenceResolver.Resolve(context, "NotAParameter", NamedItemKind.Parameter).Found);
     }
 
-    [Fact]
+    [Test]
     public void Dangling_ReturnsNotFound()
     {
         var root = BuildTree();

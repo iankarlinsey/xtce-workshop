@@ -1,10 +1,9 @@
-using Xunit;
 
 namespace Xtce.SpecTools.Tests;
 
 public class CandidateExtractorTests
 {
-    [Fact]
+    [Test]
     public void Extract_FindsAllDocumentationNodes_MatchingCrossValidatedCount()
     {
         var result = CandidateExtractor.Extract(TestPaths.Xtce12Xsd);
@@ -14,7 +13,7 @@ public class CandidateExtractorTests
         Assert.Equal(861, result.TotalDocumentationNodes);
     }
 
-    [Fact]
+    [Test]
     public void Extract_CandidateCount_MatchesCurrentBaseline()
     {
         var result = CandidateExtractor.Extract(TestPaths.Xtce12Xsd);
@@ -27,7 +26,7 @@ public class CandidateExtractorTests
         Assert.InRange(result.CandidateCount, 1, result.TotalDocumentationNodes);
     }
 
-    [Fact]
+    [Test]
     public void Extract_FlagsKnownFalsePositive_ArchaicConditionalPhrasing()
     {
         // "Should negative exponents be required, use a Math Calibrator style..." matches

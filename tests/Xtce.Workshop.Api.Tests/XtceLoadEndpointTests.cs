@@ -4,20 +4,20 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Api.Tests;
 
-public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class XtceLoadEndpointTests 
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private WebApplicationFactory<Program> _factory = null!;
 
-    public XtceLoadEndpointTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
+    [OneTimeSetUp]
+    public void CreateFactory() => _factory = new WebApplicationFactory<Program>();
 
-    [Fact]
+    [OneTimeTearDown]
+    public void DisposeFactory() => _factory.Dispose();
+
+    [Test]
     public async Task PostLoad_MinimalValidFile_Returns200WithNameAndTree()
     {
         var client = _factory.CreateClient();
@@ -44,7 +44,7 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(0, document.GetProperty("children").GetArrayLength());
     }
 
-    [Fact]
+    [Test]
     public async Task PostLoad_Document_CanBeFedDirectlyToSaveAndRoundTrips()
     {
         var client = _factory.CreateClient();
@@ -69,7 +69,7 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Contains("Payload", xml);
     }
 
-    [Fact]
+    [Test]
     public async Task PostLoad_NestedValidFile_ReturnsFullTreeStructure()
     {
         var client = _factory.CreateClient();
@@ -94,7 +94,7 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal("Payload", children[1].GetProperty("label").GetString());
     }
 
-    [Fact]
+    [Test]
     public async Task PostLoad_ValidFile_ReturnsEmptyValidationIssues()
     {
         var client = _factory.CreateClient();
@@ -111,7 +111,7 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(0, body.GetProperty("validationIssues").GetArrayLength());
     }
 
-    [Fact]
+    [Test]
     public async Task PostLoad_FileWithIssues_ReturnsValidationIssues()
     {
         var client = _factory.CreateClient();
@@ -136,7 +136,7 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal("Error", severity);
     }
 
-    [Fact]
+    [Test]
     public async Task PostLoad_BrokenModelElements_LoadsPartiallyWithDiagnosticsAndSchemaErrors()
     {
         var client = _factory.CreateClient();
@@ -166,7 +166,7 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal(1, body.GetProperty("document").GetProperty("telemetryMetaData").GetProperty("parameterSet").GetArrayLength());
     }
 
-    [Fact]
+    [Test]
     public async Task PostLoad_MalformedXml_Returns400WithPositionedDiagnostics()
     {
         var client = _factory.CreateClient();
@@ -189,7 +189,7 @@ public class XtceLoadEndpointTests : IClassFixture<WebApplicationFactory<Program
         return await client.PostAsync("/api/xtce/load", content);
     }
 
-    [Fact]
+    [Test]
     public async Task PostLoad_MalformedFile_Returns400()
     {
         var client = _factory.CreateClient();

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Xtce.Workshop.Cli;
-using Xunit;
 
 namespace Xtce.Workshop.Cli.Tests;
 
@@ -42,7 +41,7 @@ public class ValidateCommandTests : IDisposable
         </SpaceSystem>
         """;
 
-    [Fact]
+    [Test]
     public void CleanFile_PrintsNoFindingsAndExitsZero()
     {
         var path = WriteTempFile("clean.xml", CleanDocument);
@@ -54,7 +53,7 @@ public class ValidateCommandTests : IDisposable
         Assert.Contains("no findings", output.ToString());
     }
 
-    [Fact]
+    [Test]
     public void FileWithFindings_PrintsThemAndExitsOne()
     {
         var path = WriteTempFile("broken.xml", DocumentWithFindings);
@@ -69,7 +68,7 @@ public class ValidateCommandTests : IDisposable
         Assert.Contains("1 finding(s).", text);
     }
 
-    [Fact]
+    [Test]
     public void UnloadableModel_PrintsAllDiagnosticsAndSchemaErrors()
     {
         var path = WriteTempFile("broken-model.xml", """
@@ -91,7 +90,7 @@ public class ValidateCommandTests : IDisposable
         Assert.Contains("schema:", text);      // full XSD error list for the raw input
     }
 
-    [Fact]
+    [Test]
     public void MalformedXml_WritesErrorToStderrAndExitsTwo()
     {
         var path = WriteTempFile("malformed.xml", "<SpaceSystem name=\"Oops\"");
@@ -103,7 +102,7 @@ public class ValidateCommandTests : IDisposable
         Assert.Contains("error:", errorOutput.ToString());
     }
 
-    [Fact]
+    [Test]
     public void MissingFile_WritesErrorToStderrAndExitsTwo()
     {
         var errorOutput = new StringWriter();
@@ -115,7 +114,7 @@ public class ValidateCommandTests : IDisposable
         Assert.Contains("error:", errorOutput.ToString());
     }
 
-    [Fact]
+    [Test]
     public void JsonFlag_ProducesParseableOutputMatchingTheApiShape()
     {
         var path = WriteTempFile("broken.xml", DocumentWithFindings);
@@ -131,7 +130,7 @@ public class ValidateCommandTests : IDisposable
         Assert.Equal("Error", issues[0].GetProperty("severity").GetString());
     }
 
-    [Fact]
+    [Test]
     public void JsonFlag_CleanFileStillExitsZeroWithEmptyList()
     {
         var path = WriteTempFile("clean.xml", CleanDocument);

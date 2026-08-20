@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -16,7 +15,7 @@ public class PreservationRoundTripTests
         return XtceDocumentReader.Load(stream);
     }
 
-    [Fact]
+    [Test]
     public void PreservationSampleFixture_IsItselfSchemaValid()
     {
         // Keeps the fixture honest: if the fixture drifts out of schema-validity, every
@@ -26,7 +25,7 @@ public class PreservationRoundTripTests
         Assert.Empty(XsdValidation.Validate(xml));
     }
 
-    [Fact]
+    [Test]
     public void Load_CapturesUnmodeledSpaceSystemChildrenAsFragments()
     {
         var loaded = LoadPreservationSample();
@@ -39,7 +38,7 @@ public class PreservationRoundTripTests
         Assert.Contains("must survive load/save untouched", loaded.Preserved.Single(f => f.ElementName == "Header").OuterXml);
     }
 
-    [Fact]
+    [Test]
     public void Load_CapturesUnmodeledAttributes()
     {
         var loaded = LoadPreservationSample();
@@ -52,7 +51,7 @@ public class PreservationRoundTripTests
         Assert.True(byName.ContainsKey("xsi:schemaLocation"));
     }
 
-    [Fact]
+    [Test]
     public void Load_ModelsAllScalarKindsAndPreservesSetEntries()
     {
         var loaded = LoadPreservationSample();
@@ -72,7 +71,7 @@ public class PreservationRoundTripTests
         Assert.Equal("MainFrame", Assert.Single(telemetry.ContainerSet!).Name);
     }
 
-    [Fact]
+    [Test]
     public void Load_CapturesUnmodeledParameterTypeContentAndAttributes()
     {
         var loaded = LoadPreservationSample();
@@ -86,7 +85,7 @@ public class PreservationRoundTripTests
         Assert.Contains("shortDescription", attributeNames);
     }
 
-    [Fact]
+    [Test]
     public void Load_CapturesParameterChildrenAndAttributes()
     {
         var loaded = LoadPreservationSample();
@@ -96,7 +95,7 @@ public class PreservationRoundTripTests
         Assert.Equal("main counter", counter.PreservedAttributes!.Single(a => a.Name == "shortDescription").Value);
     }
 
-    [Fact]
+    [Test]
     public void Load_ModelsEnumerationMaxValueAndShortDescription()
     {
         var loaded = LoadPreservationSample();
@@ -110,7 +109,7 @@ public class PreservationRoundTripTests
         Assert.Equal(3, active.MaxValue);
     }
 
-    [Fact]
+    [Test]
     public void Load_DoesNotBakeXsdDefaultsIntoAbsentAttributes()
     {
         var loaded = LoadPreservationSample();
@@ -136,7 +135,7 @@ public class PreservationRoundTripTests
         Assert.DoesNotContain("oneStringValue", written);
     }
 
-    [Fact]
+    [Test]
     public void Load_UnparseableModeledAttribute_ThrowsInsteadOfSilentlyDroppingIt()
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(
@@ -146,7 +145,7 @@ public class PreservationRoundTripTests
         Assert.Contains("signed", ex.Message);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_PreservationSample_IsLossless()
     {
         var loaded = LoadPreservationSample();
@@ -157,7 +156,7 @@ public class PreservationRoundTripTests
         Assert.Equal(loaded, reloaded);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_PreservationSample_OutputContainsEveryPreservedConstruct()
     {
         var loaded = LoadPreservationSample();
@@ -185,7 +184,7 @@ public class PreservationRoundTripTests
         Assert.Contains("shortDescription=\"doing nothing\"", xml);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_PreservationSample_OutputValidatesAgainstXtceXsd()
     {
         var loaded = LoadPreservationSample();
@@ -196,7 +195,7 @@ public class PreservationRoundTripTests
         Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_AfterEditingAName_PreservedContentSurvives()
     {
         // The actual editor scenario: load, rename something, save — nothing else changes.
@@ -211,7 +210,7 @@ public class PreservationRoundTripTests
         Assert.Empty(XsdValidation.Validate(xml));
     }
 
-    [Fact]
+    [Test]
     public void Writer_EmitsPreservedFragmentsInXsdSequenceOrder()
     {
         var loaded = LoadPreservationSample();

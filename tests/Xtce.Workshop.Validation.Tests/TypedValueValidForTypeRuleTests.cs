@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -15,9 +14,8 @@ public class TypedValueValidForTypeRuleTests
         return new SpaceSystem("Root", [], telemetryMetaData);
     }
 
-    [Theory]
-    [InlineData("42", true)]
-    [InlineData("not-a-number", false)]
+    [TestCase("42", true)]
+    [TestCase("not-a-number", false)]
     public void Validate_IntegerParameter_ChecksParseability(string value, bool expectedValid)
     {
         var type = new ParameterTypeDefinition("Int_Type", ParameterTypeKind.Integer, Signed: true, SizeInBits: 32);
@@ -27,14 +25,13 @@ public class TypedValueValidForTypeRuleTests
         Assert.Equal(expectedValid, !issues.Any(i => i.RuleId == RuleId));
     }
 
-    [Theory]
-    [InlineData(true, 8, "127", true)]   // signed 8-bit max
-    [InlineData(true, 8, "128", false)]  // one past signed 8-bit max
-    [InlineData(true, 8, "-128", true)]  // signed 8-bit min
-    [InlineData(true, 8, "-129", false)] // one past signed 8-bit min
-    [InlineData(false, 8, "255", true)]  // unsigned 8-bit max
-    [InlineData(false, 8, "256", false)] // one past unsigned 8-bit max
-    [InlineData(false, 8, "-1", false)]  // unsigned can't be negative
+    [TestCase(true, 8, "127", true)]   // signed 8-bit max
+    [TestCase(true, 8, "128", false)]  // one past signed 8-bit max
+    [TestCase(true, 8, "-128", true)]  // signed 8-bit min
+    [TestCase(true, 8, "-129", false)] // one past signed 8-bit min
+    [TestCase(false, 8, "255", true)]  // unsigned 8-bit max
+    [TestCase(false, 8, "256", false)] // one past unsigned 8-bit max
+    [TestCase(false, 8, "-1", false)]  // unsigned can't be negative
     public void Validate_IntegerParameter_ChecksRange(bool signed, long sizeInBits, string value, bool expectedValid)
     {
         var type = new ParameterTypeDefinition("Int_Type", ParameterTypeKind.Integer, Signed: signed, SizeInBits: sizeInBits);
@@ -44,10 +41,9 @@ public class TypedValueValidForTypeRuleTests
         Assert.Equal(expectedValid, !issues.Any(i => i.RuleId == RuleId));
     }
 
-    [Theory]
-    [InlineData("3.14", true)]
-    [InlineData("1.5e2", true)]
-    [InlineData("not-a-float", false)]
+    [TestCase("3.14", true)]
+    [TestCase("1.5e2", true)]
+    [TestCase("not-a-float", false)]
     public void Validate_FloatParameter_ChecksParseability(string value, bool expectedValid)
     {
         var type = new ParameterTypeDefinition("Float_Type", ParameterTypeKind.Float, SizeInBits: 32);
@@ -57,7 +53,7 @@ public class TypedValueValidForTypeRuleTests
         Assert.Equal(expectedValid, !issues.Any(i => i.RuleId == RuleId));
     }
 
-    [Fact]
+    [Test]
     public void Validate_StringParameter_AlwaysValid()
     {
         var type = new ParameterTypeDefinition("String_Type", ParameterTypeKind.String);
@@ -67,10 +63,9 @@ public class TypedValueValidForTypeRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == RuleId);
     }
 
-    [Theory]
-    [InlineData("On", true)]
-    [InlineData("Off", true)]
-    [InlineData("Maybe", false)]
+    [TestCase("On", true)]
+    [TestCase("Off", true)]
+    [TestCase("Maybe", false)]
     public void Validate_BooleanParameter_ChecksAgainstOneAndZeroStringValues(string value, bool expectedValid)
     {
         var type = new ParameterTypeDefinition("Bool_Type", ParameterTypeKind.Boolean, OneStringValue: "On", ZeroStringValue: "Off");
@@ -80,9 +75,8 @@ public class TypedValueValidForTypeRuleTests
         Assert.Equal(expectedValid, !issues.Any(i => i.RuleId == RuleId));
     }
 
-    [Theory]
-    [InlineData("SAFE", true)]
-    [InlineData("UNKNOWN", false)]
+    [TestCase("SAFE", true)]
+    [TestCase("UNKNOWN", false)]
     public void Validate_EnumeratedParameter_ChecksAgainstEnumerationList(string value, bool expectedValid)
     {
         var type = new ParameterTypeDefinition(
@@ -93,7 +87,7 @@ public class TypedValueValidForTypeRuleTests
         Assert.Equal(expectedValid, !issues.Any(i => i.RuleId == RuleId));
     }
 
-    [Fact]
+    [Test]
     public void Validate_ParameterWithNoInitialValue_ReportsNoIssue()
     {
         var type = new ParameterTypeDefinition("Int_Type", ParameterTypeKind.Integer);
@@ -103,7 +97,7 @@ public class TypedValueValidForTypeRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == RuleId);
     }
 
-    [Fact]
+    [Test]
     public void Validate_ParameterTypeRefDoesNotResolveLocally_ReportsNoIssue()
     {
         // Simulates a reference to a type defined elsewhere in the SpaceSystem tree — this
@@ -119,7 +113,7 @@ public class TypedValueValidForTypeRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == RuleId);
     }
 
-    [Fact]
+    [Test]
     public void Validate_IntegerInitialValue_ReportsLocationAndRuleId()
     {
         var type = new ParameterTypeDefinition("Int_Type", ParameterTypeKind.Integer, SizeInBits: 8, Signed: true);
@@ -132,7 +126,7 @@ public class TypedValueValidForTypeRuleTests
         Assert.Contains("1000", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void Validate_SizeInBitsOmitted_DefaultsToThirtyTwoPerXsd()
     {
         var type = new ParameterTypeDefinition("Int_Type", ParameterTypeKind.Integer, Signed: true);

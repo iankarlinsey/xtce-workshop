@@ -1,20 +1,20 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Xunit;
 
 namespace Xtce.Workshop.Api.Tests;
 
-public class XtceExportEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class XtceExportEndpointTests 
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private WebApplicationFactory<Program> _factory = null!;
 
-    public XtceExportEndpointTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
+    [OneTimeSetUp]
+    public void CreateFactory() => _factory = new WebApplicationFactory<Program>();
 
-    [Fact]
+    [OneTimeTearDown]
+    public void DisposeFactory() => _factory.Dispose();
+
+    [Test]
     public async Task PostExportParameters_ReturnsCsv()
     {
         var client = _factory.CreateClient();

@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using Xunit;
-using Xunit.Abstractions;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -16,14 +14,8 @@ namespace Xtce.Workshop.Model.Tests;
 /// </summary>
 public class LargeDocumentPerformanceTests
 {
-    private readonly ITestOutputHelper _output;
 
-    public LargeDocumentPerformanceTests(ITestOutputHelper output)
-    {
-        _output = output;
-    }
-
-    [Fact]
+    [Test]
     public void RoundTrip_WideDocumentAtTensOfMegabytesScale_CompletesWithinReasonableTimeAndIsCorrect()
     {
         const int childCount = 300_000;
@@ -39,14 +31,14 @@ public class LargeDocumentPerformanceTests
         writeStopwatch.Stop();
 
         var sizeInMegabytes = stream.Length / (1024.0 * 1024.0);
-        _output.WriteLine($"Serialized size: {sizeInMegabytes:F1} MB in {writeStopwatch.ElapsedMilliseconds} ms");
+        TestContext.Out.WriteLine($"Serialized size: {sizeInMegabytes:F1} MB in {writeStopwatch.ElapsedMilliseconds} ms");
         Assert.True(sizeInMegabytes >= 10.0, $"Expected at least 10MB to actually exercise scale, got {sizeInMegabytes:F1}MB");
 
         stream.Position = 0;
         var readStopwatch = Stopwatch.StartNew();
         var reloaded = XtceDocumentReader.Load(stream);
         readStopwatch.Stop();
-        _output.WriteLine($"Loaded back in {readStopwatch.ElapsedMilliseconds} ms");
+        TestContext.Out.WriteLine($"Loaded back in {readStopwatch.ElapsedMilliseconds} ms");
 
         // Reasonable, not scientific — this is a regression guard against something going
         // pathologically superlinear (e.g. accidental O(n^2) from repeated list copies),

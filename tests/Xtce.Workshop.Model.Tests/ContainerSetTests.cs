@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -11,13 +10,13 @@ public class ContainerSetTests
         return XtceDocumentReader.Load(stream);
     }
 
-    [Fact]
+    [Test]
     public void ContainersSampleFixture_IsItselfSchemaValid()
     {
         Assert.Empty(XsdValidation.Validate(File.ReadAllText(TestPaths.ContainersSample)));
     }
 
-    [Fact]
+    [Test]
     public void Load_ParsesAllContainers()
     {
         var loaded = LoadContainersSample();
@@ -28,7 +27,7 @@ public class ContainerSetTests
             containers.Select(c => c.Name).ToList());
     }
 
-    [Fact]
+    [Test]
     public void Load_ParsesAbstractFlagAndPreservesUnmodeledContainerContent()
     {
         var loaded = LoadContainersSample();
@@ -43,7 +42,7 @@ public class ContainerSetTests
         Assert.Null(eps.Abstract); // absent attribute stays null, not baked to false
     }
 
-    [Fact]
+    [Test]
     public void Load_KeepsEntryOrderIncludingRawEntriesInPosition()
     {
         var loaded = LoadContainersSample();
@@ -60,7 +59,7 @@ public class ContainerSetTests
         Assert.Equal("TrailerFragment", eps.EntryList[2].Ref);
     }
 
-    [Fact]
+    [Test]
     public void Load_PreservesEntryChildrenLikeLocationInContainerInBits()
     {
         var loaded = LoadContainersSample();
@@ -72,7 +71,7 @@ public class ContainerSetTests
         Assert.Contains("FixedValue", seqCountEntry.Preserved[0].OuterXml);
     }
 
-    [Fact]
+    [Test]
     public void Load_ParsesAllRestrictionCriteriaForms()
     {
         var loaded = LoadContainersSample();
@@ -99,7 +98,7 @@ public class ContainerSetTests
         Assert.Equal("103", chained.BaseContainer.RestrictionCriteria.Comparison!.Value);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_ContainersSample_IsLossless()
     {
         var loaded = LoadContainersSample();
@@ -110,7 +109,7 @@ public class ContainerSetTests
         Assert.Equal(loaded, reloaded);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_ContainersSample_OutputValidatesAgainstXtceXsd()
     {
         var loaded = LoadContainersSample();
@@ -121,7 +120,7 @@ public class ContainerSetTests
         Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
     }
 
-    [Fact]
+    [Test]
     public void Write_EmptyEntryListIsStillWritten_BecauseXsdRequiresIt()
     {
         var container = new SequenceContainer("Empty", []);
@@ -134,7 +133,7 @@ public class ContainerSetTests
         Assert.Empty(XsdValidation.Validate(xml));
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_ProgrammaticallyBuiltContainers_IsLossless()
     {
         var telemetry = new TelemetryMetaData(

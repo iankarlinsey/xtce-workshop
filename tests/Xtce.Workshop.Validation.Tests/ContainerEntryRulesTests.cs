@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -26,7 +25,7 @@ public class ContainerEntryRulesTests
                 ? $"""<{element} {refAttribute}="{target}" sizeInBits="8" xmlns="{Ns}"/>"""
                 : $"""<{element} {refAttribute}="{target}" order="{order}" sizeInBits="8" xmlns="{Ns}"/>"""));
 
-    [Fact]
+    [Test]
     public void NextEntryReferenceLocation_IsFlaggedAsDeprecated()
     {
         var issues = XtceValidator.Validate(WithEntries(ModeledEntryWithLocation("nextEntry", 0)));
@@ -36,9 +35,8 @@ public class ContainerEntryRulesTests
         Assert.Contains("nextEntry", issue.Message);
     }
 
-    [Theory]
-    [InlineData("containerStart")]
-    [InlineData("containerEnd")]
+    [TestCase("containerStart")]
+    [TestCase("containerEnd")]
     public void NegativeAbsoluteOffsets_AreFlagged(string referenceLocation)
     {
         var issues = XtceValidator.Validate(WithEntries(ModeledEntryWithLocation(referenceLocation, -4)));
@@ -48,7 +46,7 @@ public class ContainerEntryRulesTests
         Assert.Contains("-4", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void PositiveOffsetsAndPreviousEntry_AreClean()
     {
         var issues = XtceValidator.Validate(WithEntries(
@@ -58,7 +56,7 @@ public class ContainerEntryRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R08);
     }
 
-    [Fact]
+    [Test]
     public void LocationInsideRawSegmentEntry_IsAlsoInspected()
     {
         var raw = new SequenceEntry(SequenceEntryKind.Raw, RawXml: new RawXmlFragment(
@@ -70,7 +68,7 @@ public class ContainerEntryRulesTests
         Assert.Single(issues, i => i.RuleId == R08);
     }
 
-    [Fact]
+    [Test]
     public void DuplicateSegmentOrderForSameTarget_IsFlagged()
     {
         var issues = XtceValidator.Validate(WithEntries(
@@ -82,7 +80,7 @@ public class ContainerEntryRulesTests
         Assert.Contains("order=\"0\"", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void DistinctOrdersDifferentTargetsAndOrderlessSegments_AreClean()
     {
         var issues = XtceValidator.Validate(WithEntries(

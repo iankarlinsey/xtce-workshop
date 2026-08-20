@@ -2,18 +2,18 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Xunit;
 
 namespace Xtce.Workshop.Api.Tests;
 
-public class XtceQueryEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class XtceQueryEndpointTests 
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private WebApplicationFactory<Program> _factory = null!;
 
-    public XtceQueryEndpointTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
+    [OneTimeSetUp]
+    public void CreateFactory() => _factory = new WebApplicationFactory<Program>();
+
+    [OneTimeTearDown]
+    public void DisposeFactory() => _factory.Dispose();
 
     private static object SampleDocument() => new
     {
@@ -34,7 +34,7 @@ public class XtceQueryEndpointTests : IClassFixture<WebApplicationFactory<Progra
         },
     };
 
-    [Fact]
+    [Test]
     public async Task PostSearch_ReturnsMatches()
     {
         var client = _factory.CreateClient();
@@ -48,7 +48,7 @@ public class XtceQueryEndpointTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Equal("Root", match.GetProperty("systemPath").GetString());
     }
 
-    [Fact]
+    [Test]
     public async Task PostUsages_ReturnsReferencesToTheParameter()
     {
         var client = _factory.CreateClient();

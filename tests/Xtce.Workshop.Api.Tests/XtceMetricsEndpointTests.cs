@@ -2,20 +2,20 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Xunit;
 
 namespace Xtce.Workshop.Api.Tests;
 
-public class XtceMetricsEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class XtceMetricsEndpointTests 
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private WebApplicationFactory<Program> _factory = null!;
 
-    public XtceMetricsEndpointTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
+    [OneTimeSetUp]
+    public void CreateFactory() => _factory = new WebApplicationFactory<Program>();
 
-    [Fact]
+    [OneTimeTearDown]
+    public void DisposeFactory() => _factory.Dispose();
+
+    [Test]
     public async Task PostMetrics_ReturnsPerSystemAndTotalCounts()
     {
         var client = _factory.CreateClient();

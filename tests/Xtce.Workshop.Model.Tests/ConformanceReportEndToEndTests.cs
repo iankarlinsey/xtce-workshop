@@ -1,6 +1,5 @@
 using System.Text;
 using Xtce.Workshop.Validation;
-using Xunit;
 using E2E = Xtce.Workshop.Model.Tests.AdversarialEndToEndTests;
 
 namespace Xtce.Workshop.Model.Tests;
@@ -16,9 +15,9 @@ public class ConformanceReportEndToEndTests
 {
     // ---- one trigger document per TAGGED candidate site --------------------------------
 
-    public static TheoryData<int, string> CandidateTriggers()
+    public static TestCases CandidateTriggers()
     {
-        var data = new TheoryData<int, string>
+        var data = new TestCases
         {
             {
                 1, E2E.Doc("""
@@ -233,8 +232,7 @@ public class ConformanceReportEndToEndTests
         </TelemetryMetaData>
         """);
 
-    [Theory]
-    [MemberData(nameof(CandidateTriggers))]
+    [TestCaseSource(nameof(CandidateTriggers))]
     public void EveryTaggedCandidate_HasARealTrigger_ThatFailsExactlyThatReportRow(int candidateNumber, string triggerXml)
     {
         var schemaErrors = XsdValidation.Validate(triggerXml);
@@ -251,7 +249,7 @@ public class ConformanceReportEndToEndTests
 
     // ---- report shape ratchets ----------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void Report_HasExactlyCandidates1Through109_EachWithAnExplicitStatus()
     {
         var report = ConformanceReportBuilder.Build(LoadDemoMission());
@@ -260,7 +258,7 @@ public class ConformanceReportEndToEndTests
         Assert.Equal(109, report.Summary.Values.Sum());
     }
 
-    [Fact]
+    [Test]
     public void DemoMission_ReportsNoFailures_AndSchemaPassOnEveryRedundantRow()
     {
         var report = ConformanceReportBuilder.Build(LoadDemoMission());
@@ -307,7 +305,7 @@ public class ConformanceReportEndToEndTests
         Assert.All(report.Rules, r => Assert.True(r.Executed));
     }
 
-    [Fact]
+    [Test]
     public void SchemaInvalidDocument_FlipsRedundantRowsToSchemaFail()
     {
         // The reader preserves unknown attributes, the writer re-emits them, and the
@@ -323,7 +321,7 @@ public class ConformanceReportEndToEndTests
             c => Assert.Equal(CandidateStatus.SchemaFail, c.Status));
     }
 
-    [Fact]
+    [Test]
     public void EmbeddedTriageLog_MatchesTheResearchCsv_RowForRow()
     {
         var repoCsvPath = Path.Combine(TestPaths.RepoRoot, "research", "xtce-1.2-triage-log.csv");

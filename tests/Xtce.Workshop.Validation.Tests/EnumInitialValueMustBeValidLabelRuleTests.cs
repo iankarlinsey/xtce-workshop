@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -13,7 +12,7 @@ public class EnumInitialValueMustBeValidLabelRuleTests
         return new SpaceSystem("Root", [], telemetryMetaData);
     }
 
-    [Fact]
+    [Test]
     public void Validate_InitialValueMatchesALabel_ReportsNoIssue()
     {
         var spaceSystem = WithEnumType("SAFE", new EnumerationEntry(0, "SAFE"), new EnumerationEntry(1, "FAULT"));
@@ -23,7 +22,7 @@ public class EnumInitialValueMustBeValidLabelRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == "XTCE-1.2-R07-enum-initial-value-must-be-valid-label");
     }
 
-    [Fact]
+    [Test]
     public void Validate_InitialValueDoesNotMatchAnyLabel_ReportsIssue()
     {
         var spaceSystem = WithEnumType("UNKNOWN", new EnumerationEntry(0, "SAFE"), new EnumerationEntry(1, "FAULT"));
@@ -36,7 +35,7 @@ public class EnumInitialValueMustBeValidLabelRuleTests
         Assert.Contains("UNKNOWN", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void Validate_NoInitialValueSet_ReportsNoIssue()
     {
         var spaceSystem = WithEnumType(null, new EnumerationEntry(0, "SAFE"));
@@ -46,7 +45,7 @@ public class EnumInitialValueMustBeValidLabelRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == "XTCE-1.2-R07-enum-initial-value-must-be-valid-label");
     }
 
-    [Fact]
+    [Test]
     public void Validate_NonEnumeratedTypeWithInitialValue_ReportsNoIssue()
     {
         var type = new ParameterTypeDefinition("Int_Type", ParameterTypeKind.Integer, InitialValue: "anything");
@@ -58,7 +57,7 @@ public class EnumInitialValueMustBeValidLabelRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == "XTCE-1.2-R07-enum-initial-value-must-be-valid-label");
     }
 
-    [Fact]
+    [Test]
     public void Validate_FindsIssuesInNestedSpaceSystems()
     {
         var badChild = WithEnumType("UNKNOWN", new EnumerationEntry(0, "SAFE")) with { Name = "Child" };
@@ -70,7 +69,7 @@ public class EnumInitialValueMustBeValidLabelRuleTests
         Assert.Equal("Root/Child/ParameterTypeSet/State_Type", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void Validate_DocumentWithNoTelemetryMetaData_ReportsNoIssues()
     {
         var spaceSystem = new SpaceSystem("Root", []);

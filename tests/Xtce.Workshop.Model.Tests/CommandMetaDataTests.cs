@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -11,13 +10,13 @@ public class CommandMetaDataTests
         return XtceDocumentReader.Load(stream);
     }
 
-    [Fact]
+    [Test]
     public void CommandsSampleFixture_IsItselfSchemaValid()
     {
         Assert.Empty(XsdValidation.Validate(File.ReadAllText(TestPaths.CommandsSample)));
     }
 
-    [Fact]
+    [Test]
     public void Load_ParsesMetaCommandsWithBaseRefsAndVerifiers()
     {
         var commandMetaData = LoadCommandsSample().CommandMetaData!;
@@ -36,7 +35,7 @@ public class CommandMetaDataTests
         Assert.Null(dupCmd.Abstract);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_CommandsSample_IsLosslessAndSchemaValid()
     {
         var loaded = LoadCommandsSample();
@@ -49,7 +48,7 @@ public class CommandMetaDataTests
         Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_CommandMetaDataWithUnmodeledSets_PreservesThem()
     {
         var xml = """

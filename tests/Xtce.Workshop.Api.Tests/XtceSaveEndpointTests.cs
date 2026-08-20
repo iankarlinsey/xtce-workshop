@@ -4,20 +4,20 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Api.Tests;
 
-public class XtceSaveEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class XtceSaveEndpointTests 
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private WebApplicationFactory<Program> _factory = null!;
 
-    public XtceSaveEndpointTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
+    [OneTimeSetUp]
+    public void CreateFactory() => _factory = new WebApplicationFactory<Program>();
 
-    [Fact]
+    [OneTimeTearDown]
+    public void DisposeFactory() => _factory.Dispose();
+
+    [Test]
     public async Task PostSave_ChildlessDocument_ReturnsXmlLoadableByLoadEndpoint()
     {
         var client = _factory.CreateClient();
@@ -36,7 +36,7 @@ public class XtceSaveEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal("Minimal", body.GetProperty("name").GetString());
     }
 
-    [Fact]
+    [Test]
     public async Task PostSave_NestedDocument_ReturnsXmlLoadableByLoadEndpoint()
     {
         var client = _factory.CreateClient();
@@ -59,7 +59,7 @@ public class XtceSaveEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Equal("Mission", body.GetProperty("name").GetString());
     }
 
-    [Fact]
+    [Test]
     public async Task PostSave_DocumentWithOmittedCollections_IsNormalizedNot500()
     {
         // {"name":"M"} binds Children (and nested collections) to null — the normalizer
@@ -74,7 +74,7 @@ public class XtceSaveEndpointTests : IClassFixture<WebApplicationFactory<Program
         Assert.Contains("\"M\"", await response.Content.ReadAsStringAsync());
     }
 
-    [Fact]
+    [Test]
     public async Task PostValidate_DocumentWithOmittedCollections_IsNormalizedNot500()
     {
         var client = _factory.CreateClient();

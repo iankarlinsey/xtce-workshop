@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -26,7 +25,7 @@ public class XtceDocumentMetricsTests
             new TelemetryMetaData([], [],
                 Preserved: [new RawXmlFragment("StreamSet", $"""<StreamSet xmlns="{Ns}"/>""")]));
 
-    [Fact]
+    [Test]
     public void Compute_ReportsLocalCountsPerSystem()
     {
         var metrics = XtceDocumentMetrics.Compute(SampleTree());
@@ -45,7 +44,7 @@ public class XtceDocumentMetricsTests
         Assert.Equal(1, payload.Local.PreservedFragments);
     }
 
-    [Fact]
+    [Test]
     public void Compute_DeepCountsRollUpTheSubtree_AndTotalsEqualRootDeep()
     {
         var metrics = XtceDocumentMetrics.Compute(SampleTree());
@@ -61,7 +60,7 @@ public class XtceDocumentMetricsTests
         Assert.Equal(root.Deep, metrics.Totals);
     }
 
-    [Fact]
+    [Test]
     public void Compute_ExcludesCommentFragmentsFromThePreservedCount()
     {
         var document = new SpaceSystem("S", [], Preserved:

@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -11,13 +10,13 @@ public class MessageSetTests
         return XtceDocumentReader.Load(stream);
     }
 
-    [Fact]
+    [Test]
     public void MessagesSampleFixture_IsItselfSchemaValid()
     {
         Assert.Empty(XsdValidation.Validate(File.ReadAllText(TestPaths.MessagesSample)));
     }
 
-    [Fact]
+    [Test]
     public void Load_ParsesMessagesWithContainerRefsAndPreservesMatchCriteria()
     {
         var messageSet = LoadMessagesSample().TelemetryMetaData!.MessageSet!;
@@ -36,7 +35,7 @@ public class MessageSetTests
         Assert.Equal("OperationalMessages", setAttributes["name"]);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_MessagesSample_IsLosslessAndSchemaValid()
     {
         var loaded = LoadMessagesSample();
@@ -49,7 +48,7 @@ public class MessageSetTests
         Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
     }
 
-    [Fact]
+    [Test]
     public void Load_MessageWithoutContainerRef_Throws()
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(

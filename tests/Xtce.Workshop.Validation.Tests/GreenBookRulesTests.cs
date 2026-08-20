@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -16,7 +15,7 @@ public class GreenBookRulesTests
         new(name, kind, SizeInBits: sizeInBits, Signed: signed,
             PreservedAttributes: [new RawAttribute("baseType", baseType)]);
 
-    [Fact]
+    [Test]
     public void ParameterTypeBaseTypeCycle_IsFlaggedOnEveryMember()
     {
         var telemetry = new TelemetryMetaData(
@@ -28,7 +27,7 @@ public class GreenBookRulesTests
         Assert.Equal(2, issues.Count);
     }
 
-    [Fact]
+    [Test]
     public void SelfReferencingBaseType_IsFlagged()
     {
         var telemetry = new TelemetryMetaData([TypeWithBase("A", "A")], []);
@@ -38,7 +37,7 @@ public class GreenBookRulesTests
         Assert.Single(issues, i => i.RuleId == R16);
     }
 
-    [Fact]
+    [Test]
     public void LinearBaseTypeChain_IsClean()
     {
         var telemetry = new TelemetryMetaData(
@@ -53,7 +52,7 @@ public class GreenBookRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R16);
     }
 
-    [Fact]
+    [Test]
     public void MetaCommandCycle_IsFlagged()
     {
         var commandMetaData = new CommandMetaData(
@@ -68,7 +67,7 @@ public class GreenBookRulesTests
         Assert.Equal(2, issues.Count);
     }
 
-    [Fact]
+    [Test]
     public void UnlikeKindDerivation_IsFlaggedByR18()
     {
         var telemetry = new TelemetryMetaData(
@@ -83,7 +82,7 @@ public class GreenBookRulesTests
         Assert.Contains("like type", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void SizeOverrideMatchingParentEffectiveDefault_IsFlagged()
     {
         // Parent leaves sizeInBits unset (effective 32); child setting 16 differs and
@@ -99,7 +98,7 @@ public class GreenBookRulesTests
         Assert.Single(issues, i => i.RuleId == R18 && i.Message.Contains("sizeInBits"));
     }
 
-    [Fact]
+    [Test]
     public void ChildRestatingParentEffectiveValue_IsClean()
     {
         var telemetry = new TelemetryMetaData(
@@ -113,7 +112,7 @@ public class GreenBookRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R18);
     }
 
-    [Fact]
+    [Test]
     public void ImpliedTelemeteredDataSource_IsDeliberatelyNotFlaggedByR20()
     {
         // The green book's "implied" case is the recorded partial gap — a parameter with
@@ -127,7 +126,7 @@ public class GreenBookRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R20);
     }
 
-    [Fact]
+    [Test]
     public void ExplicitTelemeteredWithoutEncoding_WarnsViaR20()
     {
         var telemetry = new TelemetryMetaData(

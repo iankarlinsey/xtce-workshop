@@ -1,6 +1,5 @@
 using System.Text;
 using Xtce.Workshop.Validation;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -16,9 +15,9 @@ namespace Xtce.Workshop.Model.Tests;
 /// </summary>
 public class AdversarialEndToEndTests
 {
-    public static TheoryData<string, string, string> Cases()
+    public static TestCases Cases()
     {
-        var data = new TheoryData<string, string, string>();
+        var data = new TestCases();
 
         data.Add("XTCE-1.2-R01-ambiguous-time-units-flagged",
             Doc("""
@@ -173,8 +172,7 @@ public class AdversarialEndToEndTests
         return data;
     }
 
-    [Theory]
-    [MemberData(nameof(Cases))]
+    [TestCaseSource(nameof(Cases))]
     public void Trigger_IsSchemaValid_LoadsThroughTheReader_AndFiresTheRule(
         string ruleId, string triggerXml, string nearMissXml)
     {
@@ -191,8 +189,7 @@ public class AdversarialEndToEndTests
         Assert.Contains(issues, i => i.RuleId == ruleId);
     }
 
-    [Theory]
-    [MemberData(nameof(Cases))]
+    [TestCaseSource(nameof(Cases))]
     public void NearMiss_IsSchemaValid_AndDoesNotFireTheRule(
         string ruleId, string triggerXml, string nearMissXml)
     {
@@ -208,7 +205,7 @@ public class AdversarialEndToEndTests
         Assert.DoesNotContain(issues, i => i.RuleId == ruleId);
     }
 
-    [Fact]
+    [Test]
     public void EveryImplementedMatrixRule_HasAPhaseECase()
     {
         // Backlog rows (Implemented == no) can't have a trigger case — nothing fires yet.

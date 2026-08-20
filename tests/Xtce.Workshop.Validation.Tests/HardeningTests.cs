@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -14,12 +13,11 @@ public class HardeningTests
             [new ParameterTypeDefinition("T", ParameterTypeKind.Integer, Signed: signed, SizeInBits: sizeInBits)],
             [new Parameter("P", "T", value)]));
 
-    [Theory]
-    [InlineData("0x1F")]      // 31 — hex, in range for unsigned 8-bit
-    [InlineData("0XFF")]      // 255 — upper-case prefix, boundary
-    [InlineData("0o17")]      // 15 — octal
-    [InlineData("0b1010")]    // 10 — binary
-    [InlineData("42")]        // plain base 10 still works
+    [TestCase("0x1F")]      // 31 — hex, in range for unsigned 8-bit
+    [TestCase("0XFF")]      // 255 — upper-case prefix, boundary
+    [TestCase("0o17")]      // 15 — octal
+    [TestCase("0b1010")]    // 10 — binary
+    [TestCase("42")]        // plain base 10 still works
     public void RadixPrefixedIntegerLiterals_AreValid(string value)
     {
         var issues = XtceValidator.Validate(WithInitialValue(value));
@@ -27,10 +25,9 @@ public class HardeningTests
         Assert.DoesNotContain(issues, i => i.RuleId == R15);
     }
 
-    [Theory]
-    [InlineData("0x100")]     // 256 — hex, OUT of unsigned 8-bit range: radix parsing must feed range checking
-    [InlineData("0xZZ")]      // not hex digits
-    [InlineData("0b102")]     // not binary digits
+    [TestCase("0x100")]     // 256 — hex, OUT of unsigned 8-bit range: radix parsing must feed range checking
+    [TestCase("0xZZ")]      // not hex digits
+    [TestCase("0b102")]     // not binary digits
     public void BadRadixLiterals_AreStillFlagged(string value)
     {
         var issues = XtceValidator.Validate(WithInitialValue(value));
@@ -38,7 +35,7 @@ public class HardeningTests
         Assert.Single(issues, i => i.RuleId == R15);
     }
 
-    [Fact]
+    [Test]
     public void NegativeHexLiteral_ParsesWithSign()
     {
         // signed 8-bit: -0x10 = -16, in range.
@@ -47,7 +44,7 @@ public class HardeningTests
         Assert.DoesNotContain(issues, i => i.RuleId == R15);
     }
 
-    [Fact]
+    [Test]
     public void RadixLiteralInComparisonValue_IsValid()
     {
         var telemetry = new TelemetryMetaData(
@@ -65,7 +62,7 @@ public class HardeningTests
         Assert.DoesNotContain(issues, i => i.RuleId == R15);
     }
 
-    [Fact]
+    [Test]
     public void Validate_FiveThousandParametersTypesAndContainers_CompletesQuickly()
     {
         // The project's central constraint is performance at scale. This exercises the

@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -38,7 +37,7 @@ public class ArrayDimensionRulesTests
         return new SpaceSystem("S", [], telemetry);
     }
 
-    [Fact]
+    [Test]
     public void EntryDimensionCountMismatch_IsFlaggedByR02()
     {
         var issues = XtceValidator.Validate(Document(MatrixType(Dim(0, 3), Dim(0, 1)), ArrayEntry((0, 2))));
@@ -48,7 +47,7 @@ public class ArrayDimensionRulesTests
         Assert.Contains("declares 2", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void EntryWithoutDimensionList_IsClean_FullArrayAssumed()
     {
         var issues = XtceValidator.Validate(Document(MatrixType(Dim(0, 3)), ArrayEntry()));
@@ -56,7 +55,7 @@ public class ArrayDimensionRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R02 || i.RuleId == R05);
     }
 
-    [Fact]
+    [Test]
     public void ProperSubset_IsClean()
     {
         var issues = XtceValidator.Validate(Document(MatrixType(Dim(0, 3)), ArrayEntry((0, 2))));
@@ -64,7 +63,7 @@ public class ArrayDimensionRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R05);
     }
 
-    [Fact]
+    [Test]
     public void EntryBoundExceedingType_IsFlaggedByR05()
     {
         var issues = XtceValidator.Validate(Document(MatrixType(Dim(0, 3)), ArrayEntry((0, 9))));
@@ -73,7 +72,7 @@ public class ArrayDimensionRulesTests
         Assert.Contains("exceeds", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void SameSizeAsType_IsFlaggedByR05_NotASubset()
     {
         var issues = XtceValidator.Validate(Document(MatrixType(Dim(0, 3)), ArrayEntry((0, 3))));
@@ -82,7 +81,7 @@ public class ArrayDimensionRulesTests
         Assert.Contains("not a subset", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void DescendingDimensionOnType_IsFlaggedByR06()
     {
         var issues = XtceValidator.Validate(Document(MatrixType(Dim(5, 2))));
@@ -92,7 +91,7 @@ public class ArrayDimensionRulesTests
         Assert.Contains("ParameterTypeSet/Matrix_Type", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void DescendingDimensionOnEntry_IsFlaggedByR06()
     {
         var issues = XtceValidator.Validate(Document(MatrixType(Dim(0, 9)), ArrayEntry((5, 2))));
@@ -100,7 +99,7 @@ public class ArrayDimensionRulesTests
         Assert.Contains(issues, i => i.RuleId == R06 && i.Location.Contains("ContainerSet/Frame"));
     }
 
-    [Fact]
+    [Test]
     public void DanglingArrayTypeRefAndMemberTypeRef_AreFlaggedByR11()
     {
         var telemetry = new TelemetryMetaData(
@@ -118,7 +117,7 @@ public class ArrayDimensionRulesTests
         Assert.Contains(issues, i => i.Message.Contains("NoSuchType"));
     }
 
-    [Fact]
+    [Test]
     public void BadMemberInitialValue_IsFlaggedByR15()
     {
         var telemetry = new TelemetryMetaData(
@@ -139,7 +138,7 @@ public class ArrayDimensionRulesTests
         Assert.Equal("S/ParameterTypeSet/Agg/bad", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void BadComparisonValue_IsFlaggedByR15()
     {
         var telemetry = new TelemetryMetaData(

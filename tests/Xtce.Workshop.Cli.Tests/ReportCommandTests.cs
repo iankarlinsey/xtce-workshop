@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Xtce.Workshop.Cli;
-using Xunit;
 
 namespace Xtce.Workshop.Cli.Tests;
 
@@ -42,7 +41,7 @@ public class ReportCommandTests : IDisposable
         </SpaceSystem>
         """;
 
-    [Fact]
+    [Test]
     public void CleanFile_Prints109RowsWithNoFail_AndExitsZero()
     {
         var path = WriteTempFile("clean.xml", CleanDocument);
@@ -61,7 +60,7 @@ public class ReportCommandTests : IDisposable
         Assert.DoesNotContain("SCHEMA_FAIL", text);
     }
 
-    [Fact]
+    [Test]
     public void FileWithDanglingRef_FailsCandidate91_AndExitsOne()
     {
         var path = WriteTempFile("broken.xml", DocumentWithFindings);
@@ -78,7 +77,7 @@ public class ReportCommandTests : IDisposable
         Assert.Equal(91, row91.GetProperty("findings")[0].GetProperty("candidateNumber").GetInt32());
     }
 
-    [Fact]
+    [Test]
     public void OutFlag_WritesTheReportToDisk()
     {
         var path = WriteTempFile("clean.xml", CleanDocument);
@@ -95,7 +94,7 @@ public class ReportCommandTests : IDisposable
         Assert.Contains("#109 ", text);
     }
 
-    [Fact]
+    [Test]
     public void OutFlagWithJson_WritesJsonToDisk()
     {
         var path = WriteTempFile("clean.xml", CleanDocument);
@@ -108,7 +107,7 @@ public class ReportCommandTests : IDisposable
         Assert.Equal(109, json.RootElement.GetProperty("candidates").GetArrayLength());
     }
 
-    [Fact]
+    [Test]
     public void MissingFile_WritesErrorToStderrAndExitsTwo()
     {
         var errorOutput = new StringWriter();

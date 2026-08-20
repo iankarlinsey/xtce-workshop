@@ -1,5 +1,4 @@
 using Xtce.Workshop.Cli;
-using Xunit;
 
 namespace Xtce.Workshop.Cli.Tests;
 
@@ -31,7 +30,7 @@ public class ExportCommandTests : IDisposable
         return path;
     }
 
-    [Fact]
+    [Test]
     public void ExportParameters_ToStdout()
     {
         var output = new StringWriter();
@@ -43,7 +42,7 @@ public class ExportCommandTests : IDisposable
         Assert.Contains("Sat,Batt,U8,Integer,8", output.ToString());
     }
 
-    [Fact]
+    [Test]
     public void ExportContainers_ToFile()
     {
         var outPath = Path.Combine(_tempDir, "containers.csv");
@@ -55,7 +54,7 @@ public class ExportCommandTests : IDisposable
         Assert.Contains("Sat,Frame,Batt,parameter,Frame,0,8,", csv);
     }
 
-    [Fact]
+    [Test]
     public void MissingSelector_ExitsTwo()
     {
         var errorOutput = new StringWriter();

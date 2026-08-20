@@ -1,6 +1,5 @@
 using System.Text;
 using Xtce.Workshop.Validation;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -17,13 +16,13 @@ public class DemoMissionTests
         return XtceDocumentReader.Load(stream);
     }
 
-    [Fact]
+    [Test]
     public void DemoMission_IsSchemaValid()
     {
         Assert.Empty(XsdValidation.Validate(File.ReadAllText(TestPaths.DemoMissionSample)));
     }
 
-    [Fact]
+    [Test]
     public void DemoMission_RoundTripsLosslesslyAndOutputStaysSchemaValid()
     {
         var loaded = LoadDemoMission();
@@ -36,7 +35,7 @@ public class DemoMissionTests
         Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
     }
 
-    [Fact]
+    [Test]
     public void DemoMission_ValidatesClean_AllTwentyOneRules()
     {
         var issues = XtceValidator.Validate(LoadDemoMission());
@@ -46,7 +45,7 @@ public class DemoMissionTests
             string.Join("\n", issues.Select(i => $"{i.RuleId} @ {i.Location}: {i.Message}")));
     }
 
-    [Fact]
+    [Test]
     public void DemoMission_ModelsEveryConstructKind()
     {
         var loaded = LoadDemoMission();
@@ -63,7 +62,7 @@ public class DemoMissionTests
         Assert.Single(loaded.Children); // Payload subsystem with cross-system refs
     }
 
-    [Fact]
+    [Test]
     public void DemoMission_EpsPacketLayoutIsFullyStatic()
     {
         var layout = PacketLayoutBuilder.Build(LoadDemoMission(), [], "EpsPacket")!;

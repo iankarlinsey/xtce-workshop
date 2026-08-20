@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -26,10 +25,9 @@ public class EncodingInternalsRulesTests
         return $"""<IntegerDataEncoding xmlns="{Ns}"><DefaultCalibrator><SplineCalibrator{orderAttribute}>{pointXml}</SplineCalibrator></DefaultCalibrator></IntegerDataEncoding>""";
     }
 
-    [Theory]
-    [InlineData(1, 2)] // linear, 2 points — fine
-    [InlineData(2, 3)] // quadratic, 3 points — fine
-    [InlineData(0, 2)] // flat, needs 1+ — fine
+    [TestCase(1, 2)] // linear, 2 points — fine
+    [TestCase(2, 3)] // quadratic, 3 points — fine
+    [TestCase(0, 2)] // flat, needs 1+ — fine
     public void SplineWithEnoughPoints_IsClean(long order, int points)
     {
         var issues = XtceValidator.Validate(WithTypeFragment(SplineEncoding(order, points)));
@@ -37,9 +35,8 @@ public class EncodingInternalsRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R13);
     }
 
-    [Theory]
-    [InlineData(2, 2)]
-    [InlineData(3, 2)]
+    [TestCase(2, 2)]
+    [TestCase(3, 2)]
     public void SplineWithTooFewPointsForItsOrder_IsFlagged(long order, int points)
     {
         var issues = XtceValidator.Validate(WithTypeFragment(SplineEncoding(order, points)));
@@ -49,7 +46,7 @@ public class EncodingInternalsRulesTests
         Assert.Equal("S/ParameterTypeSet/T", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void OmittedOrderDefaultsToOne_TwoPointsClean()
     {
         var issues = XtceValidator.Validate(WithTypeFragment(SplineEncoding(null, 2)));
@@ -57,7 +54,7 @@ public class EncodingInternalsRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R13);
     }
 
-    [Fact]
+    [Test]
     public void SplineInsidePreservedCommandMetaData_IsAlsoChecked()
     {
         var commandMetaData = $"""
@@ -82,7 +79,7 @@ public class EncodingInternalsRulesTests
         Assert.Equal("S/CommandMetaData", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void CustomChecksumWithoutInputAlgorithm_IsFlagged()
     {
         var encoding = $"""<BinaryDataEncoding xmlns="{Ns}"><ErrorDetectCorrect><Checksum name="custom" bitsFromReference="0"/></ErrorDetectCorrect></BinaryDataEncoding>""";
@@ -92,7 +89,7 @@ public class EncodingInternalsRulesTests
         Assert.Contains("InputAlgorithm", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void CustomChecksumWithInputAlgorithm_IsClean()
     {
         var encoding = $"""<BinaryDataEncoding xmlns="{Ns}"><ErrorDetectCorrect><Checksum name="custom"><InputAlgorithm name="myAlgo"><AlgorithmText>x</AlgorithmText></InputAlgorithm></Checksum></ErrorDetectCorrect></BinaryDataEncoding>""";
@@ -101,7 +98,7 @@ public class EncodingInternalsRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R03);
     }
 
-    [Fact]
+    [Test]
     public void StandardChecksum_IsNotR03Business()
     {
         var encoding = $"""<BinaryDataEncoding xmlns="{Ns}"><ErrorDetectCorrect><Checksum name="sum16"/></ErrorDetectCorrect></BinaryDataEncoding>""";

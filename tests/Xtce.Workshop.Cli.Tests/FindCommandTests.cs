@@ -1,5 +1,4 @@
 using Xtce.Workshop.Cli;
-using Xunit;
 
 namespace Xtce.Workshop.Cli.Tests;
 
@@ -28,7 +27,7 @@ public class FindCommandTests : IDisposable
         return path;
     }
 
-    [Fact]
+    [Test]
     public void Find_PrintsMatchesIncludingAliasHits_AndExitsZero()
     {
         var output = new StringWriter();
@@ -41,7 +40,7 @@ public class FindCommandTests : IDisposable
         Assert.Contains("(alias: EPS_V_BATT)", text);
     }
 
-    [Fact]
+    [Test]
     public void Find_NoMatches_ExitsOne()
     {
         var output = new StringWriter();

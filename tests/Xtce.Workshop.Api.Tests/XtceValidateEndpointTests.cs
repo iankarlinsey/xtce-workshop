@@ -2,20 +2,20 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Xunit;
 
 namespace Xtce.Workshop.Api.Tests;
 
-public class XtceValidateEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class XtceValidateEndpointTests 
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private WebApplicationFactory<Program> _factory = null!;
 
-    public XtceValidateEndpointTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
+    [OneTimeSetUp]
+    public void CreateFactory() => _factory = new WebApplicationFactory<Program>();
 
-    [Fact]
+    [OneTimeTearDown]
+    public void DisposeFactory() => _factory.Dispose();
+
+    [Test]
     public async Task PostValidate_DocumentWithNoIssues_ReturnsEmptyList()
     {
         var client = _factory.CreateClient();
@@ -27,7 +27,7 @@ public class XtceValidateEndpointTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal(0, body.GetProperty("validationIssues").GetArrayLength());
     }
 
-    [Fact]
+    [Test]
     public async Task PostValidate_DocumentWithBadEnumInitialValue_ReturnsIssue()
     {
         var client = _factory.CreateClient();
@@ -62,7 +62,7 @@ public class XtceValidateEndpointTests : IClassFixture<WebApplicationFactory<Pro
             issues[0].GetProperty("ruleId").GetString());
     }
 
-    [Fact]
+    [Test]
     public async Task PostLayout_ComputesOffsetsForAKnownContainer()
     {
         var client = _factory.CreateClient();
@@ -105,7 +105,7 @@ public class XtceValidateEndpointTests : IClassFixture<WebApplicationFactory<Pro
         Assert.Equal("P", body.GetProperty("rows")[0].GetProperty("name").GetString());
     }
 
-    [Fact]
+    [Test]
     public async Task PostLayout_UnknownContainer_Returns404()
     {
         var client = _factory.CreateClient();

@@ -1,11 +1,10 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
 public class XtceDocumentReaderTests
 {
-    [Fact]
+    [Test]
     public void Load_MinimalSampleFile_ReturnsSpaceSystemWithName()
     {
         using var stream = File.OpenRead(TestPaths.MinimalSample);
@@ -15,7 +14,7 @@ public class XtceDocumentReaderTests
         Assert.Equal("Minimal", result.Name);
     }
 
-    [Fact]
+    [Test]
     public void Load_MinimalSampleFile_ReturnsEmptyChildrenNotNull()
     {
         using var stream = File.OpenRead(TestPaths.MinimalSample);
@@ -26,7 +25,7 @@ public class XtceDocumentReaderTests
         Assert.Empty(result.Children);
     }
 
-    [Fact]
+    [Test]
     public void Load_NestedSampleFile_ReturnsCorrectStructureAtEveryLevel()
     {
         using var stream = File.OpenRead(TestPaths.NestedSample);
@@ -49,7 +48,7 @@ public class XtceDocumentReaderTests
         Assert.Empty(payload.Children);
     }
 
-    [Fact]
+    [Test]
     public void Load_SampleWithoutTelemetryMetaData_LeavesTelemetryMetaDataNull()
     {
         using var stream = File.OpenRead(TestPaths.NestedSample);
@@ -59,7 +58,7 @@ public class XtceDocumentReaderTests
         Assert.Null(result.TelemetryMetaData);
     }
 
-    [Fact]
+    [Test]
     public void Load_TelemetrySampleFile_ParsesAllFiveParameterTypeKinds()
     {
         using var stream = File.OpenRead(TestPaths.TelemetrySample);
@@ -101,7 +100,7 @@ public class XtceDocumentReaderTests
         Assert.Contains(enumType.Enumerations, e => e.Value == 2 && e.Label == "FAULT");
     }
 
-    [Fact]
+    [Test]
     public void Load_TelemetrySampleFile_ParsesAllParameters()
     {
         using var stream = File.OpenRead(TestPaths.TelemetrySample);
@@ -119,7 +118,7 @@ public class XtceDocumentReaderTests
         Assert.Null(batteryCount.InitialValue);
     }
 
-    [Fact]
+    [Test]
     public void Load_NotWellFormedXml_ThrowsXtceParseException()
     {
         using var stream = ToStream("<SpaceSystem name=\"Broken\"");
@@ -128,7 +127,7 @@ public class XtceDocumentReaderTests
         Assert.Contains("not well-formed", ex.Message);
     }
 
-    [Fact]
+    [Test]
     public void Load_WrongRootElement_ThrowsXtceParseException()
     {
         using var stream = ToStream("<NotASpaceSystem name=\"Wrong\"/>");
@@ -137,7 +136,7 @@ public class XtceDocumentReaderTests
         Assert.Contains("SpaceSystem", ex.Message);
     }
 
-    [Fact]
+    [Test]
     public void Load_MissingNameAttribute_ThrowsXtceParseException()
     {
         using var stream = ToStream("<SpaceSystem xmlns=\"http://www.omg.org/spec/XTCE/20180204\"/>");
@@ -146,7 +145,7 @@ public class XtceDocumentReaderTests
         Assert.Contains("name", ex.Message);
     }
 
-    [Fact]
+    [Test]
     public void Load_EmptyInput_ThrowsXtceParseException()
     {
         using var stream = ToStream("");
@@ -154,7 +153,7 @@ public class XtceDocumentReaderTests
         Assert.Throws<XtceParseException>(() => XtceDocumentReader.Load(stream));
     }
 
-    [Fact]
+    [Test]
     public void Load_AdversariallyDeepNesting_ThrowsCleanlyInsteadOfOverflowing()
     {
         var builder = new StringBuilder("""<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="Root">""");
@@ -174,7 +173,7 @@ public class XtceDocumentReaderTests
         Assert.Contains("depth", ex.Message);
     }
 
-    [Fact]
+    [Test]
     public void Load_RealisticNesting_IsUnaffectedByTheDepthGuard()
     {
         var builder = new StringBuilder("""<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="Root">""");

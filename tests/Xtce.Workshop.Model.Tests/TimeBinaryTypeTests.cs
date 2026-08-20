@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -11,13 +10,13 @@ public class TimeBinaryTypeTests
         return XtceDocumentReader.Load(stream);
     }
 
-    [Fact]
+    [Test]
     public void TimeBinarySampleFixture_IsItselfSchemaValid()
     {
         Assert.Empty(XsdValidation.Validate(File.ReadAllText(TestPaths.TimeBinarySample)));
     }
 
-    [Fact]
+    [Test]
     public void Load_ParsesBinaryAndTimeKinds()
     {
         var types = LoadTimeBinarySample().TelemetryMetaData!.ParameterTypeSet;
@@ -29,7 +28,7 @@ public class TimeBinaryTypeTests
         Assert.Equal(ParameterTypeKind.AbsoluteTime, types.Single(t => t.Name == "MissionTime_Type").Kind);
     }
 
-    [Fact]
+    [Test]
     public void Load_PreservesEncodingAndBaseTypeOnTimeTypes()
     {
         var types = LoadTimeBinarySample().TelemetryMetaData!.ParameterTypeSet;
@@ -44,7 +43,7 @@ public class TimeBinaryTypeTests
         Assert.Null(naked.Preserved);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_TimeBinarySample_IsLosslessAndSchemaValid()
     {
         var loaded = LoadTimeBinarySample();

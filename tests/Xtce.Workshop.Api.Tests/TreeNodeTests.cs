@@ -1,11 +1,10 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Api.Tests;
 
 public class TreeNodeTests
 {
-    [Fact]
+    [Test]
     public void FromSpaceSystem_Childless_ReturnsSingleNodeWithNoChildren()
     {
         var spaceSystem = new SpaceSystem("Minimal", []);
@@ -17,7 +16,7 @@ public class TreeNodeTests
         Assert.Empty(node.Children);
     }
 
-    [Fact]
+    [Test]
     public void FromSpaceSystem_Nested_ProjectsCorrectStructureAtEveryLevel()
     {
         var spaceSystem = new SpaceSystem("Mission", [

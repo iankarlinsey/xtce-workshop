@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -36,7 +35,7 @@ public class XtceDocumentQueryTests
                     ])),
             ]);
 
-    [Fact]
+    [Test]
     public void Search_MatchesBySubstring_CaseInsensitive_AcrossKinds()
     {
         var matches = XtceDocumentQuery.Search(SampleTree(), "volt");
@@ -46,7 +45,7 @@ public class XtceDocumentQueryTests
         Assert.Contains(matches, m => m is { Kind: "ParameterType", Name: "Volt_Type" });
     }
 
-    [Fact]
+    [Test]
     public void Search_GlobRequiresFullMatch()
     {
         var matches = XtceDocumentQuery.Search(SampleTree(), "B*age");
@@ -55,7 +54,7 @@ public class XtceDocumentQueryTests
         Assert.Equal("BattVoltage", match.Name);
     }
 
-    [Fact]
+    [Test]
     public void Search_MatchesAliases_AndReportsWhichAliasMatched()
     {
         var matches = XtceDocumentQuery.Search(SampleTree(), "EPS_V*");
@@ -65,7 +64,7 @@ public class XtceDocumentQueryTests
         Assert.Equal("EPS_V_BATT", match.MatchedAlias);
     }
 
-    [Fact]
+    [Test]
     public void FindParameterUsages_CoversEntries_RawSegments_AndComparisons_WithoutDoubleCounting()
     {
         var usages = XtceDocumentQuery.FindParameterUsages(SampleTree(), "Root/Bus", "BattVoltage");
@@ -76,7 +75,7 @@ public class XtceDocumentQueryTests
         Assert.Contains(usages, u => u.Kind == "RestrictionComparison" && u.Location.EndsWith("Sub"));
     }
 
-    [Fact]
+    [Test]
     public void FindParameterUsages_DoesNotMatchASameNamedParameterElsewhere()
     {
         var tree = new SpaceSystem("Root",
@@ -95,7 +94,7 @@ public class XtceDocumentQueryTests
         Assert.Single(XtceDocumentQuery.FindParameterUsages(tree, "Root/A", "P"));
     }
 
-    [Fact]
+    [Test]
     public void FindParameterUsages_SeesReferencesInsidePreservedCommandFragments()
     {
         var tree = new SpaceSystem("Sat", [],

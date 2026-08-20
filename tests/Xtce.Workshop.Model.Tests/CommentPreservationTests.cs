@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -29,7 +28,7 @@ public class CommentPreservationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void PrologAndEpilogComments_SurviveAroundTheRootElement()
     {
         var output = RoundTrip("""
@@ -45,7 +44,7 @@ public class CommentPreservationTests
             "<!-- end of file -->");
     }
 
-    [Fact]
+    [Test]
     public void CommentsBetweenModeledChildren_KeepTheirPosition()
     {
         var output = RoundTrip("""
@@ -70,7 +69,7 @@ public class CommentPreservationTests
             "<ParameterSet>");
     }
 
-    [Fact]
+    [Test]
     public void LeadingCommentOnASpecificSetItem_StaysWithThatItem()
     {
         // The middle parameter of three carries the comment — the grouping trap the
@@ -97,7 +96,7 @@ public class CommentPreservationTests
             "\"C\"");
     }
 
-    [Fact]
+    [Test]
     public void EntryListComments_KeepExactEntryPosition()
     {
         var output = RoundTrip("""
@@ -126,7 +125,7 @@ public class CommentPreservationTests
             "parameterRef=\"B\"");
     }
 
-    [Fact]
+    [Test]
     public void CommentsOnContainersAndTrailingTheContainerSet_Survive()
     {
         var output = RoundTrip("""
@@ -150,7 +149,7 @@ public class CommentPreservationTests
         AssertOrdered(output, "<!-- end of container definitions -->", "</ContainerSet>");
     }
 
-    [Fact]
+    [Test]
     public void CommandSideComments_SurviveOnMetaCommandsAndInsideThem()
     {
         var output = RoundTrip("""
@@ -178,7 +177,7 @@ public class CommentPreservationTests
             "<ArgumentList"); // no '>' — preserved fragments carry the inherited xmlns
     }
 
-    [Fact]
+    [Test]
     public void RoundTrippedOutputWithComments_IsStillSchemaValid()
     {
         var output = RoundTrip("""
@@ -196,7 +195,7 @@ public class CommentPreservationTests
         Assert.Empty(XsdValidation.Validate(output));
     }
 
-    [Fact]
+    [Test]
     public void SecondRoundTrip_IsStable()
     {
         var first = RoundTrip("""
@@ -217,7 +216,7 @@ public class CommentPreservationTests
         Assert.Equal(first, RoundTrip(first));
     }
 
-    [Fact]
+    [Test]
     public void JsonUnsafeCommentText_IsSanitizedNotThrown()
     {
         // Text with "--" can only arrive via the JSON API (it is unparseable as XML);

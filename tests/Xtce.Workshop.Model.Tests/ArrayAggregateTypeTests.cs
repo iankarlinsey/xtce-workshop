@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -11,13 +10,13 @@ public class ArrayAggregateTypeTests
         return XtceDocumentReader.Load(stream);
     }
 
-    [Fact]
+    [Test]
     public void ArraysSampleFixture_IsItselfSchemaValid()
     {
         Assert.Empty(XsdValidation.Validate(File.ReadAllText(TestPaths.ArraysSample)));
     }
 
-    [Fact]
+    [Test]
     public void Load_ParsesArrayTypeWithDimensions()
     {
         var types = LoadArraysSample().TelemetryMetaData!.ParameterTypeSet;
@@ -31,7 +30,7 @@ public class ArrayAggregateTypeTests
         Assert.Equal(1, matrix.Dimensions[1].EndingIndex.FixedValue);
     }
 
-    [Fact]
+    [Test]
     public void Load_ParsesAggregateMembers()
     {
         var types = LoadArraysSample().TelemetryMetaData!.ParameterTypeSet;
@@ -44,7 +43,7 @@ public class ArrayAggregateTypeTests
         Assert.Null(aggregate.Members[2].InitialValue);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_ArraysSample_IsLosslessAndSchemaValid()
     {
         var loaded = LoadArraysSample();
@@ -57,7 +56,7 @@ public class ArrayAggregateTypeTests
         Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_DynamicDimensionIndex_IsPreservedRaw()
     {
         var xml = """

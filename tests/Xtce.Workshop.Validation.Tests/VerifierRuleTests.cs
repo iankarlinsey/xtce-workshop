@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -16,7 +15,7 @@ public class VerifierRuleTests
     private static SpaceSystem Document(params MetaCommand[] metaCommands) =>
         new("S", [], CommandMetaData: new CommandMetaData(metaCommands));
 
-    [Fact]
+    [Test]
     public void DuplicateCompleteVerifierAcrossInheritance_IsFlagged()
     {
         var shared = Verifier("CompleteVerifier", "1");
@@ -29,7 +28,7 @@ public class VerifierRuleTests
         Assert.Equal("S/CommandMetaData/MetaCommandSet/Child", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void WhitespaceDifferencesStillCountAsDuplicates()
     {
         var compact = new RawXmlFragment("ExecutionVerifier",
@@ -47,7 +46,7 @@ public class VerifierRuleTests
         Assert.Single(issues, i => i.RuleId == R12);
     }
 
-    [Fact]
+    [Test]
     public void DistinctVerifiersAcrossInheritance_AreClean()
     {
         var issues = XtceValidator.Validate(Document(
@@ -57,7 +56,7 @@ public class VerifierRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == R12);
     }
 
-    [Fact]
+    [Test]
     public void DuplicateWithinOwnList_IsFlaggedEvenWithoutInheritance()
     {
         var issues = XtceValidator.Validate(Document(
@@ -66,7 +65,7 @@ public class VerifierRuleTests
         Assert.Single(issues, i => i.RuleId == R12);
     }
 
-    [Fact]
+    [Test]
     public void GrandparentChainDuplicates_AreFound()
     {
         var shared = Verifier("CompleteVerifier", "1");
@@ -79,7 +78,7 @@ public class VerifierRuleTests
         Assert.Contains("Leaf", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void CyclicBaseChain_DoesNotHangAndStillDetectsOwnDuplicates()
     {
         var shared = Verifier("CompleteVerifier", "1");
@@ -90,7 +89,7 @@ public class VerifierRuleTests
         Assert.Contains(issues, i => i.RuleId == R12 && i.Location.Contains("/A"));
     }
 
-    [Fact]
+    [Test]
     public void DanglingBaseMetaCommandRef_IsFlaggedByR11()
     {
         var issues = XtceValidator.Validate(Document(
@@ -100,7 +99,7 @@ public class VerifierRuleTests
         Assert.Contains("NoSuchCmd", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void BaseInParentSpaceSystem_IsResolvedForTheMerge()
     {
         var shared = Verifier("CompleteVerifier", "1");

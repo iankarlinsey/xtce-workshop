@@ -1,5 +1,4 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
@@ -38,7 +37,7 @@ public class RecoverableLoadTests
         </SpaceSystem>
         """;
 
-    [Fact]
+    [Test]
     public void MultiErrorDocument_ReportsEveryProblemInOnePass_AndKeepsTheGoodParts()
     {
         var result = Load(MultiErrorDocument);
@@ -57,7 +56,7 @@ public class RecoverableLoadTests
         Assert.Equal(["Ok"], telemetry.ContainerSet!.Select(c => c.Name));
     }
 
-    [Fact]
+    [Test]
     public void Diagnostics_CarryElementPaths()
     {
         var result = Load(MultiErrorDocument);
@@ -69,7 +68,7 @@ public class RecoverableLoadTests
         Assert.Contains("Sat/ContainerSet/SequenceContainer[BadCriteria]", paths);
     }
 
-    [Fact]
+    [Test]
     public void QuarantinedElements_RoundTripVerbatim()
     {
         var result = Load(MultiErrorDocument);
@@ -87,7 +86,7 @@ public class RecoverableLoadTests
         Assert.Equal(4, reload.Diagnostics.Count);
     }
 
-    [Fact]
+    [Test]
     public void MalformedXml_YieldsNullDocumentWithPosition()
     {
         var result = Load("<SpaceSystem name='X'><Unclosed>");
@@ -98,7 +97,7 @@ public class RecoverableLoadTests
         Assert.NotNull(diagnostic.Line);
     }
 
-    [Fact]
+    [Test]
     public void UnusableRoot_YieldsNullDocumentWithDiagnostic()
     {
         var result = Load("""<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204"/>""");
@@ -109,7 +108,7 @@ public class RecoverableLoadTests
         Assert.Contains("name", diagnostic.Message);
     }
 
-    [Fact]
+    [Test]
     public void CleanDocument_LoadsIdenticallyToTheStrictPath_WithZeroDiagnostics()
     {
         using var strictStream = File.OpenRead(Path.Combine(TestPaths.RepoRoot, "samples", "demo-mission-1.2.xml"));
@@ -122,7 +121,7 @@ public class RecoverableLoadTests
         Assert.Equal(strict, recovered.Document);
     }
 
-    [Fact]
+    [Test]
     public void BrokenMetaCommandAndMessage_AreQuarantinedToo()
     {
         var result = Load("""

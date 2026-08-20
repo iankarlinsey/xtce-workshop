@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Xtce.Workshop.Cli;
-using Xunit;
 
 namespace Xtce.Workshop.Cli.Tests;
 
@@ -31,7 +30,7 @@ public class StatsCommandTests : IDisposable
         </SpaceSystem>
         """;
 
-    [Fact]
+    [Test]
     public void Stats_PrintsPerSystemRowsAndTotals()
     {
         var output = new StringWriter();
@@ -45,7 +44,7 @@ public class StatsCommandTests : IDisposable
         Assert.Contains("Types by kind: Integer=1", text);
     }
 
-    [Fact]
+    [Test]
     public void Stats_JsonShapeMatchesTheApi()
     {
         var output = new StringWriter();
@@ -58,7 +57,7 @@ public class StatsCommandTests : IDisposable
         Assert.Equal(2, json.RootElement.GetProperty("totals").GetProperty("parameters").GetInt32());
     }
 
-    [Fact]
+    [Test]
     public void Stats_MissingFile_ExitsTwo()
     {
         var errorOutput = new StringWriter();

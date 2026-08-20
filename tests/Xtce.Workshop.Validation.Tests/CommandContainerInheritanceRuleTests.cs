@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -11,7 +10,7 @@ public class CommandContainerInheritanceRuleTests
     private static SpaceSystem Document(params MetaCommand[] metaCommands) =>
         new("S", [], CommandMetaData: new CommandMetaData(metaCommands));
 
-    [Fact]
+    [Test]
     public void InheritanceWithoutWiring_Warns()
     {
         var issues = XtceValidator.Validate(Document(
@@ -24,7 +23,7 @@ public class CommandContainerInheritanceRuleTests
         Assert.Contains("will not be inherited", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void InheritanceWithWiring_IsClean()
     {
         var issues = XtceValidator.Validate(Document(
@@ -35,7 +34,7 @@ public class CommandContainerInheritanceRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == R21);
     }
 
-    [Fact]
+    [Test]
     public void ExtendingAParentWithoutACommandContainer_IsClean()
     {
         var issues = XtceValidator.Validate(Document(
@@ -46,7 +45,7 @@ public class CommandContainerInheritanceRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == R21);
     }
 
-    [Fact]
+    [Test]
     public void WiringToAnInlineContainerWithoutInheritance_Warns()
     {
         var issues = XtceValidator.Validate(Document(
@@ -58,7 +57,7 @@ public class CommandContainerInheritanceRuleTests
         Assert.Contains("should not be included", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void WiringToANonInlineContainerWithoutInheritance_IsClean_HeadersAreLegal()
     {
         // BaseContainer refs to CommandContainerSet containers or telemetry

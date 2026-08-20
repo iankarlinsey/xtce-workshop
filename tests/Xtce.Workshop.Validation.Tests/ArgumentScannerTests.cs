@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -14,7 +13,7 @@ public class ArgumentScannerTests
     private static CommandMetaData WithArgumentTypeSet(string body) => new([], Preserved:
         [new RawXmlFragment("ArgumentTypeSet", $"""<ArgumentTypeSet xmlns="{Ns}">{body}</ArgumentTypeSet>""")]);
 
-    [Fact]
+    [Test]
     public void ScanArgumentTypes_ReadsScalarAttributes_AndAdjacentSiblings()
     {
         // Two back-to-back empty elements — the regression case for ReadOuterXml's
@@ -41,7 +40,7 @@ public class ArgumentScannerTests
         Assert.Equal(ParameterTypeKind.RelativeTime, types.Single(t => t.Name == "RT").Kind);
     }
 
-    [Fact]
+    [Test]
     public void ScanArgumentTypes_ReadsEnumerationLabels_AndArrayDimensions()
     {
         var commandMetaData = WithArgumentTypeSet(
@@ -60,7 +59,7 @@ public class ArgumentScannerTests
         Assert.Equal(3, dimension.EndingIndex.FixedValue);
     }
 
-    [Fact]
+    [Test]
     public void MergedArguments_WalksTheBaseMetaCommandChain_ParentTypesResolveFromParentScope()
     {
         var baseCommand = new MetaCommand("Base", Abstract: true, Preserved:
@@ -77,7 +76,7 @@ public class ArgumentScannerTests
         Assert.All(merged, a => Assert.NotNull(ArgumentScanner.ResolveArgumentType(a.Scope, a.Decl.TypeRef)));
     }
 
-    [Fact]
+    [Test]
     public void ResolveArgumentType_FallsBackToAncestors_AndSkipsPathQualifiedRefs()
     {
         var childSystem = new SpaceSystem("Child", []);
@@ -90,7 +89,7 @@ public class ArgumentScannerTests
         Assert.Null(ArgumentScanner.ResolveArgumentType(childContext, "NoSuchType"));
     }
 
-    [Fact]
+    [Test]
     public void ScanArgumentAssignments_And_ParameterToSets_ReadTheirLists()
     {
         var metaCommand = new MetaCommand("Cmd",
@@ -115,7 +114,7 @@ public class ArgumentScannerTests
         Assert.Null(parameterToSets[1].NewValue); // Derivation-based — no literal
     }
 
-    [Fact]
+    [Test]
     public void ScanComparisons_DistinguishesAllThreeForms_AndSkipsInstanceRefRhs()
     {
         var xml = $"""
@@ -150,7 +149,7 @@ public class ArgumentScannerTests
             (comparisons[2].ArgumentRef, comparisons[2].Value, comparisons[2].Form));
     }
 
-    [Fact]
+    [Test]
     public void ScanComparisons_PlainComparisonWithParameterRefAttribute_IsThePlainForm()
     {
         var xml = $"""<CompleteVerifier xmlns="{Ns}"><Comparison parameterRef="Ack" value="1"/><CheckWindow timeToStopChecking="PT5S"/></CompleteVerifier>""";

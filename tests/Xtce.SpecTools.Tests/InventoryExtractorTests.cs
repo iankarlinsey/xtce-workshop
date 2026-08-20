@@ -1,4 +1,3 @@
-using Xunit;
 
 namespace Xtce.SpecTools.Tests;
 
@@ -9,7 +8,7 @@ public class InventoryExtractorTests
     // landing on identical numbers for the XTCE 1.2 SpaceSystem.xsd. These act as a
     // regression baseline — a change here means either the schema changed or the walker
     // has a bug, and either should be investigated, not silently accepted.
-    [Fact]
+    [Test]
     public void Extract_MatchesIndependentlyCrossValidatedCounts_ForXtce12()
     {
         var result = InventoryExtractor.Extract(TestPaths.Xtce12Xsd);
@@ -28,7 +27,7 @@ public class InventoryExtractorTests
         Assert.Equal(68, result.RefTypedNodes.Count);
     }
 
-    [Fact]
+    [Test]
     public void Extract_FindsNoKeyrefs_ConfirmingReferentialIntegrityIsUnenforced()
     {
         // XTCE 1.2's schema declares uniqueness (xs:key) for names like parameterNameKey,

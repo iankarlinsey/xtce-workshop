@@ -2,20 +2,20 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Xunit;
 
 namespace Xtce.Workshop.Api.Tests;
 
-public class XtceReportEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public class XtceReportEndpointTests 
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private WebApplicationFactory<Program> _factory = null!;
 
-    public XtceReportEndpointTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-    }
+    [OneTimeSetUp]
+    public void CreateFactory() => _factory = new WebApplicationFactory<Program>();
 
-    [Fact]
+    [OneTimeTearDown]
+    public void DisposeFactory() => _factory.Dispose();
+
+    [Test]
     public async Task PostReport_MinimalDocument_Returns109CandidateRowsAndSchemaResult()
     {
         var client = _factory.CreateClient();
@@ -29,7 +29,7 @@ public class XtceReportEndpointTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(23, body.GetProperty("rules").GetArrayLength());
     }
 
-    [Fact]
+    [Test]
     public async Task PostReportText_ReturnsRenderedPlainText()
     {
         var client = _factory.CreateClient();
@@ -45,7 +45,7 @@ public class XtceReportEndpointTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Contains("Summary: ", text);
     }
 
-    [Fact]
+    [Test]
     public async Task PostReport_BadEnumInitialValue_FailsCandidate63WithTheFinding()
     {
         var client = _factory.CreateClient();

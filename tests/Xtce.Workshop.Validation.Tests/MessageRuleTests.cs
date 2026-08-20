@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -27,7 +26,7 @@ public class MessageRuleTests
         return new SpaceSystem("S", [], telemetry);
     }
 
-    [Fact]
+    [Test]
     public void MessageTargetingAWholePacket_IsClean()
     {
         var issues = XtceValidator.Validate(BuildDocument(new Message("M", "WholePacket")));
@@ -35,7 +34,7 @@ public class MessageRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == R09);
     }
 
-    [Fact]
+    [Test]
     public void MessageTargetingAnAbstractContainer_IsFlagged()
     {
         var issues = XtceValidator.Validate(BuildDocument(new Message("M", "AbstractBase")));
@@ -45,7 +44,7 @@ public class MessageRuleTests
         Assert.Equal("S/MessageSet/M", issue.Location);
     }
 
-    [Fact]
+    [Test]
     public void MessageTargetingASubPieceContainer_IsFlagged()
     {
         var issues = XtceValidator.Validate(BuildDocument(new Message("M", "Piece")));
@@ -54,7 +53,7 @@ public class MessageRuleTests
         Assert.Contains("sub-piece", issue.Message);
     }
 
-    [Fact]
+    [Test]
     public void MessageWithUnresolvableContainerRef_IsFlaggedByR09NotR11()
     {
         var issues = XtceValidator.Validate(BuildDocument(new Message("M", "Nowhere")));
@@ -64,7 +63,7 @@ public class MessageRuleTests
         Assert.DoesNotContain(issues, i => i.RuleId == "XTCE-1.2-R11-no-dangling-name-references");
     }
 
-    [Fact]
+    [Test]
     public void MessageInAChildSystem_ResolvesFromItsOwnScope()
     {
         var child = new SpaceSystem("Child", [], new TelemetryMetaData(

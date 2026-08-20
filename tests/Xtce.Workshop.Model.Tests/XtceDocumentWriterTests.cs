@@ -1,11 +1,10 @@
 using System.Text;
-using Xunit;
 
 namespace Xtce.Workshop.Model.Tests;
 
 public class XtceDocumentWriterTests
 {
-    [Fact]
+    [Test]
     public void Write_ChildlessSpaceSystem_RoundTripsThroughReader()
     {
         var original = new SpaceSystem("Minimal", []);
@@ -16,7 +15,7 @@ public class XtceDocumentWriterTests
         Assert.Equal(original, reloaded);
     }
 
-    [Fact]
+    [Test]
     public void Write_NestedSpaceSystem_RoundTripsThroughReader()
     {
         var original = new SpaceSystem("Mission", [
@@ -33,7 +32,7 @@ public class XtceDocumentWriterTests
         Assert.Equal(original, reloaded);
     }
 
-    [Fact]
+    [Test]
     public void Write_MinimalSampleLoadedThenWritten_RoundTripsThroughReader()
     {
         using var stream = File.OpenRead(TestPaths.MinimalSample);
@@ -45,7 +44,7 @@ public class XtceDocumentWriterTests
         Assert.Equal(loaded, reloaded);
     }
 
-    [Fact]
+    [Test]
     public void Write_NestedSampleLoadedThenWritten_RoundTripsThroughReader()
     {
         using var stream = File.OpenRead(TestPaths.NestedSample);
@@ -57,7 +56,7 @@ public class XtceDocumentWriterTests
         Assert.Equal(loaded, reloaded);
     }
 
-    [Fact]
+    [Test]
     public void Write_TelemetrySampleLoadedThenWritten_RoundTripsThroughReader()
     {
         using var stream = File.OpenRead(TestPaths.TelemetrySample);
@@ -69,7 +68,7 @@ public class XtceDocumentWriterTests
         Assert.Equal(loaded, reloaded);
     }
 
-    [Fact]
+    [Test]
     public void Write_SpaceSystemWithAllFiveParameterTypeKinds_RoundTripsThroughReader()
     {
         var telemetryMetaData = new TelemetryMetaData(
@@ -93,7 +92,7 @@ public class XtceDocumentWriterTests
         Assert.Equal(original, reloaded);
     }
 
-    [Fact]
+    [Test]
     public void Write_TelemetryMetaData_ProducesParameterTypeSetBeforeParameterSet()
     {
         var telemetryMetaData = new TelemetryMetaData(
@@ -108,7 +107,7 @@ public class XtceDocumentWriterTests
             "Expected ParameterTypeSet to precede ParameterSet, per TelemetryMetaDataType's XSD sequence.");
     }
 
-    [Fact]
+    [Test]
     public void Write_IncludesXtceNamespaceOnRootElement()
     {
         var spaceSystem = new SpaceSystem("Minimal", []);

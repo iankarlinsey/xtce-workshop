@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -28,7 +27,7 @@ public class XtceCsvExporterTests
                 new SequenceContainer("Frame", [new SequenceEntry(SequenceEntryKind.ParameterRef, "Batt, \"main\"")]),
             ]));
 
-    [Fact]
+    [Test]
     public void ExportParameters_EmitsResolvedTypeInfo_Aliases_AndDataSource()
     {
         var csv = XtceCsvExporter.ExportParameters(Sample());
@@ -40,7 +39,7 @@ public class XtceCsvExporterTests
         Assert.Equal(2, lines.Length);
     }
 
-    [Fact]
+    [Test]
     public void ExportContainers_EmitsLayoutRowsWithOffsets()
     {
         var csv = XtceCsvExporter.ExportContainers(Sample());
@@ -51,7 +50,7 @@ public class XtceCsvExporterTests
         Assert.Contains(",parameter,Frame,0,8,", lines[1]);
     }
 
-    [Fact]
+    [Test]
     public void ExportContainers_CoversNestedSystems()
     {
         var tree = new SpaceSystem("Root",

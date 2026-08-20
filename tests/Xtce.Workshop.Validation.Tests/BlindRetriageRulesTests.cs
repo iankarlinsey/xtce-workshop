@@ -1,5 +1,4 @@
 using Xtce.Workshop.Model;
-using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
@@ -21,9 +20,8 @@ public class BlindRetriageRulesTests
             [new MetaCommand("Cmd", CommandContainer: container)]));
     }
 
-    [Theory]
-    [InlineData("5A", 8)]      // exactly enough
-    [InlineData("1ACF", 12)]   // more than enough — MSB truncation is legal
+    [TestCase("5A", 8)]      // exactly enough
+    [TestCase("1ACF", 12)]   // more than enough — MSB truncation is legal
     public void SufficientOrOversizedBinaryValue_IsClean(string binaryValue, int sizeInBits)
     {
         var issues = XtceValidator.Validate(WithFixedValueEntry(binaryValue, sizeInBits));
@@ -31,7 +29,7 @@ public class BlindRetriageRulesTests
         Assert.DoesNotContain(issues, i => i.RuleId == R22);
     }
 
-    [Fact]
+    [Test]
     public void InsufficientBinaryValue_IsFlaggedAsWarning()
     {
         var issues = XtceValidator.Validate(WithFixedValueEntry("5A", 16));
@@ -48,7 +46,7 @@ public class BlindRetriageRulesTests
             [new Parameter("P", "T", Preserved:
                 [new RawXmlFragment("ParameterProperties", $"""<ParameterProperties {attributes} xmlns="{Ns}"/>""")])]));
 
-    [Fact]
+    [Test]
     public void ConstantWithExplicitReadOnlyFalse_IsFlaggedAsWarning()
     {
         var issues = XtceValidator.Validate(WithProperties("""dataSource="constant" readOnly="false" """));
@@ -57,10 +55,9 @@ public class BlindRetriageRulesTests
         Assert.Equal(ValidationSeverity.Warning, issue.Severity);
     }
 
-    [Theory]
-    [InlineData("""dataSource="constant" readOnly="true" """)] // correct combination
-    [InlineData("""dataSource="constant" """)]                 // absent readOnly: implicit enforcement blessed by the doc
-    [InlineData("""dataSource="telemetered" readOnly="false" """)] // not constant
+    [TestCase("""dataSource="constant" readOnly="true" """)] // correct combination
+    [TestCase("""dataSource="constant" """)]                 // absent readOnly: implicit enforcement blessed by the doc
+    [TestCase("""dataSource="telemetered" readOnly="false" """)] // not constant
     public void OtherCombinations_AreClean(string attributes)
     {
         var issues = XtceValidator.Validate(WithProperties(attributes));
