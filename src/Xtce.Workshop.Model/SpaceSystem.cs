@@ -11,8 +11,7 @@ namespace Xtce.Workshop.Model;
 /// `Preserved` holds unmodeled child elements (LongDescription, AliasSet, AncillaryDataSet,
 /// Header, CommandMetaData, ServiceSet) and `PreservedAttributes` unmodeled attributes
 /// (shortDescription, operationalStatus, xml:base, xsi:schemaLocation, namespace
-/// declarations) captured verbatim on load and written back on save — see RawXml.cs and
-/// issue #23 (lossless round-trip). Extend the modeled surface as later slices need more
+/// declarations) captured verbatim on load and written back on save — see RawXml.cs. Extend the modeled surface as later slices need more
 /// of the document; preservation keeps the gap lossless in the meantime.
 /// </summary>
 public sealed record SpaceSystem(

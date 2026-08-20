@@ -6,7 +6,7 @@ using Xtce.Workshop.Validation;
 namespace Xtce.Workshop.Cli;
 
 /// <summary>
-/// The `stats` command: per-SpaceSystem and document-total counts (issue #52).
+/// The `stats` command: per-SpaceSystem and document-total counts.
 /// Exit codes: 0 = report printed, 2 = unusable input.
 /// </summary>
 public static class StatsCommand

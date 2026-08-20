@@ -118,15 +118,14 @@ same depth of scrutiny.
   Phase D is complete: all 15 rules carry `Implemented` status (8 `yes`,
   7 `partial`)** — every `partial` has its citation gap recorded in the
   rule's source docs and closes as more constructs become modeled.
-- Phase E: **done** (issue #34, `AdversarialEndToEndTests`): every matrix
+- Phase E: **done** (`AdversarialEndToEndTests`): every matrix
   rule has a TRIGGER and a NEAR-MISS document, both loaded through the real
   reader (never hand-constructed records) and both asserted schema-valid
   first — if a trigger were schema-invalid, the "semantic" rule would be
   re-checking what the schema already enforces. A completeness fact keeps
   the suite honest: a matrix rule without a Phase E case fails the build.
   The pass immediately paid for itself by finding FLAGGED item #2 above.
-- Mining CCSDS 660.1-G-2 (the identified *primary* corpus): **done**
-  (issue #38, see `ccsds-660.1-g2-mining.md` for the completeness log).
+- Mining CCSDS 660.1-G-2 (the identified *primary* corpus): **done**.
   Six new rules promoted (R16–R21: inheritance cycles, string length-spec
   conflicts, type-inheritance override restrictions, changePerSecond span,
   telemetered-without-encoding warning, MetaCommand CommandContainer

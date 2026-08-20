@@ -5,15 +5,12 @@ namespace Xtce.Workshop.Validation;
 
 /// <summary>
 /// XTCE-1.2-R15: a value literal must be valid for, and within range of, its declared or
-/// referenced data type. research/xtce-1.2-rule-matrix.csv cites 7 owner locations; this
-/// rule implements exactly one — ParameterType/initialValue (a Parameter's own initialValue,
-/// which overrides its referenced ParameterTypeDefinition's initialValue). The other 6
-/// (ArgumentAssignmentType/argumentValue, ArgumentComparisonType/value,
-/// ArgumentType/initialValue, ParameterToSetType/NewValue, ComparisonCheckType/Value,
-/// ComparisonType/value) need MetaCommand/Container modeling this project doesn't have yet —
-/// see summary.md's Architecture Decisions. This rule is intentionally partial, not "done."
+/// referenced data type, at every citation site listed for R15 in
+/// research/xtce-1.2-rule-matrix.csv: parameter and aggregate-member initial values,
+/// restriction and verifier comparison values, argument initial values and assignments,
+/// and ParameterToSet new values.
 ///
-/// parameterTypeRef resolution goes through NameReferenceResolver (issue #25), so a
+/// parameterTypeRef resolution goes through NameReferenceResolver, so a
 /// Parameter whose type lives in an ancestor or another SpaceSystem is checked too. A ref
 /// that resolves to an unmodeled (opaque, preserved) type is skipped — its constraints
 /// can't be inspected; a ref that doesn't resolve at all is R11's finding, not R15's.
@@ -140,7 +137,7 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
     }
 
     /// <summary>
-    /// Command-side value literals (issue #49): argument initial values (#39), base-command
+    /// Command-side value literals: argument initial values (#39), base-command
     /// argument assignments (#33), ParameterToSet new values (#45), and the comparison
     /// forms inside constraints/verifiers — ArgumentComparisonType values (#34),
     /// ArgumentComparisonCheckType Condition values (#35), and plain ComparisonType values

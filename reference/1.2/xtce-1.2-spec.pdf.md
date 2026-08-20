@@ -4,7 +4,7 @@
 
 This location previously held the document's PDF and a `pdftotext` markdown
 sidecar (same basename, `.md`). Both were removed from the repository AND its
-git history before the repository was made public (issue #56):
+git history before the repository was made public:
 
 - The OMG specification license permits copying for informational purposes only
   and explicitly prohibits posting on a network computer and distributing
@@ -18,4 +18,4 @@ repository: they are required to build, test, and run xtce-workshop, and are
 used under the specification's implementation grant ("to use this
 specification to create and distribute software ... based upon this
 specification"), consistent with other open-source XTCE implementations that
-bundle them (other open-source XTCE implementations).
+bundle them.

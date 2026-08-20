@@ -8,8 +8,7 @@ namespace Xtce.Workshop.Validation;
 /// Validates document XML against the real XTCE 1.2 schema, loaded from resources embedded
 /// in this assembly (SpaceSystem.xsd plus the vendored W3C xml.xsd its import needs), so
 /// the API container and the CLI can schema-validate without a repo checkout or network
-/// access. Until issue #48 the product never actually ran schema validation — only the
-/// test suite did.
+/// access.
 /// </summary>
 public static class SchemaValidator
 {

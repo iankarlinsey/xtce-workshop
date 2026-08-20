@@ -10,7 +10,7 @@ namespace Xtce.Workshop.Model;
 /// compatibility with eventually handling tens-of-MB documents without buffering the
 /// whole tree as one XML string in memory.
 ///
-/// Preserved raw fragments (unmodeled elements captured on load — see RawXml.cs, issue #23)
+/// Preserved raw fragments (unmodeled elements captured on load — see RawXml.cs)
 /// are re-emitted via WriteRaw into their XSD-sequence-correct slot among modeled siblings,
 /// using per-parent element-order tables and a stable merge, so output written from a
 /// schema-valid input stays schema-valid.
@@ -658,7 +658,7 @@ public static class XtceDocumentWriter
 
     /// <summary>
     /// Slot-name prefix marking "emit just BEFORE the named element's slot" — used by
-    /// anchored comment fragments (issue #51). U+0001 can't occur in an XML element name,
+    /// anchored comment fragments. U+0001 can't occur in an XML element name,
     /// so it can't collide with a real slot.
     /// </summary>
     private const char BeforeSlotPrefix = '\u0001';
@@ -726,7 +726,7 @@ public static class XtceDocumentWriter
         writer.WriteComment(safe);
     }
 
-    /// <summary>Comment fragments captured before the owning element's start tag (issue #51).</summary>
+    /// <summary>Comment fragments captured before the owning element's start tag.</summary>
     private static void WriteLeadingComments(XmlWriter writer, IReadOnlyList<RawXmlFragment>? preserved)
     {
         foreach (var fragment in preserved ?? [])
@@ -738,7 +738,7 @@ public static class XtceDocumentWriter
         }
     }
 
-    /// <summary>Comment fragments captured after the owning element's end tag (issue #51).</summary>
+    /// <summary>Comment fragments captured after the owning element's end tag.</summary>
     private static void WriteTrailingComments(XmlWriter writer, IReadOnlyList<RawXmlFragment>? preserved)
     {
         foreach (var fragment in preserved ?? [])

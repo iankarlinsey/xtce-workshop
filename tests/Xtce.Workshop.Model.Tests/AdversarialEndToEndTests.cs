@@ -5,7 +5,7 @@ using Xunit;
 namespace Xtce.Workshop.Model.Tests;
 
 /// <summary>
-/// Phase E of the validation pipeline (issue #34): adversarial end-to-end verification of
+/// Phase E of the validation pipeline: adversarial end-to-end verification of
 /// every rule in research/xtce-1.2-rule-matrix.csv. For each rule, a TRIGGER document and
 /// a NEAR-MISS document, both:
 /// - loaded through the REAL reader (never hand-constructed records, so reader/rule

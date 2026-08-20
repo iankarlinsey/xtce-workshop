@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
-/// <summary>XtceCsvExporter (issue #54): parameters and containers as RFC 4180 CSV.</summary>
+/// <summary>XtceCsvExporter: parameters and containers as RFC 4180 CSV.</summary>
 public class XtceCsvExporterTests
 {
     private const string Ns = "http://www.omg.org/spec/XTCE/20180204";

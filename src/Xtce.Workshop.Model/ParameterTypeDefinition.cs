@@ -8,8 +8,7 @@ namespace Xtce.Workshop.Model;
 /// System.Text.Json polymorphic serialization at the API's JSON boundary — on .NET 8 STJ
 /// requires the type discriminator to be the FIRST property of incoming JSON, which a browser
 /// client round-tripping documents through object spreads cannot reliably guarantee. Kind-
-/// specific fields are nullable and only meaningful for their corresponding Kind — see
-/// summary.md's Architecture Decisions for the tradeoff discussion and the revisit trigger.
+/// specific fields are nullable and only meaningful for their corresponding Kind.
 /// </summary>
 public enum ParameterTypeKind
 {
@@ -145,8 +144,7 @@ public sealed record Parameter(
 /// PreservedParameterTypes holds ParameterTypeSet entries of kinds this model doesn't
 /// recognize (all ten current kinds are modeled — this is future-schema insurance);
 /// PreservedParameters holds unmodeled ParameterSet entries (ParameterRef). Both sets are XSD choice-unbounded, so re-emitting
-/// preserved entries after the modeled ones is order-valid. ContainerSet is modeled (issue
-/// #24) and MessageSet too (issue #30); Preserved holds the remaining unmodeled
+/// preserved entries after the modeled ones is order-valid. ContainerSet and MessageSet are modeled; Preserved holds the remaining unmodeled
 /// TelemetryMetaData children (StreamSet, AlgorithmSet), re-emitted in XSD sequence order.
 /// </summary>
 public sealed record TelemetryMetaData(

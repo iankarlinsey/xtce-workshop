@@ -5,8 +5,7 @@ namespace Xtce.Workshop.Validation;
 /// <summary>
 /// XTCE-1.2-R22 (warning): a FixedValueEntry's binaryValue "should have sufficient bit
 /// length to accomodate the size in bits" (ArgumentFixedValueEntryType/binaryValue, XSD
-/// line 309 — candidate #3, recovered by the blind re-triage in issue #48 after being
-/// misdismissed in Phase B). Oversize is legal — the doc defines most-significant-bit
+/// line 309 — candidate #3). Oversize is legal — the doc defines most-significant-bit
 /// truncation — so only insufficiency is flagged. FixedValueEntry appears in command
 /// container entry lists, which ride as preserved fragments; checked by document-wide
 /// fragment inspection.
@@ -40,8 +39,7 @@ public sealed class FixedValueBitLengthRule : IValidationRule
 
 /// <summary>
 /// XTCE-1.2-R23 (warning): "For a constant data source, then 'readOnly' should be 'true'"
-/// (ParameterPropertiesType/readOnly, XSD line 1040 — candidate #27, recovered by the
-/// blind re-triage in issue #48). Only an EXPLICIT readOnly="false" alongside
+/// (ParameterPropertiesType/readOnly, XSD line 1040 — candidate #27). Only an EXPLICIT readOnly="false" alongside
 /// dataSource="constant" is flagged — when readOnly is absent, the doc itself says
 /// "application implementations may choose to implicitly enforce this."
 /// </summary>

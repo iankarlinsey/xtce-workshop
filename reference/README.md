@@ -4,7 +4,7 @@ Pointers to the formal XTCE specification documents from the OMG spec catalog
 (https://www.omg.org/spec/XTCE), organized by version, plus the XTCE XML
 Schema files themselves.
 
-## Redistribution note (issue #56)
+## Redistribution note
 
 The specification PDFs and their text-extracted `.md` sidecars are **not
 redistributed in this repository** and were purged from its git history
@@ -19,7 +19,7 @@ The XSDs (`SpaceSystem.xsd`, `xml.xsd`) **are** included: they are required
 to build, test, and run xtce-workshop, and are used under the specification's
 implementation grant ("to use this specification to create and distribute
 software ... based upon this specification"), consistent with other
-open-source XTCE implementations that bundle them (other open-source XTCE implementations).
+open-source XTCE implementations that bundle them.
 `xml.xsd` is W3C material under the permissive W3C Software License.
 
 ## Versions
@@ -28,7 +28,7 @@ open-source XTCE implementations that bundle them (other open-source XTCE implem
 |---|---|---|---|---|
 | 1.0 | Aug 2005 | `1.0/xtce-1.0-spec.pdf.md` (pointer) | — | Initial release |
 | 1.1 | Mar 2008 | `1.1/xtce-1.1-spec.pdf.md` (pointer; + changebar) | `1.1/SpaceSystem.xsd` | Adopted as CCSDS blue book |
-| 1.2 | Oct 2018 | `1.2/xtce-1.2-spec.pdf.md` (pointer; + changebar) | `1.2/SpaceSystem.xsd` | Current target for this project (see ../summary.md) |
+| 1.2 | Oct 2018 | `1.2/xtce-1.2-spec.pdf.md` (pointer; + changebar) | `1.2/SpaceSystem.xsd` | Current target for this project |
 | 1.3 | Jul 2025 | not published as PDF by OMG | `1.3/SpaceSystem.xsd` | Latest formal version; only the XSD is available |
 
 ## CCSDS companion documents (v1.2 only)
@@ -39,8 +39,7 @@ replacements — the CCSDS Element Description Green Book in particular is
 far denser in per-element rule text than the OMG spec PDF or the XSD's own
 `<documentation>` annotations, and served as the primary source for the
 semantic validation rules the XSD can't express (see
-`../research/ccsds-660.1-g2-mining.md` for the project's own mining notes,
-which remain in-repo).
+`../research/xtce-1.2-rule-matrix.csv` for the resulting rules and citations).
 
 | Document | Type | Pages | Role |
 |---|---|---|---|

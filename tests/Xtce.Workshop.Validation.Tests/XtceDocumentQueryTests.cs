@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
-/// <summary>XtceDocumentQuery (issue #53): name/alias search and parameter where-used.</summary>
+/// <summary>XtceDocumentQuery: name/alias search and parameter where-used.</summary>
 public class XtceDocumentQueryTests
 {
     private const string Ns = "http://www.omg.org/spec/XTCE/20180204";

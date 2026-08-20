@@ -7,9 +7,9 @@ namespace Xtce.Workshop.Model;
 /// an XTCE document. Deliberately built on XmlReader (forward-only, non-buffering)
 /// rather than XDocument/XmlDocument — XTCE files can be tens of megabytes, and the
 /// reading strategy needs to survive being extended to a real streaming parser later
-/// without a rewrite. See another implementation's streaming reader for the pattern this follows.
+/// without a rewrite.
 ///
-/// Anything the object model doesn't represent is PRESERVED, not dropped (issue #23):
+/// Anything the object model doesn't represent is PRESERVED, not dropped:
 /// unmodeled child elements are captured verbatim via ReadOuterXml into RawXmlFragment
 /// lists, and unmodeled attributes into RawAttribute lists, so XtceDocumentWriter can
 /// write them back and a load → save round trip never loses data the editor didn't touch.
@@ -54,7 +54,7 @@ public static class XtceDocumentReader
         {
             // Walk to the root element by hand instead of MoveToContent, which would
             // silently skip document-prolog comments (license headers are common in real
-            // XTCE files — issue #51).
+            // XTCE files).
             List<string>? prologComments = null;
             while (reader.NodeType != XmlNodeType.Element)
             {
@@ -1362,7 +1362,7 @@ public static class XtceDocumentReader
         (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment(elementName, outerXml));
     }
 
-    // ---- comment preservation (issue #51) ----------------------------------------------
+    // ---- comment preservation ----------------------------------------------
     // Comments between children are buffered as text, then converted to "#comment"
     // fragments once their placement is known: anchored to the next sibling's element name,
     // marked Leading for a set item they preceded (emitted before its start tag), or left
@@ -1457,7 +1457,7 @@ public static class XtceDocumentReader
     }
 
     // Unparseable modeled attributes are a hard error, not a silent null — nulling them
-    // would drop the attribute on save, silently altering the document (issue #23).
+    // would drop the attribute on save, silently altering the document.
     private static bool? ParseBool(XmlReader reader, string attributeName)
     {
         var value = reader.GetAttribute(attributeName);

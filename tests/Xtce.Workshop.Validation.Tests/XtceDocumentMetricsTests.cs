@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
-/// <summary>XtceDocumentMetrics (issue #52): per-system and deep counts.</summary>
+/// <summary>XtceDocumentMetrics: per-system and deep counts.</summary>
 public class XtceDocumentMetricsTests
 {
     private const string Ns = "http://www.omg.org/spec/XTCE/20180204";

@@ -4,8 +4,7 @@ using Xunit;
 namespace Xtce.Workshop.Model.Tests;
 
 /// <summary>
-/// Issue #51: XML comments must survive the load → save round trip. Placement guarantees,
-/// per the design recorded on the issue: comments keep their parent element and land
+/// XML comments must survive the load → save round trip. Placement guarantees: comments keep their parent element and land
 /// immediately before the sibling they preceded (or its slot group), leading comments on
 /// set items precede the item's start tag exactly, entry-list comments keep their exact
 /// entry position, and document prolog/epilog comments (license headers) survive around

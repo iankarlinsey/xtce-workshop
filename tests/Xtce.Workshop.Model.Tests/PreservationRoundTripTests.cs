@@ -4,7 +4,7 @@ using Xunit;
 namespace Xtce.Workshop.Model.Tests;
 
 /// <summary>
-/// The lossless round-trip guarantee (issue #23): everything the object model doesn't
+/// The lossless round-trip guarantee: everything the object model doesn't
 /// represent must survive load → save verbatim, and the written output must still validate
 /// against the actual XTCE 1.2 XSD.
 /// </summary>
@@ -33,7 +33,7 @@ public class PreservationRoundTripTests
 
         Assert.NotNull(loaded.Preserved);
         var names = loaded.Preserved!.Select(f => f.ElementName).ToList();
-        // CommandMetaData is modeled as of issue #33 (an empty record here), not preserved.
+        // CommandMetaData is modeled (an empty record here), not preserved.
         Assert.Equal(["LongDescription", "AliasSet", "Header"], names);
         Assert.NotNull(loaded.CommandMetaData);
         Assert.Contains("must survive load/save untouched", loaded.Preserved.Single(f => f.ElementName == "Header").OuterXml);
@@ -58,7 +58,7 @@ public class PreservationRoundTripTests
         var loaded = LoadPreservationSample();
         var telemetry = loaded.TelemetryMetaData!;
 
-        // Binary and time kinds are modeled as of issue #28 — only Array/Aggregate would
+        // Binary and time kinds are modeled — only Array/Aggregate would
         // still land in PreservedParameterTypes, and this fixture has none.
         Assert.Null(telemetry.PreservedParameterTypes);
         Assert.Equal(ParameterTypeKind.Binary,
@@ -66,7 +66,7 @@ public class PreservationRoundTripTests
         Assert.Equal(ParameterTypeKind.AbsoluteTime,
             telemetry.ParameterTypeSet.Single(t => t.Name == "MissionTime_Type").Kind);
         Assert.Equal(["ParameterRef"], telemetry.PreservedParameters!.Select(f => f.ElementName).ToList());
-        // ContainerSet is modeled as of issue #24, so nothing at the TelemetryMetaData
+        // ContainerSet is modeled, so nothing at the TelemetryMetaData
         // level is left to preserve in this fixture.
         Assert.Null(telemetry.Preserved);
         Assert.Equal("MainFrame", Assert.Single(telemetry.ContainerSet!).Name);

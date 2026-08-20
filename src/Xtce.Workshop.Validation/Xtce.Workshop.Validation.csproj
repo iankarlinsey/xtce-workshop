@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Ground truth for the per-candidate conformance report (issue #48): the Phase B
+    <!-- Ground truth for the per-candidate conformance report: the Phase B
          triage log and the schemas, embedded so the validator is self-contained at
          runtime (API container, CLI) without the repo checkout. -->
     <EmbeddedResource Include="..\..\research\xtce-1.2-triage-log.csv" LogicalName="TriageLog.csv" />

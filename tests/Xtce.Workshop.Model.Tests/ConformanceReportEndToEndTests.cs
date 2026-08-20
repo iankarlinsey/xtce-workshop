@@ -6,7 +6,7 @@ using E2E = Xtce.Workshop.Model.Tests.AdversarialEndToEndTests;
 namespace Xtce.Workshop.Model.Tests;
 
 /// <summary>
-/// Issue #48 ratchets for the per-candidate conformance report. The claim under test:
+/// Ratchets for the per-candidate conformance report. The claim under test:
 /// every one of the 109 Phase A candidates gets an explicit code-executed result, and the
 /// candidate tags on findings are REAL — for each candidate the report claims to check,
 /// there is a schema-valid trigger document whose report row goes FAIL with a finding
@@ -86,7 +86,7 @@ public class ConformanceReportEndToEndTests
             {
                 // ArgumentComparisonType's schema home is an entry's IncludeCondition
                 // (ArgumentMatchCriteriaType) — TransmissionConstraint uses the plain
-                // telemetry MatchCriteriaType, as this suite's schema gate proved.
+                // telemetry MatchCriteriaType.
                 34, E2E.Doc("""
                     <CommandMetaData>
                       <ArgumentTypeSet><IntegerArgumentType name="U8" signed="false" sizeInBits="8"/></ArgumentTypeSet>
@@ -268,7 +268,7 @@ public class ConformanceReportEndToEndTests
         Assert.True(report.SchemaValid, string.Join("\n", report.SchemaErrors));
         Assert.DoesNotContain(report.Candidates, c => c.Status is CandidateStatus.Fail or CandidateStatus.SchemaFail);
 
-        // Since issue #49 every SEMANTIC site executes — nothing may report NOT_EVALUATED.
+        // Every SEMANTIC site executes — nothing may report NOT_EVALUATED.
         Assert.DoesNotContain(report.Candidates, c => c.Status == CandidateStatus.NotEvaluated);
 
         // Disposition -> status-space discipline: no row's status can drift out of its lane.

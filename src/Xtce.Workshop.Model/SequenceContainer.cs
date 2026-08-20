@@ -52,7 +52,7 @@ public sealed record SequenceEntry(
 /// <summary>
 /// A ComparisonType: a parameter-instance-to-value test. ComparisonOperator stays null when
 /// absent (XSD default "==" applied by consumers at check time, per the no-baked-defaults
-/// convention from issue #23); same for Instance (default 0) and UseCalibratedValue
+/// convention); same for Instance (default 0) and UseCalibratedValue
 /// (default true), which come from the ParameterInstanceRefType base.
 /// </summary>
 public sealed record Comparison(

@@ -1,5 +1,4 @@
-/* Mission Control theme — see summary.md's Architecture Decisions for why this
-   direction was chosen over a lighter "Studio" alternative. */
+/* Mission Control theme. */
 :root {
   --bg: oklch(0.16 0.012 250);
   --panel: oklch(0.195 0.014 250);

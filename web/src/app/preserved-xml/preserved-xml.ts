@@ -3,7 +3,7 @@ import { Component, computed, input } from '@angular/core';
 interface RawFragment {
   elementName: string;
   outerXml: string;
-  /** Comment fragments ("#comment") record where they sat; see backend issue #51. */
+  /** Comment fragments ("#comment") record where they sat among siblings. */
   anchor?: string | null;
 }
 
@@ -15,7 +15,7 @@ interface RawAttribute {
 /**
  * Read-only transparency panel for the lossless-round-trip machinery: shows the raw-XML
  * fragments and attributes the editor is faithfully carrying for an item without modeling
- * them (backend issue #23). Deliberately NOT an editing surface — the whole point of the
+ * them. Deliberately NOT an editing surface — the whole point of the
  * project is that users don't write raw XML; this just proves nothing is being lost.
  */
 @Component({

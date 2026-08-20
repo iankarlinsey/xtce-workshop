@@ -43,7 +43,7 @@ public sealed class ArrayDimCountMatchTypeRule : IValidationRule
 /// (ArrayParameterRefEntryType/DimensionList, XSD line 379). Flagged: a dimension whose
 /// fixed EndingIndex exceeds the type's, and a DimensionList whose every fixed bound
 /// equals the type's (same size, not a subset). All three citation sites are checked:
-/// telemetry ArrayParameterRefEntry (#6), and — since issue #49 — command-container
+/// telemetry ArrayParameterRefEntry (#6), and command-container
 /// ArrayArgumentRefEntry against its ArrayArgumentType (#1) and command-container
 /// ArrayParameterRefEntry against the parameter's array type (#2), both scanned from
 /// preserved CommandContainer EntryList fragments.

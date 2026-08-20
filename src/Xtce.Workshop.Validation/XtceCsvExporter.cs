@@ -4,8 +4,7 @@ using Xtce.Workshop.Model;
 namespace Xtce.Workshop.Validation;
 
 /// <summary>
-/// Spreadsheet-friendly CSV exports (issue #54 — the counterpart of a third-party XTCE toolkit'
-/// its CSV exporter). RFC 4180 quoting; one header row; empty cells where a value
+/// Spreadsheet-friendly CSV exports. RFC 4180 quoting; one header row; empty cells where a value
 /// isn't statically known.
 /// </summary>
 public static class XtceCsvExporter

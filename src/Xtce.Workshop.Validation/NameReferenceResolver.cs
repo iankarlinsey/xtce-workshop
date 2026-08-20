@@ -38,7 +38,7 @@ public sealed record ResolutionResult(
 /// error-severity dangling-reference rule:
 /// - Unqualified and relative references FALL BACK TO ANCESTOR SpaceSystems when they
 ///   don't resolve at the point of use. The strict spec text scopes the unqualified form
-///   to "the SpaceSystem the reference is used in", but major implementations (another implementation)
+///   to "the SpaceSystem the reference is used in", but existing implementations
 ///   search enclosing systems and real files rely on it.
 /// - Absolute references accept both interpretations of the first segment (it names the
 ///   root SpaceSystem, or paths start below the root) — the spec's own examples

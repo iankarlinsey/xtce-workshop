@@ -7,7 +7,7 @@ namespace Xtce.Workshop.Validation;
 /// Parses the command-side constructs that ride as preserved XML — ArgumentTypeSet,
 /// ArgumentList, ArgumentAssignmentList, ParameterToSetList, and the comparison forms
 /// inside constraints/verifiers — into lightweight records so the R05/R07/R15 rules can
-/// evaluate the argument-side candidate sites (issue #49) without expanding the object
+/// evaluate the argument-side candidate sites without expanding the object
 /// model. Argument types come back as synthetic ParameterTypeDefinitions because the
 /// XSD's Argument data types mirror the parameter ones attribute-for-attribute, letting
 /// the existing typed-value checker be reused unchanged.

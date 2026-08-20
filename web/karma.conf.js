@@ -17,7 +17,7 @@ module.exports = function (config) {
       },
     },
     browsers: ['ChromeHeadlessNoSandbox'],
-    // Coverage (issue #55): active when `ng test --code-coverage` runs. Like the
+    // Coverage: active when `ng test --code-coverage` runs. Like the
     // frameworks default above, the builder's coverage wiring is dropped by a custom
     // config, so the reporter and its ratchet thresholds live here. Floors sit under
     // the measured baseline so coverage can only rise; raise them deliberately.

@@ -3,7 +3,7 @@ namespace Xtce.Workshop.Model;
 /// <summary>
 /// An unmodeled child element captured verbatim on load (via XmlReader.ReadOuterXml) so it
 /// can be written back on save instead of being silently dropped — the core of the lossless
-/// round-trip guarantee (issue #23). ElementName is kept separately so the writer can place
+/// round-trip guarantee. ElementName is kept separately so the writer can place
 /// the fragment in its XSD-sequence-correct slot among modeled siblings.
 ///
 /// Fragments rely on the output document binding the same default namespace as the input
@@ -12,7 +12,7 @@ namespace Xtce.Workshop.Model;
 /// prefix declared on a modeled ancestor element survives because namespace-declaration
 /// attributes are captured as RawAttributes on that element.
 ///
-/// XML comments (issue #51) also travel as fragments, with ElementName == "#comment" and
+/// XML comments also travel as fragments, with ElementName == "#comment" and
 /// OuterXml holding the comment TEXT (not the &lt;!-- --&gt; markup). Anchor records where
 /// the comment sat: the local name of the sibling element it immediately preceded (the
 /// writer re-emits it just before that element's slot), CommentAnchor.Leading (emit before
@@ -23,7 +23,7 @@ namespace Xtce.Workshop.Model;
 /// </summary>
 public sealed record RawXmlFragment(string ElementName, string OuterXml, string? Anchor = null);
 
-/// <summary>The special ElementName/Anchor values used by comment fragments (issue #51).</summary>
+/// <summary>The special ElementName/Anchor values used by comment fragments.</summary>
 public static class CommentAnchor
 {
     /// <summary>ElementName marking a fragment as a comment (OuterXml = comment text).</summary>

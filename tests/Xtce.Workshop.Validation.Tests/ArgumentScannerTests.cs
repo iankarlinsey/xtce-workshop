@@ -4,7 +4,7 @@ using Xunit;
 namespace Xtce.Workshop.Validation.Tests;
 
 /// <summary>
-/// ArgumentScanner (issue #49): the fragment-parsing layer that lets R05/R07/R15 evaluate
+/// ArgumentScanner: the fragment-parsing layer that lets R05/R07/R15 evaluate
 /// command-argument candidate sites without expanding the object model.
 /// </summary>
 public class ArgumentScannerTests

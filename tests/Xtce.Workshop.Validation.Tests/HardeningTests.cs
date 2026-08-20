@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
-/// <summary>Issue #43: R15 radix literals + validator performance at scale.</summary>
+/// <summary>R15 radix literals + validator performance at scale.</summary>
 public class HardeningTests
 {
     private const string R15 = "XTCE-1.2-R15-typed-value-valid-for-type";
@@ -94,7 +94,7 @@ public class HardeningTests
         Assert.Empty(issues);
         // Generous bound (CI containers are slow); the point is catching accidental
         // quadratic blowups, not micro-benchmarks. Under coverage instrumentation
-        // (issue #55: CI sets XTCE_COVERAGE_RUN) wall-clock is meaningless — coverlet's
+        // (CI sets XTCE_COVERAGE_RUN) wall-clock is meaningless — coverlet's
         // per-branch hit tracking roughly doubles this workload — so only the functional
         // assertion applies there.
         if (Environment.GetEnvironmentVariable("XTCE_COVERAGE_RUN") is null)

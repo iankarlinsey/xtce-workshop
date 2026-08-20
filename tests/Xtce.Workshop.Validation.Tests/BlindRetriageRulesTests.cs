@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
-/// <summary>R22 and R23 — the rules recovered by the blind re-triage (issue #48).</summary>
+/// <summary>R22 (FixedValueEntry binaryValue bit length) and R23 (constant dataSource readOnly).</summary>
 public class BlindRetriageRulesTests
 {
     private const string R22 = "XTCE-1.2-R22-fixedvalue-bitlength-sufficient";

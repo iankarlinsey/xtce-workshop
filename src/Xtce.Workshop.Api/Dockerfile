@@ -15,7 +15,7 @@ RUN dotnet restore src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj
 COPY src/Xtce.Workshop.Model/ src/Xtce.Workshop.Model/
 COPY src/Xtce.Workshop.Validation/ src/Xtce.Workshop.Validation/
 COPY src/Xtce.Workshop.Api/ src/Xtce.Workshop.Api/
-# Embedded resources for the conformance report (issue #48): the triage log and the
+# Embedded resources for the conformance report: the triage log and the
 # XTCE 1.2 schemas live outside src/ and are baked into Xtce.Workshop.Validation.dll.
 COPY research/xtce-1.2-triage-log.csv research/
 COPY reference/1.2/SpaceSystem.xsd reference/1.2/xml.xsd reference/1.2/

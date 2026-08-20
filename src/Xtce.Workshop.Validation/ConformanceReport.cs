@@ -47,7 +47,7 @@ public sealed record ConformanceReport(
     IReadOnlyDictionary<string, int> Summary);
 
 /// <summary>
-/// Builds the per-candidate conformance report (issue #48): every one of the 109 Phase A
+/// Builds the per-candidate conformance report: every one of the 109 Phase A
 /// candidates gets an explicit, code-derived result — semantic candidates from executing
 /// the tagged rule checks, REDUNDANT candidates from actually running XSD validation, and
 /// non-checkable candidates listed with their recorded rationale so nothing is silently
@@ -91,7 +91,7 @@ public static class ConformanceReportBuilder
 
     /// <summary>
     /// SEMANTIC candidates whose sites are not statically reachable yet, with why. Empty
-    /// since issue #49 wired the command-argument sites through ArgumentScanner — kept so
+    /// now that every command-argument site is wired through ArgumentScanner — kept so
     /// a future rule with a genuinely unreachable site has a documented lane that renders
     /// as NOT_EVALUATED instead of silently vanishing.
     /// </summary>

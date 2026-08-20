@@ -11,8 +11,7 @@ public sealed record SearchMatch(string Kind, string SystemPath, string Name, st
 public sealed record UsageMatch(string Kind, string Location, string Detail);
 
 /// <summary>
-/// Database-wide queries (issue #53 — the ergonomics counterpart of a third-party XTCE toolkit' glob
-/// search and parameter-usage lookups): name- and alias-aware search over every named
+/// Database-wide queries: name- and alias-aware search over every named
 /// item kind, and "where used" for a parameter across containers, messages, restriction
 /// criteria, and preserved command-side fragments.
 /// </summary>

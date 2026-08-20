@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Xtce.Workshop.Validation.Tests;
 
-/// <summary>R02/R05/R06 (dimensions) plus the R11/R15 reach extensions from issue #31.</summary>
+/// <summary>R02/R05/R06 (dimensions) plus the R11/R15 reach extensions.</summary>
 public class ArrayDimensionRulesTests
 {
     private const string R02 = "XTCE-1.2-R02-array-dim-count-match-type";

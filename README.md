@@ -2,7 +2,7 @@
 
 A GUI and CLI for loading, creating, editing, validating, and visualizing XML
 files conforming to the [XTCE](https://www.omg.org/spec/XTCE) v1.2
-specification. See [`summary.md`](summary.md) for full project scope,
+specification. See the section headings below for scope,
 requirements, and the architecture decisions made along the way.
 
 **What it does today:**
@@ -116,8 +116,8 @@ npx ng test --watch=false
 `.gitea/workflows/ci.yml` runs on every push/PR to `master`: builds and
 tests both the backend and frontend, each in a digest-pinned container
 matching what's used for local Docker builds (`mcr.microsoft.com/dotnet/sdk:8.0`,
-`node:20-bookworm@sha256:...`) — see `summary.md`'s Architecture Decisions
-for why pinning by digest, not a floating tag, matters here.
+`node:20-bookworm@sha256:...`) — pinned by digest, not floating tag, so local
+builds and CI run identical toolchains.
 
 ## License
 

@@ -42,8 +42,7 @@ public sealed record DocumentMetrics(
     IReadOnlyList<SpaceSystemMetrics> Systems);
 
 /// <summary>
-/// Per-SpaceSystem and document-total counts (issue #52 — the ergonomics counterpart of
-/// a third-party XTCE toolkit' its metrics feature). PreservedFragments counts the raw-XML fragments the
+/// Per-SpaceSystem and document-total counts. PreservedFragments counts the raw-XML fragments the
 /// model carries without modeling (comments excluded) — a transparency measure of how much
 /// of the document rides opaque.
 /// </summary>

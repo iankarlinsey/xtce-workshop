@@ -4,7 +4,7 @@ using Xtce.Workshop.Validation;
 namespace Xtce.Workshop.Cli;
 
 /// <summary>
-/// The `export` command: parameters or containers as CSV (issue #54), to stdout or a file.
+/// The `export` command: parameters or containers as CSV, to stdout or a file.
 /// Exit codes: 0 = exported, 2 = unusable input/arguments.
 /// </summary>
 public static class ExportCommand

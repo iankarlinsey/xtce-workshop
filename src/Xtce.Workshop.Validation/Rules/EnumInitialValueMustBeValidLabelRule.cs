@@ -7,7 +7,7 @@ namespace Xtce.Workshop.Validation;
 /// actually appears in its EnumerationList. Both matrix citations are checked:
 /// EnumeratedDataType/initialValue on modeled parameter types (candidate #63), and
 /// ArgumentEnumeratedDataType/initialValue on EnumeratedArgumentTypes scanned out of the
-/// preserved ArgumentTypeSet (candidate #62, issue #49).
+/// preserved ArgumentTypeSet (candidate #62).
 /// </summary>
 public sealed class EnumInitialValueMustBeValidLabelRule : IValidationRule
 {

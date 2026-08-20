@@ -6,7 +6,7 @@ using Xtce.Workshop.Validation;
 namespace Xtce.Workshop.Cli;
 
 /// <summary>
-/// The `find` command: name/alias search over every named item kind (issue #53).
+/// The `find` command: name/alias search over every named item kind.
 /// Exit codes: 0 = at least one match, 1 = no matches, 2 = unusable input.
 /// </summary>
 public static class FindCommand
