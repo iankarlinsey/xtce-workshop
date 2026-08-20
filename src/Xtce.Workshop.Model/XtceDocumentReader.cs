@@ -18,6 +18,13 @@ public static class XtceDocumentReader
 {
     private const string ExpectedRootElementName = "SpaceSystem";
 
+    /// <summary>
+    /// Recursive-descent parsing means SpaceSystem nesting consumes call stack — an
+    /// adversarially deep document could otherwise crash the process (a DoS against the
+    /// API). Real XTCE hierarchies are a handful of levels; 200 is generous.
+    /// </summary>
+    private const int MaxSpaceSystemDepth = 200;
+
     private static readonly IReadOnlyDictionary<string, ParameterTypeKind> ParameterTypeElementKinds =
         new Dictionary<string, ParameterTypeKind>
         {
@@ -50,7 +57,7 @@ public static class XtceDocumentReader
                 throw new XtceParseException("The document has no root element.");
             }
 
-            return ReadSpaceSystem(reader);
+            return ReadSpaceSystem(reader, depth: 0);
         }
         catch (XmlException ex)
         {
@@ -63,8 +70,13 @@ public static class XtceDocumentReader
     /// matching end tag (or itself, if empty) — so the caller's reader ends up positioned
     /// exactly where a sibling-or-parent's own loop expects it next.
     /// </summary>
-    private static SpaceSystem ReadSpaceSystem(XmlReader reader)
+    private static SpaceSystem ReadSpaceSystem(XmlReader reader, int depth)
     {
+        if (depth >= MaxSpaceSystemDepth)
+        {
+            throw new XtceParseException(
+                $"SpaceSystem nesting exceeds the supported depth of {MaxSpaceSystemDepth}.");
+        }
         if (reader.LocalName != ExpectedRootElementName)
         {
             throw new XtceParseException(
@@ -97,7 +109,7 @@ public static class XtceDocumentReader
         {
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == ExpectedRootElementName)
             {
-                children.Add(ReadSpaceSystem(reader));
+                children.Add(ReadSpaceSystem(reader, depth + 1));
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "TelemetryMetaData")
             {

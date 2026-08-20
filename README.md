@@ -1,9 +1,29 @@
 # xtce-workshop
 
-A GUI for loading, creating, editing, and (eventually) validating XML files
-conforming to the [XTCE](https://www.omg.org/spec/XTCE) v1.2 specification.
-See [`summary.md`](summary.md) for full project scope, requirements, and the
-architecture decisions made along the way.
+A GUI and CLI for loading, creating, editing, validating, and visualizing XML
+files conforming to the [XTCE](https://www.omg.org/spec/XTCE) v1.2
+specification. See [`summary.md`](summary.md) for full project scope,
+requirements, and the architecture decisions made along the way.
+
+**What it does today:**
+
+- **Lossless editing** — load a real mission file, edit through forms (never
+  raw XML), save: everything the editor doesn't model (headers, encodings,
+  alarms, algorithms, …) is preserved verbatim, and writer output validates
+  against the actual XTCE 1.2 XSD.
+- **Editable constructs** — SpaceSystem hierarchies, all ten parameter type
+  kinds (including enumeration lists, array dimensions, aggregate members),
+  parameters, sequence containers with entry-list/packet-layout editing and
+  inheritance, messages, and meta-commands — in a searchable master-detail
+  UI.
+- **Validation** — 21 semantic rules distilled from the XSD's normative
+  documentation and CCSDS 660.1-G-2 (dangling references, inheritance
+  cycles, type/value mismatches, verifier duplication, …), each
+  adversarially verified end-to-end. Findings surface live in the editor as
+  you type, and via `xtce-workshop validate` on the command line.
+- **Visualization** — a computed static bit layout (packet visualizer) for
+  any sequence container, and an in-app XTCE reference sheet showing the
+  spec's own documentation for the selected construct.
 
 ## Quick start
 

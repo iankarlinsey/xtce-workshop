@@ -155,9 +155,50 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
         }
     }
 
+    /// <summary>
+    /// Parses an XTCE integer literal: base 10 by default, or 0b/0B (binary), 0o/0O
+    /// (octal), 0x/0X (hex) prefixed — IntegerDataType/@initialValue's own documentation
+    /// spells these out, and ComparisonType values use the same convention.
+    /// </summary>
+    internal static bool TryParseXtceInteger(string value, out long parsed)
+    {
+        parsed = 0;
+        var negative = value.StartsWith('-');
+        var digits = negative ? value[1..] : value;
+
+        try
+        {
+            if (digits.Length > 2 && digits[0] == '0')
+            {
+                var radix = char.ToLowerInvariant(digits[1]) switch
+                {
+                    'x' => 16,
+                    'o' => 8,
+                    'b' => 2,
+                    _ => 0,
+                };
+                if (radix != 0)
+                {
+                    parsed = Convert.ToInt64(digits[2..], radix);
+                    if (negative)
+                    {
+                        parsed = -parsed;
+                    }
+                    return true;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is FormatException or OverflowException or ArgumentException)
+        {
+            return false;
+        }
+
+        return long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed);
+    }
+
     private static string? DescribeInteger(ParameterTypeDefinition type, string value)
     {
-        if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        if (!TryParseXtceInteger(value, out var parsed))
         {
             return $"initialValue '{value}' is not a valid integer for its Integer type.";
         }

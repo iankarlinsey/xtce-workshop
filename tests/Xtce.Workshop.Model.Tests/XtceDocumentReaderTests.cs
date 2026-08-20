@@ -154,5 +154,46 @@ public class XtceDocumentReaderTests
         Assert.Throws<XtceParseException>(() => XtceDocumentReader.Load(stream));
     }
 
+    [Fact]
+    public void Load_AdversariallyDeepNesting_ThrowsCleanlyInsteadOfOverflowing()
+    {
+        var builder = new StringBuilder("""<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="Root">""");
+        for (var i = 0; i < 500; i++)
+        {
+            builder.Append($"""<SpaceSystem name="L{i}">""");
+        }
+        for (var i = 0; i < 500; i++)
+        {
+            builder.Append("</SpaceSystem>");
+        }
+        builder.Append("</SpaceSystem>");
+
+        using var stream = ToStream(builder.ToString());
+
+        var ex = Assert.Throws<XtceParseException>(() => XtceDocumentReader.Load(stream));
+        Assert.Contains("depth", ex.Message);
+    }
+
+    [Fact]
+    public void Load_RealisticNesting_IsUnaffectedByTheDepthGuard()
+    {
+        var builder = new StringBuilder("""<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="Root">""");
+        for (var i = 0; i < 50; i++)
+        {
+            builder.Append($"""<SpaceSystem name="L{i}">""");
+        }
+        for (var i = 0; i < 50; i++)
+        {
+            builder.Append("</SpaceSystem>");
+        }
+        builder.Append("</SpaceSystem>");
+
+        using var stream = ToStream(builder.ToString());
+
+        var result = XtceDocumentReader.Load(stream);
+
+        Assert.Equal("Root", result.Name);
+    }
+
     private static MemoryStream ToStream(string xml) => new(Encoding.UTF8.GetBytes(xml));
 }
