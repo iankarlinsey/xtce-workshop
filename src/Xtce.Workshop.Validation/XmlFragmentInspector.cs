@@ -49,6 +49,55 @@ public static class XmlFragmentInspector
     }
 
     /// <summary>
+    /// The statically-known encoded size of a data-encoding fragment, in bits (packet
+    /// visualizer). Returns (sizeInBits, isVariableUpperBound): a Variable string's
+    /// maxSizeInBits comes back as an upper bound with the flag set; null size means not
+    /// statically determinable. Handles the four *DataEncoding forms and the time types'
+    /// Encoding wrapper (whose inner encoding carries the size).
+    /// </summary>
+    public static (long? SizeInBits, bool IsVariable) FindEncodedSizeInBits(string outerXml)
+    {
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
+            string? pendingStringForm = null;
+            while (reader.Read())
+            {
+                if (reader.NodeType != XmlNodeType.Element)
+                {
+                    continue;
+                }
+                switch (reader.LocalName)
+                {
+                    case "IntegerDataEncoding":
+                        return (long.TryParse(reader.GetAttribute("sizeInBits"), out var i) ? i : 8, false);
+                    case "FloatDataEncoding":
+                        return (long.TryParse(reader.GetAttribute("sizeInBits"), out var f) ? f : 32, false);
+                    case "StringDataEncoding":
+                        pendingStringForm = "string";
+                        break;
+                    case "BinaryDataEncoding":
+                        pendingStringForm = "binary";
+                        break;
+                    case "Variable" when pendingStringForm == "string":
+                        return (long.TryParse(reader.GetAttribute("maxSizeInBits"), out var v) ? v : null, true);
+                    case "FixedValue" when pendingStringForm is "string" or "binary":
+                        return (long.TryParse(reader.ReadElementContentAsString(), out var s) ? s : null, false);
+                    case "DynamicValue" or "DiscreteLookupList" when pendingStringForm == "binary":
+                        return (null, true);
+                }
+            }
+        }
+        catch (XmlException)
+        {
+        }
+
+        return (null, false);
+    }
+
+    /// <summary>
     /// One StringDataEncoding found in a fragment: which length form it uses and which
     /// optional length markers are present inside that form (rule R17).
     /// </summary>

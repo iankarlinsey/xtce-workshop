@@ -41,7 +41,21 @@ app.MapPost("/api/xtce/validate", (SpaceSystem spaceSystem) =>
     return Results.Ok(new { validationIssues });
 });
 
+app.MapPost("/api/xtce/layout", (LayoutRequest request) =>
+{
+    var layout = PacketLayoutBuilder.Build(
+        XtceDocumentNormalizer.Normalize(request.Document),
+        request.SystemPath ?? [],
+        request.ContainerName);
+    return layout is null
+        ? Results.NotFound(new { error = "Container not found." })
+        : Results.Ok(layout);
+});
+
 app.Run();
 
 // Exposed so Xtce.Workshop.Api.Tests can spin this app up via WebApplicationFactory<Program>.
 public partial class Program { }
+
+/// <summary>Request body for /api/xtce/layout.</summary>
+public sealed record LayoutRequest(SpaceSystem Document, string ContainerName, int[]? SystemPath = null);

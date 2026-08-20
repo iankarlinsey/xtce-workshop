@@ -419,3 +419,64 @@
   padding: 1px 5px;
   margin-right: 6px;
 }
+
+.bit-strip {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+  height: 34px;
+}
+
+.bit-cell {
+  flex-basis: 0;
+  min-width: 14px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bit-cell.bit-unknown {
+  background: repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 4px, var(--border) 4px, var(--border) 8px);
+  border-color: var(--border);
+}
+
+.bit-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+}
+
+.layout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  margin-bottom: 6px;
+}
+
+.layout-table th {
+  text-align: left;
+  color: var(--text-faint);
+  font-weight: 500;
+  padding: 2px 8px 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.layout-table td {
+  padding: 3px 8px 3px 0;
+  color: var(--text);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.layout-note {
+  color: var(--text-faint);
+  font-size: 10.5px;
+}

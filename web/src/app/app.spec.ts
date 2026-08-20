@@ -874,6 +874,60 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('Compute layout fetches and renders the packet layout for the selected container', () => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Frame');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const computeButton = Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Compute layout'
+      ) as HTMLButtonElement;
+      computeButton.click();
+
+      const req = httpMock.expectOne('/api/xtce/layout');
+      expect(req.request.body.containerName).toBe('Frame');
+      req.flush({
+        rows: [
+          { name: 'BusVoltage', kind: 'parameter', sourceContainer: 'Frame', offsetInBits: 0, sizeInBits: 32, isVariable: false, note: null },
+          { name: 'Mystery', kind: 'parameter', sourceContainer: 'Frame', offsetInBits: 32, sizeInBits: null, isVariable: false, note: 'no statically-known encoding' },
+        ],
+        totalSizeInBits: null,
+      });
+      fixture.detectChanges();
+
+      expect(compiled.querySelectorAll('.bit-cell').length).toBe(2);
+      expect(compiled.querySelector('.bit-cell.bit-unknown')).toBeTruthy();
+      expect(compiled.querySelector('.layout-table')?.textContent).toContain('BusVoltage');
+      expect(compiled.textContent).toContain('not statically known');
+    });
+
+    it('editing the document invalidates a computed layout', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Frame');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Compute layout'
+      ) as HTMLButtonElement).click();
+      httpMock.expectOne('/api/xtce/layout').flush({ rows: [
+        { name: 'BusVoltage', kind: 'parameter', sourceContainer: 'Frame', offsetInBits: 0, sizeInBits: 32, isVariable: false, note: null },
+      ], totalSizeInBits: 32 });
+      fixture.detectChanges();
+      expect(compiled.querySelector('.layout-table')).toBeTruthy();
+
+      const nameInput = compiled.querySelector('#container-name') as HTMLInputElement;
+      nameInput.value = 'RenamedFrame';
+      nameInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+      fixture.detectChanges();
+
+      expect(compiled.querySelector('.layout-table')).toBeNull();
+      expect(compiled.textContent).toContain('Compute layout');
+    }));
+
     it('preserved (unmodeled) document content passes through edits into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

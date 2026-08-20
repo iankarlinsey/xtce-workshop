@@ -295,6 +295,41 @@
           }
         </div>
 
+        <div class="form-field">
+          <label>Packet layout <span class="hint">(static best-effort; parent entries first)</span></label>
+          @if (packetLayout(); as layout) {
+            @if (layout.rows.length === 0) {
+              <p class="meta-text">No layout could be computed.</p>
+            } @else {
+              <div class="bit-strip">
+                @for (row of layout.rows; track $index) {
+                  <div class="bit-cell" [class.bit-unknown]="row.sizeInBits === null" [style.flex-grow]="row.sizeInBits ?? 8"
+                       [title]="row.name + ' (' + (row.sizeInBits ?? '?') + ' bits)'">
+                    <span class="bit-label">{{ row.name }}</span>
+                  </div>
+                }
+              </div>
+              <table class="layout-table">
+                <thead><tr><th>off</th><th>bits</th><th>entry</th><th>from</th><th></th></tr></thead>
+                <tbody>
+                  @for (row of layout.rows; track $index) {
+                    <tr>
+                      <td>{{ row.offsetInBits ?? '?' }}</td>
+                      <td>{{ row.sizeInBits ?? '?' }}{{ row.isVariable ? ' max' : '' }}</td>
+                      <td>{{ row.name }}</td>
+                      <td>{{ row.sourceContainer }}</td>
+                      <td class="layout-note">{{ row.note ?? '' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+              <p class="meta-text">Total: {{ layout.totalSizeInBits === null ? 'not statically known' : layout.totalSizeInBits + ' bits' }}</p>
+            }
+          } @else {
+            <button type="button" class="btn" (click)="onComputeLayout()">Compute layout</button>
+          }
+        </div>
+
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>

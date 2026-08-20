@@ -27,7 +27,7 @@ import {
   collectMetaCommandNames,
   moveEntry,
 } from './document-tree';
-import { ValidationIssue } from './validation';
+import { ValidationIssue, PacketLayout } from './validation';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
 
@@ -59,6 +59,7 @@ export class App {
   protected readonly selection = signal<Selection | null>(null);
   protected readonly saveError = signal<string | null>(null);
   protected readonly validationIssues = signal<ValidationIssue[]>([]);
+  protected readonly packetLayout = signal<PacketLayout | null>(null);
 
   protected readonly selectedSystem = computed(() => {
     const doc = this.currentDocument();
@@ -194,6 +195,24 @@ export class App {
 
   onSelect(selection: Selection): void {
     this.selection.set(selection);
+    this.packetLayout.set(null); // layouts are per-container and computed on demand
+  }
+
+  onComputeLayout(): void {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    const container = this.selectedContainer();
+    if (!doc || !selection || !container) {
+      return;
+    }
+    this.http.post<PacketLayout>('/api/xtce/layout', {
+      document: doc,
+      containerName: container.name,
+      systemPath: selection.systemPath,
+    }).subscribe({
+      next: (layout) => this.packetLayout.set(layout),
+      error: () => this.packetLayout.set({ rows: [], totalSizeInBits: null }),
+    });
   }
 
   // --- SpaceSystem editing -------------------------------------------------------------
@@ -569,6 +588,7 @@ export class App {
   /** Every document mutation flows through here so revalidation can't be forgotten. */
   private setDocument(doc: SpaceSystemDocument): void {
     this.currentDocument.set(doc);
+    this.packetLayout.set(null); // any edit invalidates a computed layout
     this.scheduleRevalidate();
   }
 
