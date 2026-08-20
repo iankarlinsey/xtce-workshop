@@ -26,9 +26,18 @@
           Load
           <input type="file" accept=".xml" (change)="onFileSelected($event)" />
         </label>
-        <button type="button" class="btn" (click)="onNewDocument()">New&hellip;</button>
+        <button type="button" class="btn" (click)="onOpenCreator('document')">New&hellip;</button>
         <button type="button" class="btn btn-primary" (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</button>
       </div>
+
+      @if (creating() === 'document') {
+        <div class="creator-row">
+          <input #newDocName class="entry-ref" placeholder="SpaceSystem name" aria-label="New document name"
+                 (keydown.enter)="onCreateDocument(newDocName)" (keydown.escape)="onCancelCreator()" />
+          <button type="button" class="btn btn-primary" (click)="onCreateDocument(newDocName)">Create</button>
+          <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+        </div>
+      }
 
       @if (selectedFileName()) {
         <p class="meta-text">Selected: {{ selectedFileName() }}</p>
@@ -85,33 +94,92 @@
         </div>
 
         <div class="node-actions">
-          <button type="button" class="btn" (click)="onAddChildToSelected()">+ Add child</button>
-          <button type="button" class="btn" (click)="onAddParameter()">+ Add parameter</button>
-          <button type="button" class="btn" (click)="onAddContainer()">+ Add container</button>
-          <button type="button" class="btn" (click)="onAddMessage()">+ Add message</button>
-          <button type="button" class="btn" (click)="onAddMetaCommand()">+ Add command</button>
+          <button type="button" class="btn" (click)="onOpenCreator('child')">+ Add child</button>
+          <button type="button" class="btn" (click)="onOpenCreator('parameterType')">+ Add parameter type</button>
+          <button type="button" class="btn" (click)="onOpenCreator('parameter')">+ Add parameter</button>
+          <button type="button" class="btn" (click)="onOpenCreator('container')">+ Add container</button>
+          <button type="button" class="btn" (click)="onOpenCreator('message')">+ Add message</button>
+          <button type="button" class="btn" (click)="onOpenCreator('metaCommand')">+ Add command</button>
           @if (!isRootSelected()) {
             <button type="button" class="btn btn-danger" (click)="onDeleteSelected()">Delete</button>
           }
         </div>
 
-        <app-preserved-xml [item]="system" />
+        @switch (creating()) {
+          @case ('child') {
+            <div class="creator-row">
+              <input #childName class="entry-ref" placeholder="child SpaceSystem name" aria-label="New child name"
+                     (keydown.enter)="onCreateChild(childName)" (keydown.escape)="onCancelCreator()" />
+              <button type="button" class="btn btn-primary" (click)="onCreateChild(childName)">Create</button>
+              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+            </div>
+          }
+          @case ('parameterType') {
+            <div class="creator-row">
+              <input #typeName class="entry-ref" placeholder="type name" aria-label="New type name"
+                     (keydown.escape)="onCancelCreator()" />
+              <select #typeKind class="kind-select" aria-label="New parameter type kind">
+                <option value="Integer">Integer</option>
+                <option value="Float">Float</option>
+                <option value="String">String</option>
+                <option value="Boolean">Boolean</option>
+                <option value="Enumerated">Enumerated</option>
+                <option value="Binary">Binary</option>
+                <option value="RelativeTime">RelativeTime</option>
+                <option value="AbsoluteTime">AbsoluteTime</option>
+                <option value="Array">Array</option>
+                <option value="Aggregate">Aggregate</option>
+              </select>
+              <input #typeRef class="entry-ref" list="known-type-names" placeholder="element/member type (Array/Aggregate)"
+                     aria-label="New type element or member ref" (keydown.escape)="onCancelCreator()" />
+              <button type="button" class="btn btn-primary" (click)="onCreateParameterType(typeName, typeKind, typeRef)">Create</button>
+              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+            </div>
+          }
+          @case ('parameter') {
+            <div class="creator-row">
+              <input #paramName class="entry-ref" placeholder="parameter name" aria-label="New parameter name"
+                     (keydown.escape)="onCancelCreator()" />
+              <input #paramTypeRef class="entry-ref" list="known-type-names" placeholder="parameterTypeRef"
+                     aria-label="New parameter type ref" (keydown.enter)="onCreateParameter(paramName, paramTypeRef)" (keydown.escape)="onCancelCreator()" />
+              <button type="button" class="btn btn-primary" (click)="onCreateParameter(paramName, paramTypeRef)">Create</button>
+              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+            </div>
+          }
+          @case ('container') {
+            <div class="creator-row">
+              <input #containerName class="entry-ref" placeholder="container name" aria-label="New container name"
+                     (keydown.enter)="onCreateContainer(containerName)" (keydown.escape)="onCancelCreator()" />
+              <button type="button" class="btn btn-primary" (click)="onCreateContainer(containerName)">Create</button>
+              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+            </div>
+          }
+          @case ('message') {
+            <div class="creator-row">
+              <input #messageName class="entry-ref" placeholder="message name" aria-label="New message name"
+                     (keydown.escape)="onCancelCreator()" />
+              <input #messageContainer class="entry-ref" list="known-container-names" placeholder="containerRef"
+                     aria-label="New message container ref" (keydown.escape)="onCancelCreator()" />
+              <input #messageMatchParam class="entry-ref" list="known-parameter-names" placeholder="match parameter"
+                     aria-label="New message match parameter" (keydown.escape)="onCancelCreator()" />
+              <input #messageMatchValue class="entry-ref creator-narrow" placeholder="match value"
+                     aria-label="New message match value" (keydown.escape)="onCancelCreator()" />
+              <button type="button" class="btn btn-primary"
+                      (click)="onCreateMessage(messageName, messageContainer, messageMatchParam, messageMatchValue)">Create</button>
+              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+            </div>
+          }
+          @case ('metaCommand') {
+            <div class="creator-row">
+              <input #commandName class="entry-ref" placeholder="command name" aria-label="New command name"
+                     (keydown.enter)="onCreateMetaCommand(commandName)" (keydown.escape)="onCancelCreator()" />
+              <button type="button" class="btn btn-primary" (click)="onCreateMetaCommand(commandName)">Create</button>
+              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+            </div>
+          }
+        }
 
-        <div class="node-actions add-type-row">
-          <select #newTypeKind class="kind-select" aria-label="New parameter type kind">
-            <option value="Integer">Integer</option>
-            <option value="Float">Float</option>
-            <option value="String">String</option>
-            <option value="Boolean">Boolean</option>
-            <option value="Enumerated">Enumerated</option>
-            <option value="Binary">Binary</option>
-            <option value="RelativeTime">RelativeTime</option>
-            <option value="AbsoluteTime">AbsoluteTime</option>
-            <option value="Array">Array</option>
-            <option value="Aggregate">Aggregate</option>
-          </select>
-          <button type="button" class="btn" (click)="onAddParameterType(newTypeKind)">+ Add parameter type</button>
-        </div>
+        <app-preserved-xml [item]="system" />
       } @else if (selectedParameterType(); as type) {
         <div class="node-title">
           <span>{{ type.name }}</span>

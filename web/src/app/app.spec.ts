@@ -19,6 +19,26 @@ describe('App', () => {
     httpMock.verify();
   });
 
+  function createDocumentInline(fixture: ReturnType<typeof TestBed.createComponent<App>>, name: string | null) {
+    const compiled = fixture.nativeElement as HTMLElement;
+    (Array.from(compiled.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('New')
+    ) as HTMLButtonElement).click();
+    fixture.detectChanges();
+    if (name === null) {
+      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+        (b) => b.textContent?.trim() === 'Cancel'
+      ) as HTMLButtonElement).click();
+    } else {
+      const input = compiled.querySelector('input[aria-label="New document name"]') as HTMLInputElement;
+      input.value = name;
+      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+        (b) => b.textContent?.trim() === 'Create'
+      ) as HTMLButtonElement).click();
+    }
+    fixture.detectChanges();
+  }
+
   function createAppAndFlushHealth() {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
@@ -218,34 +238,34 @@ describe('App', () => {
   });
 
   describe('New / Save', () => {
-    it('creates a blank document, selects its root, and shows it in the main panel', () => {
+    it('creates a blank document via the inline creator, selects its root', () => {
       const fixture = createAppAndFlushHealth();
-      spyOn(window, 'prompt').and.returnValue('Mission');
-
-      fixture.componentInstance.onNewDocument();
       fixture.detectChanges();
+
+      createDocumentInline(fixture, 'Mission');
 
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('.node-title')?.textContent).toContain('Mission');
+      expect(compiled.querySelector('.creator-row')).toBeNull(); // creator closes on create
     });
 
-    it('does nothing when the name prompt is cancelled', () => {
+    it('cancelling the inline creator leaves no document', () => {
       const fixture = createAppAndFlushHealth();
-      spyOn(window, 'prompt').and.returnValue(null);
-
-      fixture.componentInstance.onNewDocument();
       fixture.detectChanges();
+
+      createDocumentInline(fixture, null);
 
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('.node-title')).toBeNull();
+      expect(compiled.querySelector('.creator-row')).toBeNull();
     });
 
     it('posts the current document and triggers a download on save', () => {
       const fixture = createAppAndFlushHealth();
-      spyOn(window, 'prompt').and.returnValue('Mission');
+      fixture.detectChanges();
       const clickSpy = spyOn(HTMLAnchorElement.prototype, 'click');
 
-      fixture.componentInstance.onNewDocument();
+      createDocumentInline(fixture, 'Mission');
       fixture.componentInstance.onSaveDocument();
 
       const req = httpMock.expectOne('/api/xtce/save');
@@ -257,9 +277,9 @@ describe('App', () => {
 
     it('shows an error if saving fails', () => {
       const fixture = createAppAndFlushHealth();
-      spyOn(window, 'prompt').and.returnValue('Mission');
+      fixture.detectChanges();
 
-      fixture.componentInstance.onNewDocument();
+      createDocumentInline(fixture, 'Mission');
       fixture.componentInstance.onSaveDocument();
 
       httpMock.expectOne('/api/xtce/save').flush('error', { status: 500, statusText: 'Server Error' });
@@ -356,13 +376,17 @@ describe('App', () => {
     it('Add child on the selected node adds a child and is reflected in Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadNestedDocument(fixture); // root (Mission) is selected by default
-      spyOn(window, 'prompt').and.returnValue('NewSub');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const addButton = Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('button')).find(
         (b) => b.textContent?.trim() === '+ Add child'
-      ) as HTMLButtonElement;
-      addButton.click();
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const nameInput = compiled.querySelector('input[aria-label="New child name"]') as HTMLInputElement;
+      nameInput.value = 'NewSub';
+      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+        (b) => b.textContent?.trim() === 'Create'
+      ) as HTMLButtonElement).click();
       fixture.detectChanges();
       flushRevalidate();
 
@@ -495,15 +519,17 @@ describe('App', () => {
     it('adding a parameter type through the kind picker appears in the tree and Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture); // root selected
-      spyOn(window, 'prompt').and.returnValue('Flag_Type');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const kindSelect = compiled.querySelector('.kind-select') as HTMLSelectElement;
-      kindSelect.value = 'Boolean';
-      const addTypeButton = Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('button')).find(
         (b) => b.textContent?.trim() === '+ Add parameter type'
-      ) as HTMLButtonElement;
-      addTypeButton.click();
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (compiled.querySelector('input[aria-label="New type name"]') as HTMLInputElement).value = 'Flag_Type';
+      (compiled.querySelector('select[aria-label="New parameter type kind"]') as HTMLSelectElement).value = 'Boolean';
+      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+        (b) => b.textContent?.trim() === 'Create'
+      ) as HTMLButtonElement).click();
       fixture.detectChanges();
       flushRevalidate();
 
@@ -767,16 +793,18 @@ describe('App', () => {
     it('creating an Array type via the picker prompts for the element type and seeds one dimension', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture); // root selected
-      const prompts = ['NewArray', 'Volt_Type'];
-      spyOn(window, 'prompt').and.callFake(() => prompts.shift() ?? null);
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const kindSelect = compiled.querySelector('.kind-select') as HTMLSelectElement;
-      kindSelect.value = 'Array';
-      const addTypeButton = Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('button')).find(
         (b) => b.textContent?.trim() === '+ Add parameter type'
-      ) as HTMLButtonElement;
-      addTypeButton.click();
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (compiled.querySelector('input[aria-label="New type name"]') as HTMLInputElement).value = 'NewArray';
+      (compiled.querySelector('select[aria-label="New parameter type kind"]') as HTMLSelectElement).value = 'Array';
+      (compiled.querySelector('input[aria-label="New type element or member ref"]') as HTMLInputElement).value = 'Volt_Type';
+      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+        (b) => b.textContent?.trim() === 'Create'
+      ) as HTMLButtonElement).click();
       fixture.detectChanges();
       flushRevalidate();
 
@@ -858,13 +886,17 @@ describe('App', () => {
     it('adding a command creates it under commandMetaData in Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadNestedDocument(fixture); // no commandMetaData yet; root selected
-      spyOn(window, 'prompt').and.returnValue('NewCmd');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const addCommand = Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('button')).find(
         (b) => b.textContent?.trim() === '+ Add command'
-      ) as HTMLButtonElement;
-      addCommand.click();
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const nameInput = compiled.querySelector('input[aria-label="New command name"]') as HTMLInputElement;
+      nameInput.value = 'NewCmd';
+      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+        (b) => b.textContent?.trim() === 'Create'
+      ) as HTMLButtonElement).click();
       fixture.detectChanges();
       flushRevalidate();
 

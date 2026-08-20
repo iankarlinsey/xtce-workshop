@@ -59,6 +59,11 @@ export class App {
   protected readonly loadError = signal<string | null>(null);
   protected readonly treeSearchTerm = signal('');
 
+  /** Which inline creator row is open (one at a time), or null. */
+  protected readonly creating = signal<
+    'document' | 'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType' | null
+  >(null);
+
   protected readonly currentDocument = signal<SpaceSystemDocument | null>(null);
   protected readonly selection = signal<Selection | null>(null);
   protected readonly saveError = signal<string | null>(null);
@@ -210,16 +215,24 @@ export class App {
     });
   }
 
-  onNewDocument(): void {
-    const name = window.prompt('Name for the new SpaceSystem:');
+  onOpenCreator(kind: 'document' | 'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType'): void {
+    this.creating.set(this.creating() === kind ? null : kind);
+  }
+
+  onCancelCreator(): void {
+    this.creating.set(null);
+  }
+
+  onCreateDocument(nameInput: HTMLInputElement): void {
+    const name = nameInput.value.trim();
     if (!name) {
       return;
     }
-
     this.currentDocument.set({ name, children: [] });
     this.selection.set({ systemPath: [] });
     this.saveError.set(null);
     this.validationIssues.set([]);
+    this.creating.set(null);
   }
 
   onSelect(selection: Selection): void {
@@ -251,8 +264,8 @@ export class App {
     this.mutateSelectedSystem((system) => ({ ...system, name: input.value }));
   }
 
-  onAddChildToSelected(): void {
-    const name = window.prompt('Name for the new child SpaceSystem:');
+  onCreateChild(nameInput: HTMLInputElement): void {
+    const name = nameInput.value.trim();
     if (!name) {
       return;
     }
@@ -260,6 +273,7 @@ export class App {
       ...system,
       children: [...system.children, { name, children: [] }],
     }));
+    this.creating.set(null);
   }
 
   onDeleteSelected(): void {
@@ -273,33 +287,33 @@ export class App {
     this.selection.set({ systemPath: selection.systemPath.slice(0, -1) });
   }
 
-  onAddParameterType(kindSelect: HTMLSelectElement): void {
-    const name = window.prompt('Name for the new parameter type:');
+  onCreateParameterType(nameInput: HTMLInputElement, kindSelect: HTMLSelectElement, refInput: HTMLInputElement): void {
+    const name = nameInput.value.trim();
     if (!name) {
       return;
     }
     const kind = kindSelect.value as ParameterTypeKind;
+    const reference = refInput.value.trim();
     const item: ParameterTypeDoc = { name, kind };
     if (kind === 'Enumerated') {
       item.enumerations = [];
     } else if (kind === 'Array') {
-      // arrayTypeRef is required and an empty one wouldn't validate — prompt for it and
-      // seed one 0..0 dimension (DimensionList requires at least one).
-      const elementType = window.prompt('Element type ref (arrayTypeRef):');
-      if (!elementType) {
+      // arrayTypeRef is required and an empty one wouldn't validate; seed one 0..0
+      // dimension (DimensionList requires at least one).
+      if (!reference) {
         return;
       }
-      item.arrayTypeRef = elementType;
+      item.arrayTypeRef = reference;
       item.dimensions = [{ startingIndex: { fixedValue: 0 }, endingIndex: { fixedValue: 0 } }];
     } else if (kind === 'Aggregate') {
       // MemberList requires at least one Member with a valid typeRef.
-      const memberType = window.prompt('Type ref for the first member:');
-      if (!memberType) {
+      if (!reference) {
         return;
       }
-      item.members = [{ name: 'field1', typeRef: memberType }];
+      item.members = [{ name: 'field1', typeRef: reference }];
     }
     this.addToSelectedSystem('parameterType', item);
+    this.creating.set(null);
   }
 
   // --- Array dimensions editing ---------------------------------------------------------
@@ -372,52 +386,54 @@ export class App {
     });
   }
 
-  onAddParameter(): void {
-    const name = window.prompt('Name for the new parameter:');
+  onCreateParameter(nameInput: HTMLInputElement, typeRefInput: HTMLInputElement): void {
+    const name = nameInput.value.trim();
     if (!name) {
       return;
     }
-    const typeRef = window.prompt('parameterTypeRef (name of a parameter type):') ?? '';
-    this.addToSelectedSystem('parameter', { name, parameterTypeRef: typeRef });
+    this.addToSelectedSystem('parameter', { name, parameterTypeRef: typeRefInput.value.trim() });
+    this.creating.set(null);
   }
 
-  onAddContainer(): void {
-    const name = window.prompt('Name for the new container:');
+  onCreateContainer(nameInput: HTMLInputElement): void {
+    const name = nameInput.value.trim();
     if (!name) {
       return;
     }
     this.addToSelectedSystem('container', { name, entryList: [] });
+    this.creating.set(null);
   }
 
-  onAddMessage(): void {
-    const name = window.prompt('Name for the new message:');
-    if (!name) {
-      return;
+  onCreateMessage(
+    nameInput: HTMLInputElement,
+    containerRefInput: HTMLInputElement,
+    matchParameterInput: HTMLInputElement,
+    matchValueInput: HTMLInputElement
+  ): void {
+    const name = nameInput.value.trim();
+    const matchParameter = matchParameterInput.value.trim();
+    if (!name || !matchParameter) {
+      return; // MessageType REQUIRES a MatchCriteria — a match parameter is mandatory.
     }
-    const containerRef = window.prompt('containerRef (root container this message identifies):') ?? '';
-    // MessageType REQUIRES a MatchCriteria — seed a schema-valid one as a preserved
-    // fragment so the saved XML validates (criteria editing is future work).
-    const matchParameter = window.prompt('Match parameter (parameterRef for the MatchCriteria comparison):');
-    if (!matchParameter) {
-      return;
-    }
-    const matchValue = window.prompt('Match value:') ?? '0';
+    const matchValue = matchValueInput.value.trim() || '0';
     this.addToSelectedSystem('message', {
       name,
-      containerRef,
+      containerRef: containerRefInput.value.trim(),
       preserved: [{
         elementName: 'MatchCriteria',
         outerXml: `<MatchCriteria xmlns="http://www.omg.org/spec/XTCE/20180204"><Comparison parameterRef="${matchParameter}" value="${matchValue}"/></MatchCriteria>`,
       }],
     });
+    this.creating.set(null);
   }
 
-  onAddMetaCommand(): void {
-    const name = window.prompt('Name for the new command:');
+  onCreateMetaCommand(nameInput: HTMLInputElement): void {
+    const name = nameInput.value.trim();
     if (!name) {
       return;
     }
     this.addToSelectedSystem('metaCommand', { name });
+    this.creating.set(null);
   }
 
   // --- Telemetry item editing ----------------------------------------------------------

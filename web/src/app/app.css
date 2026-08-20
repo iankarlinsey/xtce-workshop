@@ -532,3 +532,20 @@
   font-weight: 500;
   margin-bottom: 8px;
 }
+
+.creator-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--accent-dim);
+  border-radius: 5px;
+}
+
+.creator-row .creator-narrow {
+  flex: 0 1 110px;
+  min-width: 90px;
+}
