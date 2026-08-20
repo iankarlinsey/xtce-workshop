@@ -8,11 +8,23 @@ namespace Xtce.Workshop.Api.Controllers;
 [Route("api/xtce")]
 public sealed class XtceAnalysisController : ControllerBase
 {
+    private readonly ILogger<XtceAnalysisController> _logger;
+
+    public XtceAnalysisController(ILogger<XtceAnalysisController> logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>The full per-candidate conformance report.</summary>
     [HttpPost("report")]
     public IActionResult Report([FromBody] SpaceSystem spaceSystem)
     {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var report = ConformanceReportBuilder.Build(XtceDocumentNormalizer.Normalize(spaceSystem));
+        var failed = report.Candidates.Count(c => c.Status is CandidateStatus.Fail or CandidateStatus.SchemaFail);
+        _logger.LogInformation(
+            "Report for {Document}: schemaValid={SchemaValid}, {FailCount} failing candidate(s) in {ElapsedMs} ms",
+            spaceSystem.Name, report.SchemaValid, failed, stopwatch.ElapsedMilliseconds);
         return Ok(report);
     }
 

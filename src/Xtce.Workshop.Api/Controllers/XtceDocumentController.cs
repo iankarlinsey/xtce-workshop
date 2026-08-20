@@ -8,6 +8,13 @@ namespace Xtce.Workshop.Api.Controllers;
 [Route("api/xtce")]
 public sealed class XtceDocumentController : ControllerBase
 {
+    private readonly ILogger<XtceDocumentController> _logger;
+
+    public XtceDocumentController(ILogger<XtceDocumentController> logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>Loads an uploaded XTCE file into the editable document model.</summary>
     [HttpPost("load")]
     public async Task<IActionResult> Load(IFormFile file)
@@ -16,13 +23,19 @@ public sealed class XtceDocumentController : ControllerBase
 
         try
         {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             var spaceSystem = XtceDocumentReader.Load(stream);
             var tree = TreeNode.FromSpaceSystem(spaceSystem);
             var validationIssues = XtceValidator.Validate(spaceSystem);
+            _logger.LogInformation(
+                "Loaded {Document} ({SizeBytes} bytes): {IssueCount} validation issue(s) in {ElapsedMs} ms",
+                spaceSystem.Name, file.Length, validationIssues.Count, stopwatch.ElapsedMilliseconds);
             return Ok(new { name = spaceSystem.Name, tree, document = spaceSystem, validationIssues });
         }
         catch (XtceParseException ex)
         {
+            _logger.LogWarning("Rejected unloadable file {FileName} ({SizeBytes} bytes): {Reason}",
+                file.FileName, file.Length, ex.Message);
             return BadRequest(new { error = ex.Message });
         }
     }

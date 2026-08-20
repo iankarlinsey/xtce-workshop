@@ -1,6 +1,13 @@
 using System.Text.Json.Serialization;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog is wired only here; application code depends on ILogger<T> exclusively.
+// Sinks/levels come from the Serilog configuration section (env-overridable, e.g.
+// Serilog__MinimumLevel__Default=Debug), defaulting to single-line JSON on stdout.
+builder.Host.UseSerilog((context, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration));
 
 // Enums (ParameterTypeKind, ValidationSeverity) serialize as their string name, not the
 // underlying int — self-documenting over the wire, and nothing depends on the numeric form.
@@ -15,6 +22,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options 
 
 var app = builder.Build();
 
+app.UseSerilogRequestLogging();
 app.MapControllers();
 
 app.Run();
