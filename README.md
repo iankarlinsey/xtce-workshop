@@ -118,3 +118,14 @@ tests both the backend and frontend, each in a digest-pinned container
 matching what's used for local Docker builds (`mcr.microsoft.com/dotnet/sdk:8.0`,
 `node:20-bookworm@sha256:...`) — see `summary.md`'s Architecture Decisions
 for why pinning by digest, not a floating tag, matters here.
+
+## License
+
+xtce-workshop is licensed under the [MIT License](LICENSE).
+
+Two bundled third-party files are NOT covered by that license and keep their
+own terms: `reference/*/SpaceSystem.xsd` (the OMG XTCE XML Schema, used under
+the XTCE specification's implementation grant — XTCE is published under OMG's
+royalty-free RF-Limited IPR mode) and `reference/1.2/xml.xsd` (W3C, under the
+W3C Software License). The specification documents themselves are not
+redistributed here — see `reference/README.md`.
