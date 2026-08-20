@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204"
+             name="DemoSat"
+             shortDescription="Comprehensive demo mission exercising every modeled construct"
+             operationalStatus="demo">
+  <LongDescription>A small but complete mission database: every parameter type kind,
+container inheritance with restriction criteria, messages, and commands with
+verifiers. Validates clean (zero findings) by construction.</LongDescription>
+  <Header validationStatus="Test" version="1.0" date="2026-08-19"/>
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <IntegerParameterType name="ApidType" signed="false" sizeInBits="11">
+        <IntegerDataEncoding encoding="unsigned" sizeInBits="11"/>
+      </IntegerParameterType>
+      <IntegerParameterType name="CounterType" signed="false" sizeInBits="14">
+        <IntegerDataEncoding encoding="unsigned" sizeInBits="14"/>
+      </IntegerParameterType>
+      <FloatParameterType name="VoltageType" sizeInBits="32" initialValue="28.0">
+        <UnitSet><Unit description="volts">V</Unit></UnitSet>
+        <FloatDataEncoding sizeInBits="32"/>
+      </FloatParameterType>
+      <StringParameterType name="LabelType" initialValue="unset">
+        <StringDataEncoding><SizeInBits><Fixed><FixedValue>64</FixedValue></Fixed></SizeInBits></StringDataEncoding>
+      </StringParameterType>
+      <BooleanParameterType name="HeaterType" oneStringValue="On" zeroStringValue="Off" initialValue="Off">
+        <IntegerDataEncoding encoding="unsigned" sizeInBits="1"/>
+      </BooleanParameterType>
+      <EnumeratedParameterType name="ModeType" initialValue="SAFE">
+        <IntegerDataEncoding encoding="unsigned" sizeInBits="3"/>
+        <EnumerationList>
+          <Enumeration value="0" label="SAFE" shortDescription="safe hold"/>
+          <Enumeration value="1" label="NOMINAL"/>
+          <Enumeration value="2" maxValue="4" label="SCIENCE"/>
+        </EnumerationList>
+      </EnumeratedParameterType>
+      <BinaryParameterType name="DigestType" initialValue="DEADBEEF">
+        <BinaryDataEncoding><SizeInBits><FixedValue>32</FixedValue></SizeInBits></BinaryDataEncoding>
+      </BinaryParameterType>
+      <RelativeTimeParameterType name="UptimeType" initialValue="PT0S">
+        <Encoding units="seconds"><IntegerDataEncoding sizeInBits="32" encoding="unsigned"/></Encoding>
+      </RelativeTimeParameterType>
+      <AbsoluteTimeParameterType name="MissionTimeType">
+        <Encoding units="seconds"><IntegerDataEncoding sizeInBits="32" encoding="unsigned"/></Encoding>
+      </AbsoluteTimeParameterType>
+      <ArrayParameterType name="WheelSpeedArrayType" arrayTypeRef="CounterType">
+        <DimensionList>
+          <Dimension><StartingIndex><FixedValue>0</FixedValue></StartingIndex><EndingIndex><FixedValue>3</FixedValue></EndingIndex></Dimension>
+        </DimensionList>
+      </ArrayParameterType>
+      <AggregateParameterType name="PowerStateType">
+        <MemberList>
+          <Member name="busVoltage" typeRef="VoltageType" initialValue="28.5"/>
+          <Member name="heater" typeRef="HeaterType"/>
+        </MemberList>
+      </AggregateParameterType>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="Apid" parameterTypeRef="ApidType"/>
+      <Parameter name="SeqCount" parameterTypeRef="CounterType"/>
+      <Parameter name="BusVoltage" parameterTypeRef="VoltageType" initialValue="28.5">
+        <ParameterProperties dataSource="telemetered" readOnly="true"/>
+      </Parameter>
+      <Parameter name="Mode" parameterTypeRef="ModeType"/>
+      <Parameter name="Heater" parameterTypeRef="HeaterType"/>
+      <Parameter name="Uptime" parameterTypeRef="UptimeType" initialValue="P1DT2H"/>
+      <Parameter name="MissionTime" parameterTypeRef="MissionTimeType" initialValue="2026-08-19T12:00:00Z"/>
+      <Parameter name="WheelSpeeds" parameterTypeRef="WheelSpeedArrayType"/>
+      <Parameter name="PowerState" parameterTypeRef="PowerStateType"/>
+      <Parameter name="BoardLabel" parameterTypeRef="LabelType" initialValue="EM-2"/>
+      <Parameter name="FwDigest" parameterTypeRef="DigestType" initialValue="CAFEBABE"/>
+    </ParameterSet>
+    <ContainerSet>
+      <SequenceContainer name="CcsdsHeader" abstract="true" shortDescription="Shared primary header">
+        <EntryList>
+          <ParameterRefEntry parameterRef="Apid"/>
+          <ParameterRefEntry parameterRef="SeqCount"/>
+        </EntryList>
+      </SequenceContainer>
+      <SequenceContainer name="EpsPacket">
+        <EntryList>
+          <ParameterRefEntry parameterRef="BusVoltage"/>
+          <ParameterRefEntry parameterRef="Heater"/>
+          <ParameterRefEntry parameterRef="Mode"/>
+        </EntryList>
+        <BaseContainer containerRef="CcsdsHeader">
+          <RestrictionCriteria>
+            <Comparison parameterRef="Apid" value="0x65"/>
+          </RestrictionCriteria>
+        </BaseContainer>
+      </SequenceContainer>
+      <SequenceContainer name="StatusPacket">
+        <EntryList>
+          <ParameterRefEntry parameterRef="Mode"/>
+          <ParameterRefEntry parameterRef="Uptime"/>
+        </EntryList>
+        <BaseContainer containerRef="CcsdsHeader">
+          <RestrictionCriteria>
+            <ComparisonList>
+              <Comparison parameterRef="Apid" value="102"/>
+              <Comparison parameterRef="SeqCount" comparisonOperator="&gt;=" value="0x0"/>
+            </ComparisonList>
+          </RestrictionCriteria>
+        </BaseContainer>
+      </SequenceContainer>
+    </ContainerSet>
+    <MessageSet>
+      <Message name="EpsMessage">
+        <MatchCriteria><Comparison parameterRef="Apid" value="0x65"/></MatchCriteria>
+        <ContainerRef containerRef="EpsPacket"/>
+      </Message>
+    </MessageSet>
+  </TelemetryMetaData>
+  <CommandMetaData>
+    <MetaCommandSet>
+      <MetaCommand name="BaseCommand" abstract="true">
+        <CommandContainer name="BaseCmdFrame">
+          <EntryList><FixedValueEntry binaryValue="1ACF" sizeInBits="16"/></EntryList>
+        </CommandContainer>
+        <VerifierSet>
+          <CompleteVerifier>
+            <Comparison parameterRef="SeqCount" value="0x1"/>
+            <CheckWindow timeToStopChecking="PT10S"/>
+          </CompleteVerifier>
+        </VerifierSet>
+      </MetaCommand>
+      <MetaCommand name="SetHeater">
+        <BaseMetaCommand metaCommandRef="BaseCommand"/>
+        <CommandContainer name="SetHeaterFrame">
+          <EntryList><FixedValueEntry binaryValue="01" sizeInBits="8"/></EntryList>
+          <BaseContainer containerRef="BaseCmdFrame"/>
+        </CommandContainer>
+        <VerifierSet>
+          <CompleteVerifier>
+            <Comparison parameterRef="Heater" value="On"/>
+            <CheckWindow timeToStopChecking="PT5S"/>
+          </CompleteVerifier>
+        </VerifierSet>
+      </MetaCommand>
+    </MetaCommandSet>
+  </CommandMetaData>
+  <SpaceSystem name="Payload">
+    <TelemetryMetaData>
+      <ParameterTypeSet>
+        <IntegerParameterType name="PixelCountType" signed="false" sizeInBits="24">
+          <IntegerDataEncoding encoding="unsigned" sizeInBits="24"/>
+        </IntegerParameterType>
+      </ParameterTypeSet>
+      <ParameterSet>
+        <Parameter name="PixelCount" parameterTypeRef="PixelCountType"/>
+        <Parameter name="SharedMode" parameterTypeRef="ModeType"/>
+      </ParameterSet>
+      <ContainerSet>
+        <SequenceContainer name="ImagerPacket">
+          <EntryList>
+            <ParameterRefEntry parameterRef="PixelCount"/>
+            <ParameterRefEntry parameterRef="SharedMode"/>
+          </EntryList>
+          <BaseContainer containerRef="CcsdsHeader">
+            <RestrictionCriteria>
+              <Comparison parameterRef="Apid" value="103"/>
+            </RestrictionCriteria>
+          </BaseContainer>
+        </SequenceContainer>
+      </ContainerSet>
+    </TelemetryMetaData>
+  </SpaceSystem>
+</SpaceSystem>
