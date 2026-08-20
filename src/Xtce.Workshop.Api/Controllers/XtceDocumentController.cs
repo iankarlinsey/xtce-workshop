@@ -22,8 +22,32 @@ public sealed class XtceDocumentController : ControllerBase
     /// response carries the complete evidence rather than a single message.
     /// </summary>
     [HttpPost("load")]
-    public async Task<IActionResult> Load(IFormFile file)
+    [RequestSizeLimit(1_073_741_824)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 1_073_741_824)]
+    public async Task<IActionResult> Load(IFormFile? file)
     {
+        // With the automatic model-state 400 suppressed (sparse JSON documents), a failed
+        // multipart binding — oversized upload, missing/misnamed form part — reaches this
+        // action as null instead of short-circuiting. Answer with the evidence, never 500.
+        if (file is null)
+        {
+            var bindingErrors = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .ToList();
+            _logger.LogWarning("Load request without a usable file part: {Errors}",
+                bindingErrors.Count == 0 ? "no multipart part named 'file'" : string.Join("; ", bindingErrors));
+            return BadRequest(new
+            {
+                error = bindingErrors.Count > 0
+                    ? string.Join(" ", bindingErrors)
+                    : "The upload did not include a readable 'file' part (or exceeded the size limit).",
+                diagnostics = Array.Empty<LoadDiagnostic>(),
+                schemaErrors = Array.Empty<string>(),
+            });
+        }
+
         using var buffer = new MemoryStream();
         await file.CopyToAsync(buffer);
         buffer.Position = 0;

@@ -3,6 +3,12 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Large XTCE databases are this application's core use case: raw uploads on /load and
+// whole documents as JSON on validate/report/save can be tens of MB. Kestrel's ~28.6MB
+// default would reject them (and, with the model-state filter suppressed, surfaced as a
+// null IFormFile crash rather than a clear error).
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 1_073_741_824);
+
 // Serilog is wired only here; application code depends on ILogger<T> exclusively.
 // Sinks/levels come from the Serilog configuration section (env-overridable, e.g.
 // Serilog__MinimumLevel__Default=Debug), defaulting to single-line JSON on stdout.

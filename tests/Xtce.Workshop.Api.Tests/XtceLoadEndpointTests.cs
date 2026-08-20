@@ -180,6 +180,22 @@ public class XtceLoadEndpointTests
         Assert.True(diagnostic.GetProperty("line").GetInt32() > 0);
     }
 
+    [Test]
+    public async Task PostLoad_WithoutAFilePart_Returns400NotAnUnhandled500()
+    {
+        var client = _factory.CreateClient();
+        using var content = new MultipartFormDataContent
+        {
+            { new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes("<x/>")), "wrongName", "upload.xml" },
+        };
+
+        var response = await client.PostAsync("/api/xtce/load", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("file", body.GetProperty("error").GetString()!);
+    }
+
     private static async Task<HttpResponseMessage> PostFile(HttpClient client, string xml)
     {
         using var content = new MultipartFormDataContent
