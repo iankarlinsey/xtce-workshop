@@ -203,6 +203,8 @@
         @if (isRootSelected()) {
           <div class="metrics-section">
             <button type="button" class="btn" (click)="onComputeMetrics()">Document metrics</button>
+            <button type="button" class="btn" (click)="onExportCsv('parameters')">Export parameters CSV</button>
+            <button type="button" class="btn" (click)="onExportCsv('containers')">Export containers CSV</button>
             @if (documentMetrics(); as metrics) {
               <div class="metrics-table-container">
                 <table class="metrics-table">

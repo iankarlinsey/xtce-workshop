@@ -175,7 +175,8 @@ public static class PacketLayoutBuilder
         Advance(ref offset, size);
     }
 
-    private static (long? Size, bool Variable) EncodedSize(ParameterTypeDefinition type)
+    /// <summary>Statically-known encoded size of a type, in bits (shared with the CSV exporter).</summary>
+    internal static (long? Size, bool Variable) EncodedSize(ParameterTypeDefinition type)
     {
         foreach (var fragment in type.Preserved ?? [])
         {

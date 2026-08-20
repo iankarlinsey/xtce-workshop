@@ -41,6 +41,12 @@ app.MapPost("/api/xtce/validate", (SpaceSystem spaceSystem) =>
     return Results.Ok(new { validationIssues });
 });
 
+app.MapPost("/api/xtce/export/parameters", (SpaceSystem spaceSystem) =>
+    Results.Text(XtceCsvExporter.ExportParameters(XtceDocumentNormalizer.Normalize(spaceSystem)), "text/csv"));
+
+app.MapPost("/api/xtce/export/containers", (SpaceSystem spaceSystem) =>
+    Results.Text(XtceCsvExporter.ExportContainers(XtceDocumentNormalizer.Normalize(spaceSystem)), "text/csv"));
+
 app.MapPost("/api/xtce/search", (SearchRequest request) =>
 {
     var matches = XtceDocumentQuery.Search(XtceDocumentNormalizer.Normalize(request.Document), request.Query);

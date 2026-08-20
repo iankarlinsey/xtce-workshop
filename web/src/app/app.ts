@@ -822,6 +822,17 @@ export class App {
     return names.join('/');
   }
 
+  onExportCsv(what: 'parameters' | 'containers'): void {
+    const doc = this.currentDocument();
+    if (!doc) {
+      return;
+    }
+    this.http.post(`/api/xtce/export/${what}`, doc, { responseType: 'text' }).subscribe({
+      next: (csv) => this.downloadBlob(csv, 'text/csv', `${doc.name}-${what}.csv`),
+      error: () => this.saveError.set('Failed to export CSV.'),
+    });
+  }
+
   onFindUsages(): void {
     const doc = this.currentDocument();
     const parameter = this.selectedParameter();
@@ -901,7 +912,11 @@ export class App {
   }
 
   private downloadXml(xml: string, filename: string): void {
-    const blob = new Blob([xml], { type: 'application/xml' });
+    this.downloadBlob(xml, 'application/xml', filename);
+  }
+
+  private downloadBlob(content: string, contentType: string, filename: string): void {
+    const blob = new Blob([content], { type: contentType });
     const url = URL.createObjectURL(blob);
 
     const anchor = document.createElement('a');

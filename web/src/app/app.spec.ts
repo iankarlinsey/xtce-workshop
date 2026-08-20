@@ -1302,6 +1302,20 @@ describe('App', () => {
       expect((compiled.querySelector('#param-name') as HTMLInputElement).value).toBe('BattVoltage');
     }));
 
+    it('posts the document for CSV export from the root view', () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (Array.from(compiled.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Export parameters CSV'
+      ) as HTMLButtonElement).click();
+
+      const request = httpMock.expectOne('/api/xtce/export/parameters');
+      expect(request.request.body.name).toBe('Sat');
+      request.flush('SystemPath,Name\r\n');
+    });
+
     it('finds usages for the selected parameter and renders them', () => {
       const fixture = createAppAndFlushHealth();
       loadSearchableDocument(fixture);
