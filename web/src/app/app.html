@@ -26,9 +26,9 @@
           Load
           <input type="file" accept=".xml" (change)="onFileSelected($event)" />
         </label>
-        <button type="button" class="btn" (click)="onOpenCreator('document')">New&hellip;</button>
-        <button type="button" class="btn btn-primary" (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</button>
-        <button type="button" class="btn" (click)="onRunReport()" [disabled]="!currentDocument()">Report</button>
+        <rux-button secondary (click)="onOpenCreator('document')">New&hellip;</rux-button>
+        <rux-button (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</rux-button>
+        <rux-button secondary (click)="onRunReport()" [disabled]="!currentDocument()">Report</rux-button>
       </div>
 
       @if (reportError()) {
@@ -39,8 +39,8 @@
         <div class="creator-row">
           <input #newDocName class="entry-ref" placeholder="SpaceSystem name" aria-label="New document name"
                  (keydown.enter)="onCreateDocument(newDocName)" (keydown.escape)="onCancelCreator()" />
-          <button type="button" class="btn btn-primary" (click)="onCreateDocument(newDocName)">Create</button>
-          <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+          <rux-button (click)="onCreateDocument(newDocName)">Create</rux-button>
+          <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
         </div>
       }
 
@@ -140,12 +140,12 @@
         </div>
 
         <div class="node-actions">
-          <button type="button" class="btn" (click)="onOpenCreator('child')">+ Add child</button>
-          <button type="button" class="btn" (click)="onOpenCreator('parameterType')">+ Add parameter type</button>
-          <button type="button" class="btn" (click)="onOpenCreator('parameter')">+ Add parameter</button>
-          <button type="button" class="btn" (click)="onOpenCreator('container')">+ Add container</button>
-          <button type="button" class="btn" (click)="onOpenCreator('message')">+ Add message</button>
-          <button type="button" class="btn" (click)="onOpenCreator('metaCommand')">+ Add command</button>
+          <rux-button secondary (click)="onOpenCreator('child')">+ Add child</rux-button>
+          <rux-button secondary (click)="onOpenCreator('parameterType')">+ Add parameter type</rux-button>
+          <rux-button secondary (click)="onOpenCreator('parameter')">+ Add parameter</rux-button>
+          <rux-button secondary (click)="onOpenCreator('container')">+ Add container</rux-button>
+          <rux-button secondary (click)="onOpenCreator('message')">+ Add message</rux-button>
+          <rux-button secondary (click)="onOpenCreator('metaCommand')">+ Add command</rux-button>
           @if (!isRootSelected()) {
             <button type="button" class="btn btn-danger" (click)="onDeleteSelected()">Delete</button>
           }
@@ -156,8 +156,8 @@
             <div class="creator-row">
               <input #childName class="entry-ref" placeholder="child SpaceSystem name" aria-label="New child name"
                      (keydown.enter)="onCreateChild(childName)" (keydown.escape)="onCancelCreator()" />
-              <button type="button" class="btn btn-primary" (click)="onCreateChild(childName)">Create</button>
-              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+              <rux-button (click)="onCreateChild(childName)">Create</rux-button>
+              <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
             </div>
           }
           @case ('parameterType') {
@@ -178,8 +178,8 @@
               </select>
               <input #typeRef class="entry-ref" list="known-type-names" placeholder="element/member type (Array/Aggregate)"
                      aria-label="New type element or member ref" (keydown.escape)="onCancelCreator()" />
-              <button type="button" class="btn btn-primary" (click)="onCreateParameterType(typeName, typeKind, typeRef)">Create</button>
-              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+              <rux-button (click)="onCreateParameterType(typeName, typeKind, typeRef)">Create</rux-button>
+              <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
             </div>
           }
           @case ('parameter') {
@@ -188,16 +188,16 @@
                      (keydown.escape)="onCancelCreator()" />
               <input #paramTypeRef class="entry-ref" list="known-type-names" placeholder="parameterTypeRef"
                      aria-label="New parameter type ref" (keydown.enter)="onCreateParameter(paramName, paramTypeRef)" (keydown.escape)="onCancelCreator()" />
-              <button type="button" class="btn btn-primary" (click)="onCreateParameter(paramName, paramTypeRef)">Create</button>
-              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+              <rux-button (click)="onCreateParameter(paramName, paramTypeRef)">Create</rux-button>
+              <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
             </div>
           }
           @case ('container') {
             <div class="creator-row">
               <input #containerName class="entry-ref" placeholder="container name" aria-label="New container name"
                      (keydown.enter)="onCreateContainer(containerName)" (keydown.escape)="onCancelCreator()" />
-              <button type="button" class="btn btn-primary" (click)="onCreateContainer(containerName)">Create</button>
-              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+              <rux-button (click)="onCreateContainer(containerName)">Create</rux-button>
+              <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
             </div>
           }
           @case ('message') {
@@ -210,26 +210,26 @@
                      aria-label="New message match parameter" (keydown.escape)="onCancelCreator()" />
               <input #messageMatchValue class="entry-ref creator-narrow" placeholder="match value"
                      aria-label="New message match value" (keydown.escape)="onCancelCreator()" />
-              <button type="button" class="btn btn-primary"
-                      (click)="onCreateMessage(messageName, messageContainer, messageMatchParam, messageMatchValue)">Create</button>
-              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+              <rux-button
+                      (click)="onCreateMessage(messageName, messageContainer, messageMatchParam, messageMatchValue)">Create</rux-button>
+              <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
             </div>
           }
           @case ('metaCommand') {
             <div class="creator-row">
               <input #commandName class="entry-ref" placeholder="command name" aria-label="New command name"
                      (keydown.enter)="onCreateMetaCommand(commandName)" (keydown.escape)="onCancelCreator()" />
-              <button type="button" class="btn btn-primary" (click)="onCreateMetaCommand(commandName)">Create</button>
-              <button type="button" class="btn" (click)="onCancelCreator()">Cancel</button>
+              <rux-button (click)="onCreateMetaCommand(commandName)">Create</rux-button>
+              <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
             </div>
           }
         }
 
         @if (isRootSelected()) {
           <div class="metrics-section">
-            <button type="button" class="btn" (click)="onComputeMetrics()">Document metrics</button>
-            <button type="button" class="btn" (click)="onExportCsv('parameters')">Export parameters CSV</button>
-            <button type="button" class="btn" (click)="onExportCsv('containers')">Export containers CSV</button>
+            <rux-button secondary (click)="onComputeMetrics()">Document metrics</rux-button>
+            <rux-button secondary (click)="onExportCsv('parameters')">Export parameters CSV</rux-button>
+            <rux-button secondary (click)="onExportCsv('containers')">Export containers CSV</rux-button>
             @if (documentMetrics(); as metrics) {
               <div class="metrics-table-container">
                 <table class="metrics-table">
@@ -324,7 +324,7 @@
                 <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveDimension(i)" [disabled]="(type.dimensions ?? []).length <= 1" aria-label="Remove dimension">&times;</button>
               </div>
             }
-            <button type="button" class="btn" (click)="onAddDimension()">+ Add dimension</button>
+            <rux-button secondary (click)="onAddDimension()">+ Add dimension</rux-button>
           </div>
         }
         @if (type.kind === 'Aggregate') {
@@ -338,7 +338,7 @@
                 <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveMember(i)" [disabled]="(type.members ?? []).length <= 1" aria-label="Remove member">&times;</button>
               </div>
             }
-            <button type="button" class="btn" (click)="onAddMember()">+ Add member</button>
+            <rux-button secondary (click)="onAddMember()">+ Add member</rux-button>
           </div>
         }
         @if (type.kind === 'Enumerated') {
@@ -351,7 +351,7 @@
                 <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveEnumeration(i)" aria-label="Remove enumeration">&times;</button>
               </div>
             }
-            <button type="button" class="btn" (click)="onAddEnumeration()">+ Add enumeration</button>
+            <rux-button secondary (click)="onAddEnumeration()">+ Add enumeration</rux-button>
           </div>
         }
 
@@ -380,7 +380,7 @@
         </div>
 
         <div class="usages-section">
-          <button type="button" class="btn" (click)="onFindUsages()">Find usages</button>
+          <rux-button secondary (click)="onFindUsages()">Find usages</rux-button>
           @if (parameterUsages(); as usages) {
             @if (usages.length === 0) {
               <p class="meta-text">No references to this parameter.</p>
@@ -438,8 +438,8 @@
                   [attr.aria-label]="'Entry ' + i + ' reference'"
                 />
               }
-              <button type="button" class="btn entry-btn" (click)="onMoveEntry(i, -1)" [disabled]="i === 0" aria-label="Move entry up">&uarr;</button>
-              <button type="button" class="btn entry-btn" (click)="onMoveEntry(i, 1)" [disabled]="i === container.entryList.length - 1" aria-label="Move entry down">&darr;</button>
+              <rux-button secondary class="entry-btn" (click)="onMoveEntry(i, -1)" [disabled]="i === 0" aria-label="Move entry up">&uarr;</rux-button>
+              <rux-button secondary class="entry-btn" (click)="onMoveEntry(i, 1)" [disabled]="i === container.entryList.length - 1" aria-label="Move entry down">&darr;</rux-button>
               <button type="button" class="btn btn-danger entry-btn" (click)="onRemoveEntry(i)" aria-label="Remove entry">&times;</button>
             </div>
           }
@@ -449,7 +449,7 @@
               <option value="ContainerRef">container</option>
             </select>
             <input #newEntryRef class="entry-ref" list="known-parameter-names" placeholder="reference" aria-label="New entry reference" />
-            <button type="button" class="btn" (click)="onAddEntry(newEntryKind, newEntryRef)">+ Add entry</button>
+            <rux-button secondary (click)="onAddEntry(newEntryKind, newEntryRef)">+ Add entry</rux-button>
           </div>
         </div>
 
@@ -490,14 +490,14 @@
                   </div>
                 }
                 <div class="enum-row">
-                  <button type="button" class="btn" (click)="onAddCriteriaComparison()">+ Add comparison</button>
+                  <rux-button secondary (click)="onAddCriteriaComparison()">+ Add comparison</rux-button>
                   <input class="member-name" list="known-container-names" [value]="base.restrictionCriteria?.nextContainerRef ?? ''"
                          (input)="onNextContainerInput($event)" aria-label="Next container reference" placeholder="NextContainer (optional)" />
                 </div>
               }
             </div>
           } @else {
-            <button type="button" class="btn" (click)="onAddBaseContainer()">+ Add base container</button>
+            <rux-button secondary (click)="onAddBaseContainer()">+ Add base container</rux-button>
           }
         </div>
 
@@ -532,7 +532,7 @@
               <p class="meta-text">Total: {{ layout.totalSizeInBits === null ? 'not statically known' : layout.totalSizeInBits + ' bits' }}</p>
             }
           } @else {
-            <button type="button" class="btn" (click)="onComputeLayout()">Compute layout</button>
+            <rux-button secondary (click)="onComputeLayout()">Compute layout</rux-button>
           }
         </div>
 
@@ -638,9 +638,9 @@
             Schema: {{ report.schemaValid ? 'VALID' : 'INVALID' }}
           </span>
           <div class="spacer"></div>
-          <button type="button" class="btn" (click)="onSaveReport('json')">Save JSON</button>
-          <button type="button" class="btn" (click)="onSaveReport('text')">Save text</button>
-          <button type="button" class="btn" (click)="onCloseReport()">Close</button>
+          <rux-button secondary (click)="onSaveReport('json')">Save JSON</rux-button>
+          <rux-button secondary (click)="onSaveReport('text')">Save text</rux-button>
+          <rux-button secondary (click)="onCloseReport()">Close</rux-button>
         </div>
 
         @if (report.schemaErrors.length > 0) {

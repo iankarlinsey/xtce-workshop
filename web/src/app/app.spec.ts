@@ -21,18 +21,18 @@ describe('App', () => {
 
   function createDocumentInline(fixture: ReturnType<typeof TestBed.createComponent<App>>, name: string | null) {
     const compiled = fixture.nativeElement as HTMLElement;
-    (Array.from(compiled.querySelectorAll('button')).find(
+    (Array.from(compiled.querySelectorAll('rux-button, button')).find(
       (b) => b.textContent?.includes('New')
     ) as HTMLButtonElement).click();
     fixture.detectChanges();
     if (name === null) {
-      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+      (Array.from(compiled.querySelectorAll('.creator-row rux-button, .creator-row button')).find(
         (b) => b.textContent?.trim() === 'Cancel'
       ) as HTMLButtonElement).click();
     } else {
       const input = compiled.querySelector('input[aria-label="New document name"]') as HTMLInputElement;
       input.value = name;
-      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+      (Array.from(compiled.querySelectorAll('.creator-row rux-button, .creator-row button')).find(
         (b) => b.textContent?.trim() === 'Create'
       ) as HTMLButtonElement).click();
     }
@@ -388,13 +388,13 @@ describe('App', () => {
       loadNestedDocument(fixture); // root (Mission) is selected by default
 
       const compiled = fixture.nativeElement as HTMLElement;
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add child'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
       const nameInput = compiled.querySelector('input[aria-label="New child name"]') as HTMLInputElement;
       nameInput.value = 'NewSub';
-      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+      (Array.from(compiled.querySelectorAll('.creator-row rux-button, .creator-row button')).find(
         (b) => b.textContent?.trim() === 'Create'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
@@ -412,7 +412,7 @@ describe('App', () => {
       loadNestedDocument(fixture); // root selected by default
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const buttons = Array.from(compiled.querySelectorAll('button')).map((b) => b.textContent?.trim());
+      const buttons = Array.from(compiled.querySelectorAll('rux-button, button')).map((b) => b.textContent?.trim());
       expect(buttons).not.toContain('Delete');
     });
 
@@ -422,7 +422,7 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'Bus');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const deleteButton = Array.from(compiled.querySelectorAll('button')).find(
+      const deleteButton = Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Delete'
       ) as HTMLButtonElement;
       deleteButton.click();
@@ -503,7 +503,7 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'Mode_Type');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const addEnum = Array.from(compiled.querySelectorAll('button')).find(
+      const addEnum = Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add enumeration'
       ) as HTMLButtonElement;
       addEnum.click();
@@ -531,13 +531,13 @@ describe('App', () => {
       loadTelemetryDocument(fixture); // root selected
 
       const compiled = fixture.nativeElement as HTMLElement;
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add parameter type'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
       (compiled.querySelector('input[aria-label="New type name"]') as HTMLInputElement).value = 'Flag_Type';
       (compiled.querySelector('select[aria-label="New parameter type kind"]') as HTMLSelectElement).value = 'Boolean';
-      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+      (Array.from(compiled.querySelectorAll('.creator-row rux-button, .creator-row button')).find(
         (b) => b.textContent?.trim() === 'Create'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
@@ -559,7 +559,7 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'BusVoltage');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      const deleteButton = Array.from(compiled.querySelectorAll('button')).find(
+      const deleteButton = Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Delete'
       ) as HTMLButtonElement;
       deleteButton.click();
@@ -594,14 +594,14 @@ describe('App', () => {
       kindSelect.value = 'ContainerRef';
       const newRef = compiled.querySelector('.add-entry-row .entry-ref') as HTMLInputElement;
       newRef.value = 'Frame';
-      const addButton = Array.from(compiled.querySelectorAll('button')).find(
+      const addButton = Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add entry'
       ) as HTMLButtonElement;
       addButton.click();
       fixture.detectChanges();
 
       // Move the new entry (index 1) up to the front.
-      const moveUpButtons = compiled.querySelectorAll('.entry-edit-row button[aria-label="Move entry up"]');
+      const moveUpButtons = compiled.querySelectorAll('.entry-edit-row rux-button[aria-label="Move entry up"], button[aria-label="Move entry up"]');
       (moveUpButtons[1] as HTMLButtonElement).click();
       fixture.detectChanges();
 
@@ -629,7 +629,7 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'Frame');
       const compiled = fixture.nativeElement as HTMLElement;
 
-      const removeButton = compiled.querySelector('.entry-edit-row button[aria-label="Remove entry"]') as HTMLButtonElement;
+      const removeButton = compiled.querySelector('.entry-edit-row rux-button[aria-label="Remove entry"], button[aria-label="Remove entry"]') as HTMLButtonElement;
       removeButton.click();
       fixture.detectChanges();
       flushRevalidate();
@@ -646,7 +646,7 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'Frame');
       const compiled = fixture.nativeElement as HTMLElement;
 
-      const addBase = Array.from(compiled.querySelectorAll('button')).find(
+      const addBase = Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add base container'
       ) as HTMLButtonElement;
       addBase.click();
@@ -693,7 +693,7 @@ describe('App', () => {
       expect(compiled.querySelector('.entry-raw-label')?.textContent).toContain('unmodeled');
 
       // Move the raw entry down — reorder must carry the raw payload untouched.
-      const moveDown = compiled.querySelector('.entry-edit-row button[aria-label="Move entry down"]') as HTMLButtonElement;
+      const moveDown = compiled.querySelector('.entry-edit-row rux-button[aria-label="Move entry down"], button[aria-label="Move entry down"]') as HTMLButtonElement;
       moveDown.click();
       fixture.detectChanges();
       flushRevalidate();
@@ -736,7 +736,7 @@ describe('App', () => {
       endInput.dispatchEvent(new Event('input'));
       fixture.detectChanges();
 
-      const addDim = Array.from(compiled.querySelectorAll('button')).find(
+      const addDim = Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add dimension'
       ) as HTMLButtonElement;
       addDim.click();
@@ -775,10 +775,10 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'Struct');
       const compiled = fixture.nativeElement as HTMLElement;
 
-      const removeMember = compiled.querySelector('button[aria-label="Remove member"]') as HTMLButtonElement;
+      const removeMember = compiled.querySelector('rux-button[aria-label="Remove member"], button[aria-label="Remove member"]') as HTMLButtonElement;
       expect(removeMember.disabled).toBeTrue();
 
-      const addMember = Array.from(compiled.querySelectorAll('button')).find(
+      const addMember = Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add member'
       ) as HTMLButtonElement;
       addMember.click();
@@ -805,14 +805,14 @@ describe('App', () => {
       loadTelemetryDocument(fixture); // root selected
 
       const compiled = fixture.nativeElement as HTMLElement;
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add parameter type'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
       (compiled.querySelector('input[aria-label="New type name"]') as HTMLInputElement).value = 'NewArray';
       (compiled.querySelector('select[aria-label="New parameter type kind"]') as HTMLSelectElement).value = 'Array';
       (compiled.querySelector('input[aria-label="New type element or member ref"]') as HTMLInputElement).value = 'Volt_Type';
-      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+      (Array.from(compiled.querySelectorAll('.creator-row rux-button, .creator-row button')).find(
         (b) => b.textContent?.trim() === 'Create'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
@@ -898,13 +898,13 @@ describe('App', () => {
       loadNestedDocument(fixture); // no commandMetaData yet; root selected
 
       const compiled = fixture.nativeElement as HTMLElement;
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add command'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
       const nameInput = compiled.querySelector('input[aria-label="New command name"]') as HTMLInputElement;
       nameInput.value = 'NewCmd';
-      (Array.from(compiled.querySelectorAll('.creator-row button')).find(
+      (Array.from(compiled.querySelectorAll('.creator-row rux-button, .creator-row button')).find(
         (b) => b.textContent?.trim() === 'Create'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
@@ -922,7 +922,7 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'Frame');
       const compiled = fixture.nativeElement as HTMLElement;
 
-      const computeButton = Array.from(compiled.querySelectorAll('button')).find(
+      const computeButton = Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Compute layout'
       ) as HTMLButtonElement;
       computeButton.click();
@@ -950,7 +950,7 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'Frame');
       const compiled = fixture.nativeElement as HTMLElement;
 
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Compute layout'
       ) as HTMLButtonElement).click();
       httpMock.expectOne('/api/xtce/layout').flush({ rows: [
@@ -977,13 +977,13 @@ describe('App', () => {
       const compiled = fixture.nativeElement as HTMLElement;
 
       // Give the container a base first.
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add base container'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
 
       // One comparison -> serialized as the single-Comparison shape.
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add comparison'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
@@ -996,7 +996,7 @@ describe('App', () => {
       fixture.detectChanges();
 
       // A second comparison with an explicit operator -> ComparisonList shape.
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === '+ Add comparison'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
@@ -1150,7 +1150,7 @@ describe('App', () => {
       createDocumentInline(fixture, 'Sat');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Report'
       ) as HTMLButtonElement).click();
 
@@ -1172,7 +1172,7 @@ describe('App', () => {
       createDocumentInline(fixture, 'Sat');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Report'
       ) as HTMLButtonElement).click();
       httpMock.expectOne('/api/xtce/report').flush(sampleReport('Fail', [
@@ -1197,14 +1197,14 @@ describe('App', () => {
       createDocumentInline(fixture, 'Sat');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Report'
       ) as HTMLButtonElement).click();
       httpMock.expectOne('/api/xtce/report').flush(sampleReport('Pass'));
       fixture.detectChanges();
       expect(compiled.querySelector('.report-panel')).toBeTruthy();
 
-      (Array.from(compiled.querySelectorAll('.report-header button')).find(
+      (Array.from(compiled.querySelectorAll('.report-header rux-button, .report-header button')).find(
         (b) => b.textContent?.trim() === 'Close'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
@@ -1229,7 +1229,7 @@ describe('App', () => {
       createDocumentInline(fixture, 'Sat');
       const compiled = fixture.nativeElement as HTMLElement;
 
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Report'
       ) as HTMLButtonElement).click();
       httpMock.expectOne('/api/xtce/report').flush(sampleReport('Pass'));
@@ -1238,7 +1238,7 @@ describe('App', () => {
       const objectUrlSpy = spyOn(URL, 'createObjectURL').and.returnValue('blob:test');
       spyOn(URL, 'revokeObjectURL');
 
-      (Array.from(compiled.querySelectorAll('.report-header button')).find(
+      (Array.from(compiled.querySelectorAll('.report-header rux-button, .report-header button')).find(
         (b) => b.textContent?.trim() === 'Save text'
       ) as HTMLButtonElement).click();
       const request = httpMock.expectOne('/api/xtce/report/text');
@@ -1246,7 +1246,7 @@ describe('App', () => {
       request.flush('XTCE 1.2 conformance report: Sat\n');
       expect(objectUrlSpy).toHaveBeenCalledTimes(1);
 
-      (Array.from(compiled.querySelectorAll('.report-header button')).find(
+      (Array.from(compiled.querySelectorAll('.report-header rux-button, .report-header button')).find(
         (b) => b.textContent?.trim() === 'Save JSON'
       ) as HTMLButtonElement).click();
       expect(objectUrlSpy).toHaveBeenCalledTimes(2); // JSON path is client-side, no HTTP
@@ -1257,7 +1257,7 @@ describe('App', () => {
       createDocumentInline(fixture, 'Sat');
 
       const compiled = fixture.nativeElement as HTMLElement;
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Document metrics'
       ) as HTMLButtonElement).click();
 
@@ -1402,7 +1402,7 @@ describe('App', () => {
       createDocumentInline(fixture, 'Sat');
       const compiled = fixture.nativeElement as HTMLElement;
 
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Export parameters CSV'
       ) as HTMLButtonElement).click();
 
@@ -1420,7 +1420,7 @@ describe('App', () => {
         { kind: 'Parameter', systemPath: 'Sat', name: 'BattVoltage', matchedAlias: null });
       fixture.detectChanges();
 
-      (Array.from(compiled.querySelectorAll('button')).find(
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
         (b) => b.textContent?.trim() === 'Find usages'
       ) as HTMLButtonElement).click();
 

@@ -92,23 +92,26 @@
 }
 
 .toolbar {
+  flex-wrap: wrap;
   display: flex;
   gap: 6px;
   margin-bottom: 10px;
 }
 
+/* The few remaining native buttons (the Load file-input label and the danger actions)
+   mirror rux-button's secondary dimensions so mixed toolbars stay uniform. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 30px;
-  padding: 0 14px;
+  height: 2.125rem;
+  padding: 0 1rem;
   background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--text-muted);
+  border: 1px solid var(--color-border-interactive-default, var(--accent));
+  border-radius: var(--radius-base, 3px);
+  color: var(--color-text-interactive-default, var(--accent));
   font-family: var(--sans);
-  font-size: 12.5px;
+  font-size: 1rem;
   cursor: pointer;
 }
 
