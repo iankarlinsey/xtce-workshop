@@ -25,6 +25,8 @@ requirements, and the architecture decisions made along the way.
   any sequence container, and an in-app XTCE reference sheet showing the
   spec's own documentation for the selected construct.
 
+![xtce-workshop editing the preservation demo database: document tree, validation findings, and the XTCE reference panel](docs/ui-screenshot.png)
+
 ## Quick start
 
 The whole stack (backend + frontend) is containerized and runs with one
