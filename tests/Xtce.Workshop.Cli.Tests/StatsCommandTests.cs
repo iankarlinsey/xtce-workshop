@@ -42,6 +42,7 @@ public class StatsCommandTests : IDisposable
         Assert.Contains("Sat/Bus", text);
         Assert.Contains("2 parameter(s)", text);
         Assert.Contains("Types by kind: Integer=1", text);
+        Assert.Contains("Declared namespace: http://www.omg.org/spec/XTCE/20180204 (XTCE 1.2)", text);
     }
 
     [Test]

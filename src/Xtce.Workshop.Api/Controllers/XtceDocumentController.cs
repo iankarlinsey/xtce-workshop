@@ -102,6 +102,10 @@ public sealed class XtceDocumentController : ControllerBase
 
     private async Task<IActionResult> LoadFromBuffer(MemoryStream buffer, string sourceName, long sizeBytes)
     {
+        var rootNamespace = XtceNamespace.ReadRootNamespace(buffer);
+        var detectedVersion = XtceNamespace.VersionFor(rootNamespace);
+        buffer.Position = 0;
+
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var result = XtceDocumentReader.LoadWithRecovery(buffer);
 
@@ -122,6 +126,8 @@ public sealed class XtceDocumentController : ControllerBase
                 error = result.Diagnostics.FirstOrDefault()?.Message ?? "The file could not be loaded.",
                 diagnostics = result.Diagnostics,
                 schemaErrors,
+                rootNamespace,
+                detectedVersion,
             });
         }
 
@@ -139,6 +145,8 @@ public sealed class XtceDocumentController : ControllerBase
             validationIssues,
             diagnostics = result.Diagnostics,
             schemaErrors,
+            rootNamespace,
+            detectedVersion,
         });
     }
 

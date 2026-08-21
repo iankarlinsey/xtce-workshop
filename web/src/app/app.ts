@@ -42,6 +42,8 @@ interface LoadResult {
   validationIssues: ValidationIssue[];
   diagnostics?: LoadDiagnostic[];
   schemaErrors?: string[];
+  rootNamespace?: string | null;
+  detectedVersion?: string | null;
 }
 
 @Component({
@@ -83,6 +85,25 @@ export class App {
   protected readonly loadSchemaErrors = signal<string[]>([]);
   protected readonly parameterUsages = signal<UsageMatch[] | null>(null);
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** The loaded file's declared root namespace — an assessment fact the verifier leads with. */
+  protected readonly rootNamespace = signal<string | null>(null);
+  protected readonly detectedVersion = signal<string | null>(null);
+
+  protected readonly namespaceAdvisory = computed<string | null>(() => {
+    const ns = this.rootNamespace();
+    const version = this.detectedVersion();
+    if (ns === null || version === '1.2') {
+      return null;
+    }
+    if (version) {
+      return `Declares the XTCE ${version} namespace — the workshop targets 1.2. `
+        + 'Elements are matched by name, so it loads, but review the result with care.';
+    }
+    return ns === ''
+      ? 'Declares no namespace — the workshop targets XTCE 1.2.'
+      : `Declares '${ns}', which is not an XTCE namespace — the workshop targets XTCE 1.2.`;
+  });
 
   /** Tree/Source projection of the same document; source is the current serialization. */
   protected readonly viewMode = signal<'tree' | 'source'>('tree');
@@ -231,6 +252,8 @@ export class App {
     this.loadError.set(null);
     this.loadDiagnostics.set([]);
     this.loadSchemaErrors.set([]);
+    this.rootNamespace.set(null);
+    this.detectedVersion.set(null);
     this.saveError.set(null);
     this.validationIssues.set([]);
     this.treeSearchTerm.set('');
@@ -259,6 +282,8 @@ export class App {
         this.loadError.set(err?.error?.error ?? 'Failed to load file.');
         this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
         this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
+        this.rootNamespace.set(err?.error?.rootNamespace ?? null);
+        this.detectedVersion.set(err?.error?.detectedVersion ?? null);
         if (err?.error?.diagnostics) {
           // The server understood the request and rejected the CONTENT — open the file's
           // text in source view so the problem can be fixed here instead of elsewhere.
@@ -278,6 +303,8 @@ export class App {
     this.conformanceReport.set(null);
     this.loadDiagnostics.set(result.diagnostics ?? []);
     this.loadSchemaErrors.set(result.schemaErrors ?? []);
+    this.rootNamespace.set(result.rootNamespace ?? null);
+    this.detectedVersion.set(result.detectedVersion ?? null);
   }
 
   // --- Tree/Source view toggle -----------------------------------------------------------

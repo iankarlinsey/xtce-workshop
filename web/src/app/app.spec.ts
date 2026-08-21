@@ -1438,6 +1438,63 @@ describe('App', () => {
     });
   });
 
+  describe('Namespace detection', () => {
+    function selectFile(fixture: ReturnType<typeof createAppAndFlushHealth>, name: string) {
+      const file = new File(['<xml/>'], name, { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+    }
+
+    it('shows the declared version quietly for an XTCE 1.2 document', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'modern.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        rootNamespace: 'http://www.omg.org/spec/XTCE/20180204',
+        detectedVersion: '1.2',
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Declared: XTCE 1.2');
+      expect(compiled.querySelector('.namespace-advisory')).toBeNull();
+    });
+
+    it('shows an advisory when the document declares the legacy XTCE namespace', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'legacy.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        rootNamespace: 'http://www.omg.org/space/xtce',
+        detectedVersion: '1.0/1.1',
+      });
+      fixture.detectChanges();
+
+      const advisory = (fixture.nativeElement as HTMLElement).querySelector('.namespace-advisory');
+      expect(advisory?.textContent).toContain('XTCE 1.0/1.1');
+      expect(advisory?.textContent).toContain('targets 1.2');
+    });
+
+    it('shows an advisory when the namespace is not an XTCE namespace at all', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'other.xml');
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        rootNamespace: 'http://example.com/other',
+        detectedVersion: null,
+      });
+      fixture.detectChanges();
+
+      const advisory = (fixture.nativeElement as HTMLElement).querySelector('.namespace-advisory');
+      expect(advisory?.textContent).toContain('not an XTCE namespace');
+    });
+  });
+
   describe('Source view', () => {
     function clickViewToggle(fixture: ReturnType<typeof createAppAndFlushHealth>, label: string) {
       const compiled = fixture.nativeElement as HTMLElement;

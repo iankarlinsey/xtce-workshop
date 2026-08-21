@@ -43,6 +43,7 @@ public static class StatsCommand
         else
         {
             output.WriteLine($"XTCE document metrics: {filePath}");
+            output.WriteLine($"Declared namespace: {DeclaredNamespace.Describe(filePath)}");
             output.WriteLine();
             output.WriteLine($"{"SYSTEM",-40} {"PARAMS",7} {"TYPES",7} {"CONTNRS",7} {"MSGS",5} {"CMDS",5} {"OPAQUE",7}");
             foreach (var system in metrics.Systems)

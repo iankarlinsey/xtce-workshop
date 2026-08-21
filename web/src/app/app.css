@@ -108,6 +108,16 @@
   gap: 6px;
 }
 
+.namespace-advisory {
+  margin: 4px 0 8px;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-base, 3px);
+}
+
 .toolbar {
   flex-wrap: wrap;
   display: flex;

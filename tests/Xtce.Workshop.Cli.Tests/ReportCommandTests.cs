@@ -91,6 +91,7 @@ public class ReportCommandTests : IDisposable
         var text = File.ReadAllText(outPath);
         Assert.StartsWith("XTCE 1.2 conformance report: clean.xml", text);
         Assert.Contains("Generated: ", text);
+        Assert.Contains("Declared namespace: http://www.omg.org/spec/XTCE/20180204 (XTCE 1.2)", text);
         Assert.Contains("#109 ", text);
     }
 

@@ -46,7 +46,8 @@ public static class ReportCommand
 
         var rendered = json
             ? JsonSerializer.Serialize(report, JsonOptions) + Environment.NewLine
-            : ConformanceReportRenderer.ToText(report, Path.GetFileName(filePath), DateTimeOffset.UtcNow);
+            : ConformanceReportRenderer.ToText(report, Path.GetFileName(filePath), DateTimeOffset.UtcNow,
+                DeclaredNamespace.Describe(filePath));
 
         if (outPath is null)
         {

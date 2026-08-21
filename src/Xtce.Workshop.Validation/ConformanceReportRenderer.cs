@@ -9,11 +9,15 @@ namespace Xtce.Workshop.Validation;
 /// </summary>
 public static class ConformanceReportRenderer
 {
-    public static string ToText(ConformanceReport report, string documentName, DateTimeOffset generatedAt)
+    public static string ToText(ConformanceReport report, string documentName, DateTimeOffset generatedAt, string? declaredNamespace = null)
     {
         var text = new StringBuilder();
         text.AppendLine($"XTCE 1.2 conformance report: {documentName}");
         text.AppendLine($"Generated: {generatedAt.UtcDateTime:yyyy-MM-dd HH:mm:ss}Z");
+        if (declaredNamespace is not null)
+        {
+            text.AppendLine($"Declared namespace: {declaredNamespace}");
+        }
         text.AppendLine($"Schema validation: {(report.SchemaValid ? "VALID" : "INVALID")}");
         foreach (var error in report.SchemaErrors)
         {

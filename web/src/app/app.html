@@ -53,6 +53,12 @@
       @if (selectedFileName()) {
         <p class="meta-text">Selected: {{ selectedFileName() }}</p>
       }
+      @if (detectedVersion() === '1.2') {
+        <p class="meta-text">Declared: XTCE 1.2</p>
+      }
+      @if (namespaceAdvisory(); as advisory) {
+        <p class="namespace-advisory">{{ advisory }}</p>
+      }
       @if (loadError()) {
         <p class="error">{{ loadError() }}</p>
       }
