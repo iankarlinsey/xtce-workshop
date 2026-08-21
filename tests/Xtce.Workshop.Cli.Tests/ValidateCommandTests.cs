@@ -3,6 +3,15 @@ using Xtce.Workshop.Cli;
 
 namespace Xtce.Workshop.Cli.Tests;
 
+public class BuildInfoTests
+{
+    [Test]
+    public void Version_IsNeverEmpty()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(Xtce.Workshop.Cli.BuildInfo.Version));
+    }
+}
+
 public class ValidateCommandTests : IDisposable
 {
     private readonly string _tempDir = Directory.CreateTempSubdirectory("xtce-cli-tests").FullName;

@@ -1,4 +1,4 @@
-.git
+# .git is included in the context: the build stage derives the version stamp from HEAD.
 **/bin/
 **/obj/
 web/node_modules/

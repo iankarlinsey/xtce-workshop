@@ -13,7 +13,7 @@
       <rux-status [attr.status]="healthStatus() === 'ok' ? 'normal' : healthStatus() === 'unreachable' ? 'critical' : 'off'"></rux-status>
       @switch (healthStatus()) {
         @case ('checking') { Checking backend&hellip; }
-        @case ('ok') { Backend: OK }
+        @case ('ok') { Backend: OK @if (backendVersion(); as version) { <span class="build-version">{{ version }}</span> } }
         @case ('unreachable') { Backend: unreachable }
       }
     </div>

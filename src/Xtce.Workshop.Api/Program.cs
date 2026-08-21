@@ -40,6 +40,8 @@ app.MapControllers();
 // SPA deep links (any non-API, non-file route) resolve to the Angular entry point.
 app.MapFallbackToFile("index.html");
 
+app.Logger.LogInformation("xtce-workshop {Version} starting", Xtce.Workshop.Api.BuildInfo.Version);
+
 app.Run();
 
 // Exposed so Xtce.Workshop.Api.Tests can spin this app up via WebApplicationFactory<Program>.

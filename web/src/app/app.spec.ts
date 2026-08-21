@@ -65,6 +65,16 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Backend: OK');
   });
 
+  it('shows the backend build version when health reports one', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    httpMock.expectOne('/api/health').flush({ status: 'ok', version: 'abc1234 2026-08-21T00:00:00Z' });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.build-version')?.textContent).toContain('abc1234');
+  });
+
   it('shows Backend: unreachable when the health check fails', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

@@ -59,6 +59,7 @@ export class App {
   private revalidateTimer: ReturnType<typeof setTimeout> | null = null;
 
   protected readonly healthStatus = signal<HealthStatus>('checking');
+  protected readonly backendVersion = signal<string | null>(null);
   protected readonly selectedFileName = signal<string | null>(null);
   protected readonly loadError = signal<string | null>(null);
   protected readonly treeSearchTerm = signal('');
@@ -203,8 +204,11 @@ export class App {
   });
 
   constructor() {
-    this.http.get('/api/health').subscribe({
-      next: () => this.healthStatus.set('ok'),
+    this.http.get<{ status: string; version?: string }>('/api/health').subscribe({
+      next: (health) => {
+        this.healthStatus.set('ok');
+        this.backendVersion.set(health?.version ?? null);
+      },
       error: () => this.healthStatus.set('unreachable'),
     });
   }

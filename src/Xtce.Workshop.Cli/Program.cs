@@ -1,5 +1,11 @@
 using Xtce.Workshop.Cli;
 
+if (args.Length == 1 && args[0] is "--version" or "version")
+{
+    Console.WriteLine($"xtce-workshop {BuildInfo.Version}");
+    return 0;
+}
+
 if (args.Length >= 2 && args[0] is "validate" or "report" or "stats")
 {
     var json = args.Contains("--json");

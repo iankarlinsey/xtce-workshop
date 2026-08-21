@@ -23,6 +23,19 @@ COPY research/xtce-1.2-triage-log.csv research/
 COPY reference/1.2/SpaceSystem.xsd reference/1.2/xml.xsd reference/1.2/
 RUN dotnet publish src/Xtce.Workshop.Api/Xtce.Workshop.Api.csproj -c Release -o /app --no-restore
 
+# Version stamp (no git binary in the image): resolve HEAD from the copied .git metadata.
+COPY .git /tmp/repo-git
+RUN set -e; \
+    HEADREF="$(cat /tmp/repo-git/HEAD)"; \
+    case "$HEADREF" in \
+      ref:*) REF="${HEADREF#ref: }"; \
+        if [ -f "/tmp/repo-git/$REF" ]; then SHA="$(cat "/tmp/repo-git/$REF")"; \
+        else SHA="$(grep " $REF\$" /tmp/repo-git/packed-refs | head -1 | cut -c1-40)"; fi ;; \
+      *) SHA="$HEADREF" ;; \
+    esac; \
+    printf '%.7s %s' "$SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /app/version.txt; \
+    cat /app/version.txt
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:a4556ed033fa96f984bb7a8d348851cb2d36b1281dd2420070045f664fbb5f94 AS runtime
 WORKDIR /app
 COPY --from=api-build /app .
