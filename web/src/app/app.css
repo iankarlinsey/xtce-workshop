@@ -91,6 +91,23 @@
   padding: 28px 40px;
 }
 
+/* Source view owns the full panel height; the editor scrolls internally. */
+.main-panel-source {
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+  padding: 16px;
+}
+
+.main-panel-source app-source-view {
+  flex: 1;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 6px;
+}
+
 .toolbar {
   flex-wrap: wrap;
   display: flex;

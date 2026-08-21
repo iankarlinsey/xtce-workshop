@@ -74,6 +74,34 @@ public sealed class XtceDocumentController : ControllerBase
         await file.CopyToAsync(buffer);
         buffer.Position = 0;
 
+        return await LoadFromBuffer(buffer, file.FileName, file.Length);
+    }
+
+    /// <summary>
+    /// Loads XTCE from raw text — the source-view path, where the document arrives as the
+    /// editor's contents rather than an uploaded file. Same pipeline and response shape
+    /// as the multipart load.
+    /// </summary>
+    [HttpPost("load-text")]
+    [RequestSizeLimit(1_073_741_824)]
+    public async Task<IActionResult> LoadText([FromBody] LoadTextRequest? request)
+    {
+        if (string.IsNullOrEmpty(request?.Xml))
+        {
+            return BadRequest(new
+            {
+                error = "The request body must be JSON with a non-empty 'xml' property.",
+                diagnostics = Array.Empty<LoadDiagnostic>(),
+                schemaErrors = Array.Empty<string>(),
+            });
+        }
+
+        using var buffer = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(request.Xml));
+        return await LoadFromBuffer(buffer, "(source editor)", buffer.Length);
+    }
+
+    private async Task<IActionResult> LoadFromBuffer(MemoryStream buffer, string sourceName, long sizeBytes)
+    {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var result = XtceDocumentReader.LoadWithRecovery(buffer);
 
@@ -87,8 +115,8 @@ public sealed class XtceDocumentController : ControllerBase
 
         if (result.Document is null)
         {
-            _logger.LogWarning("Rejected unloadable file {FileName} ({SizeBytes} bytes): {DiagnosticCount} diagnostic(s), {SchemaErrorCount} schema error(s)",
-                file.FileName, file.Length, result.Diagnostics.Count, schemaErrors.Count);
+            _logger.LogWarning("Rejected unloadable input {SourceName} ({SizeBytes} bytes): {DiagnosticCount} diagnostic(s), {SchemaErrorCount} schema error(s)",
+                sourceName, sizeBytes, result.Diagnostics.Count, schemaErrors.Count);
             return BadRequest(new
             {
                 error = result.Diagnostics.FirstOrDefault()?.Message ?? "The file could not be loaded.",
@@ -102,7 +130,7 @@ public sealed class XtceDocumentController : ControllerBase
         var validationIssues = XtceValidator.Validate(spaceSystem);
         _logger.LogInformation(
             "Loaded {Document} ({SizeBytes} bytes): {IssueCount} validation issue(s), {DiagnosticCount} load diagnostic(s) in {ElapsedMs} ms",
-            spaceSystem.Name, file.Length, validationIssues.Count, result.Diagnostics.Count, stopwatch.ElapsedMilliseconds);
+            spaceSystem.Name, sizeBytes, validationIssues.Count, result.Diagnostics.Count, stopwatch.ElapsedMilliseconds);
         return Ok(new
         {
             name = spaceSystem.Name,
@@ -130,3 +158,5 @@ public sealed class XtceDocumentController : ControllerBase
         return Ok(new { validationIssues });
     }
 }
+
+public sealed record LoadTextRequest(string? Xml);

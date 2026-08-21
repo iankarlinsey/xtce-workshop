@@ -8,6 +8,12 @@
       <div class="header-divider"></div>
       <span class="doc-name">{{ doc.name }}</span>
     }
+    @if (currentDocument() || sourceText()) {
+      <div class="view-toggle" role="group" aria-label="Document view">
+        <rux-button [secondary]="viewMode() !== 'tree'" (click)="onShowTree()">Tree</rux-button>
+        <rux-button [secondary]="viewMode() !== 'source'" (click)="onShowSource()">Source</rux-button>
+      </div>
+    }
     <div class="spacer"></div>
     <div class="health-indicator" [class.health-ok]="healthStatus() === 'ok'" [class.health-down]="healthStatus() === 'unreachable'">
       <rux-status [attr.status]="healthStatus() === 'ok' ? 'normal' : healthStatus() === 'unreachable' ? 'critical' : 'off'"></rux-status>
@@ -126,7 +132,14 @@
       }
     </aside>
 
-    <main class="main-panel">
+    <main class="main-panel" [class.main-panel-source]="viewMode() === 'source'">
+      @if (viewMode() === 'source') {
+        @defer (on immediate) {
+          <app-source-view #sourceView [text]="sourceText()" [diagnostics]="loadDiagnostics()" />
+        } @placeholder {
+          <p class="meta-text">Loading source editor&hellip;</p>
+        }
+      } @else {
       @if (selectedSystem(); as system) {
         <div class="node-title">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
@@ -625,6 +638,7 @@
           </p>
           <p class="reference-text">{{ reference.text }}</p>
         </aside>
+      }
       }
     </main>
   </div>

@@ -1,7 +1,8 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject, signal, viewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { EditableTreeNodeComponent } from './editable-tree-node/editable-tree-node';
 import { PreservedXmlComponent } from './preserved-xml/preserved-xml';
+import { SourceViewComponent } from './source-view/source-view';
 import {
   SpaceSystemDocument,
   ParameterTypeDoc,
@@ -45,7 +46,7 @@ interface LoadResult {
 
 @Component({
   selector: 'app-root',
-  imports: [EditableTreeNodeComponent, PreservedXmlComponent],
+  imports: [EditableTreeNodeComponent, PreservedXmlComponent, SourceViewComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
   // Astro UXDS web components (rux-*) are custom elements, not Angular components.
@@ -82,6 +83,12 @@ export class App {
   protected readonly loadSchemaErrors = signal<string[]>([]);
   protected readonly parameterUsages = signal<UsageMatch[] | null>(null);
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Tree/Source projection of the same document; source is the current serialization. */
+  protected readonly viewMode = signal<'tree' | 'source'>('tree');
+  protected readonly sourceText = signal('');
+  /** String-keyed so the deferred SourceViewComponent stays out of the initial bundle. */
+  private readonly sourceView = viewChild<SourceViewComponent>('sourceView');
 
   /** Summary entries in severity order for the report header chips. */
   protected readonly reportSummary = computed(() => {
@@ -244,17 +251,80 @@ export class App {
             + 'something between the browser and the API may have intercepted the request.');
           return;
         }
-        this.currentDocument.set(result.document);
-        this.selection.set({ systemPath: [] });
-        this.validationIssues.set(result.validationIssues ?? []);
-        this.conformanceReport.set(null);
-        this.loadDiagnostics.set(result.diagnostics ?? []);
-        this.loadSchemaErrors.set(result.schemaErrors ?? []);
+        this.applyLoadResult(result);
+        this.sourceText.set('');
+        this.viewMode.set('tree');
       },
       error: (err) => {
         this.loadError.set(err?.error?.error ?? 'Failed to load file.');
         this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
         this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
+        if (err?.error?.diagnostics) {
+          // The server understood the request and rejected the CONTENT — open the file's
+          // text in source view so the problem can be fixed here instead of elsewhere.
+          file.text().then((text) => {
+            this.sourceText.set(text);
+            this.viewMode.set('source');
+          });
+        }
+      },
+    });
+  }
+
+  private applyLoadResult(result: LoadResult): void {
+    this.currentDocument.set(result.document);
+    this.selection.set({ systemPath: [] });
+    this.validationIssues.set(result.validationIssues ?? []);
+    this.conformanceReport.set(null);
+    this.loadDiagnostics.set(result.diagnostics ?? []);
+    this.loadSchemaErrors.set(result.schemaErrors ?? []);
+  }
+
+  // --- Tree/Source view toggle -----------------------------------------------------------
+
+  onShowSource(): void {
+    if (this.viewMode() === 'source') {
+      return;
+    }
+    const doc = this.currentDocument();
+    if (!doc) {
+      if (this.sourceText() !== '') {
+        this.viewMode.set('source');
+      }
+      return;
+    }
+    this.http.post('/api/xtce/save', doc, { responseType: 'text' }).subscribe({
+      next: (xmlText) => {
+        this.sourceText.set(xmlText);
+        this.viewMode.set('source');
+      },
+      error: () => this.saveError.set('Failed to serialize the document for source view.'),
+    });
+  }
+
+  /** Leaving source view IS the re-parse: the editor text becomes the document, or the
+   *  view stays put with positioned diagnostics when it can't. */
+  onShowTree(): void {
+    if (this.viewMode() === 'tree') {
+      return;
+    }
+    const text = this.sourceView()?.currentText() ?? this.sourceText();
+    this.loadError.set(null);
+    this.http.post<LoadResult>('/api/xtce/load-text', { xml: text }).subscribe({
+      next: (result) => {
+        if (!result?.document) {
+          this.loadError.set('The server response did not contain a document.');
+          return;
+        }
+        this.applyLoadResult(result);
+        this.sourceText.set('');
+        this.viewMode.set('tree');
+      },
+      error: (err) => {
+        this.loadError.set(err?.error?.error ?? 'The source text could not be parsed.');
+        this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
+        this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
+        this.sourceText.set(text);
       },
     });
   }

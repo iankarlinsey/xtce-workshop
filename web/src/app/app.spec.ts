@@ -1,4 +1,4 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { DeferBlockBehavior, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { App } from './app';
@@ -10,6 +10,8 @@ describe('App', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [provideHttpClient(), provideHttpClientTesting()],
+      // The source editor lives behind @defer; let deferred blocks render on their own.
+      deferBlockBehavior: DeferBlockBehavior.Playthrough,
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
@@ -1433,6 +1435,110 @@ describe('App', () => {
       const row = compiled.querySelector('.usage-row') as HTMLElement;
       expect(row.textContent).toContain('ParameterRefEntry');
       expect(row.textContent).toContain('Sat/ContainerSet/Hk');
+    });
+  });
+
+  describe('Source view', () => {
+    function clickViewToggle(fixture: ReturnType<typeof createAppAndFlushHealth>, label: string) {
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('.view-toggle rux-button')).find(
+        (b) => b.textContent?.trim() === label
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }
+
+    it('serializes the current document and opens it in the source editor', async () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+
+      clickViewToggle(fixture, 'Source');
+      const request = httpMock.expectOne('/api/xtce/save');
+      expect(request.request.body.name).toBe('Sat');
+      request.flush('<SpaceSystem name="Sat"/>');
+      fixture.detectChanges(); // renders the @defer placeholder and starts the chunk load
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('app-source-view')).toBeTruthy();
+      expect(compiled.querySelector('.node-title')).toBeNull();
+      expect(compiled.querySelector('.cm-content')?.textContent).toContain('SpaceSystem');
+    });
+
+    it('re-parses the source text into the document when switching back to tree', async () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+      clickViewToggle(fixture, 'Source');
+      httpMock.expectOne('/api/xtce/save').flush('<SpaceSystem name="Sat"/>');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      clickViewToggle(fixture, 'Tree');
+      const request = httpMock.expectOne('/api/xtce/load-text');
+      expect(request.request.body.xml).toContain('SpaceSystem');
+      request.flush({
+        name: 'Renamed',
+        document: { name: 'Renamed', children: [] },
+        validationIssues: [],
+        diagnostics: [],
+        schemaErrors: [],
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('app-source-view')).toBeNull();
+      expect(compiled.querySelector('.node-title')?.textContent).toContain('Renamed');
+    });
+
+    it('stays in source view with the error when the edited text no longer parses', async () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+      clickViewToggle(fixture, 'Source');
+      httpMock.expectOne('/api/xtce/save').flush('<SpaceSystem name="Sat"/>');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      clickViewToggle(fixture, 'Tree');
+      httpMock.expectOne('/api/xtce/load-text').flush(
+        {
+          error: 'Not well-formed XML: unexpected end of file.',
+          diagnostics: [{ kind: 'MalformedXml', message: 'unexpected end of file.', path: '(document)', line: 1, column: 24 }],
+          schemaErrors: [],
+        },
+        { status: 400, statusText: 'Bad Request' }
+      );
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('app-source-view')).toBeTruthy();
+      expect(compiled.querySelector('.error')?.textContent).toContain('Not well-formed XML');
+    });
+
+    it('opens the original file text in source view when a file fails to load', async () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<SpaceSystem name="Broken"'], 'broken.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+
+      httpMock.expectOne('/api/xtce/load').flush(
+        {
+          error: 'Not well-formed XML.',
+          diagnostics: [{ kind: 'MalformedXml', message: 'unexpected end of file.', path: '(document)', line: 1, column: 27 }],
+          schemaErrors: [],
+        },
+        { status: 400, statusText: 'Bad Request' }
+      );
+      await file.text(); // the component reads the same file; wait out the microtask chain
+      await fixture.whenStable();
+      fixture.detectChanges(); // renders the @defer placeholder and starts the chunk load
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('app-source-view')).toBeTruthy();
+      expect(compiled.querySelector('.cm-content')?.textContent).toContain('SpaceSystem name="Broken"');
+      expect(compiled.querySelector('.error')?.textContent).toContain('Not well-formed XML');
     });
   });
 });

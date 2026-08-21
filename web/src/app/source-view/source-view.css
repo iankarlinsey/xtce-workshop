@@ -1,0 +1,12 @@
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base, 3px);
+  overflow: hidden;
+}
+
+.editor-host {
+  height: 100%;
+}
