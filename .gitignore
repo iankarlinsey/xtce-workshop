@@ -9,6 +9,10 @@ TestResults/
 coverage-report/
 web/coverage/
 
+# Third-party XTCE test files — generated locally from externally licensed
+# sources (e.g. OpenC3 COSMOS demo targets); never commit.
+third-party-samples/
+
 # Restricted spec documents — download locally per reference/README.md,
 # never commit. The .pdf.md placeholder stubs ARE committed.
 reference/**/*.pdf
