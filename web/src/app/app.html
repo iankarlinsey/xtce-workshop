@@ -17,6 +17,7 @@
       <rux-button (click)="onSaveDocument()" [disabled]="!currentDocument() && !sourceText()">Save</rux-button>
       <rux-button secondary (click)="onRunReport()" [disabled]="!currentDocument()">Report</rux-button>
     </div>
+    <div class="spacer"></div>
     @if (currentDocument() || sourceText()) {
       <div class="view-toggle" role="group" aria-label="Document view">
         <rux-button [secondary]="viewMode() !== 'source'" (click)="onShowSource()">Source</rux-button>
@@ -24,16 +25,16 @@
                     (click)="onShowTree()">Tree</rux-button>
       </div>
     }
-    @if (detectedVersion() === '1.2') {
-      <span class="meta-text">XTCE 1.2</span>
-    }
+    <div class="spacer"></div>
     @if (loadingMessage(); as message) {
       <div class="loading-row">
         <rux-indeterminate-progress></rux-indeterminate-progress>
         <span>{{ message }}</span>
       </div>
     }
-    <div class="spacer"></div>
+    @if (detectedVersion() === '1.2') {
+      <span class="meta-text">XTCE 1.2</span>
+    }
     <div class="health-indicator" [class.health-ok]="healthStatus() === 'ok'" [class.health-down]="healthStatus() === 'unreachable'">
       <rux-status [attr.status]="healthStatus() === 'ok' ? 'normal' : healthStatus() === 'unreachable' ? 'critical' : 'off'"></rux-status>
       @switch (healthStatus()) {
