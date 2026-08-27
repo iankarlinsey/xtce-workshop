@@ -25,15 +25,6 @@
       </div>
     }
     <div class="spacer"></div>
-    @if (loadingMessage(); as message) {
-      <div class="loading-row">
-        <rux-indeterminate-progress></rux-indeterminate-progress>
-        <span>{{ message }}</span>
-      </div>
-    }
-    @if (detectedVersion() === '1.2') {
-      <span class="meta-text">XTCE 1.2</span>
-    }
     <div class="health-indicator" [class.health-ok]="healthStatus() === 'ok'" [class.health-down]="healthStatus() === 'unreachable'">
       <rux-status [attr.status]="healthStatus() === 'ok' ? 'normal' : healthStatus() === 'unreachable' ? 'critical' : 'off'"></rux-status>
       @switch (healthStatus()) {
@@ -43,6 +34,15 @@
       }
     </div>
   </header>
+
+  @if (loadingMessage(); as message) {
+    <div class="loading-overlay">
+      <div class="loading-modal" role="status">
+        <rux-indeterminate-progress></rux-indeterminate-progress>
+        <span>{{ message }}</span>
+      </div>
+    </div>
+  }
 
   <div class="app-body">
     <aside class="sidebar">

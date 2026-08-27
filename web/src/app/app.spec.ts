@@ -1495,7 +1495,7 @@ describe('App', () => {
       selectFile(fixture, 'big.xml');
       fixture.detectChanges();
 
-      const row = (fixture.nativeElement as HTMLElement).querySelector('.loading-row');
+      const row = (fixture.nativeElement as HTMLElement).querySelector('.loading-modal');
       expect(row).toBeTruthy();
       expect(row?.textContent).toContain('Loading big.xml');
       expect(row?.querySelector('rux-indeterminate-progress')).toBeTruthy();
@@ -1505,14 +1505,14 @@ describe('App', () => {
         document: { name: 'Sat', children: [] },
       });
       fixture.detectChanges();
-      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-row')).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-modal')).toBeNull();
     });
 
     it('clears the spinner when the load fails', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'bad.xml');
       fixture.detectChanges();
-      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-row')).toBeTruthy();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-modal')).toBeTruthy();
 
       httpMock.expectOne('/api/xtce/load').flush(
         { error: 'nope' },
@@ -1521,7 +1521,7 @@ describe('App', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.querySelector('.loading-row')).toBeNull();
+      expect(compiled.querySelector('.loading-modal')).toBeNull();
       expect(compiled.querySelector('.error')?.textContent).toContain('nope');
     });
   });
@@ -1774,7 +1774,7 @@ describe('App', () => {
       await openSourceView(fixture);
 
       clickViewToggle(fixture, 'Tree');
-      const row = (fixture.nativeElement as HTMLElement).querySelector('.loading-row');
+      const row = (fixture.nativeElement as HTMLElement).querySelector('.loading-modal');
       expect(row?.textContent).toContain('Re-scanning source');
 
       httpMock.expectOne('/api/xtce/load-text').flush({
@@ -1782,7 +1782,7 @@ describe('App', () => {
         document: { name: 'Sat', children: [] },
       });
       fixture.detectChanges();
-      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-row')).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-modal')).toBeNull();
     });
 
     it('auto-switches to tree when the initial load is completely clean', async () => {

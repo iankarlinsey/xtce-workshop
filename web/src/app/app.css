@@ -136,17 +136,38 @@
   cursor: pointer;
 }
 
-.loading-row {
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 4px 0;
-  color: var(--text-muted);
-  font-size: 0.8125rem;
+  justify-content: center;
+  background: oklch(0.1 0.01 250 / 0.55);
+  /* A short delay keeps fast local responses from flashing the modal. */
+  opacity: 0;
+  animation: loading-overlay-in 0.15s ease 0.2s forwards;
 }
 
-.loading-row rux-indeterminate-progress {
-  --size: 18px;
+@keyframes loading-overlay-in {
+  to { opacity: 1; }
+}
+
+.loading-modal {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 26px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9375rem;
+  box-shadow: 0 12px 40px oklch(0 0 0 / 0.5);
+}
+
+.loading-modal rux-indeterminate-progress {
+  --size: 28px;
   flex-shrink: 0;
 }
 
