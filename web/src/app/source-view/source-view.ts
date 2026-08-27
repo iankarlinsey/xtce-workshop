@@ -107,8 +107,20 @@ export class SourceViewComponent implements OnDestroy {
       },
       '.cm-content': { caretColor: 'var(--accent)' },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--accent)' },
-      '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-        backgroundColor: 'var(--color-background-surface-selected, #1c3f5e)',
+      // drawSelection paints .cm-selectionBackground layers (native ::selection is
+      // transparent), so this color is the ONLY selection feedback — keep it loud.
+      '.cm-selectionBackground': {
+        backgroundColor: 'rgba(88, 182, 255, 0.22)',
+      },
+      '&.cm-focused .cm-selectionBackground': {
+        backgroundColor: 'rgba(88, 182, 255, 0.35)',
+      },
+      '.cm-searchMatch': {
+        backgroundColor: 'rgba(252, 232, 58, 0.25)',
+        outline: '1px solid rgba(252, 232, 58, 0.45)',
+      },
+      '.cm-searchMatch.cm-searchMatch-selected': {
+        backgroundColor: 'rgba(252, 232, 58, 0.45)',
       },
       '.cm-gutters': {
         backgroundColor: 'var(--panel-2)',
