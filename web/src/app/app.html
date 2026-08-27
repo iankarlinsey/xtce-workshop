@@ -226,6 +226,7 @@
           <rux-button secondary (click)="onOpenCreator('parameter')">+ Add parameter</rux-button>
           <rux-button secondary (click)="onOpenCreator('container')">+ Add container</rux-button>
           <rux-button secondary (click)="onOpenCreator('message')">+ Add message</rux-button>
+          <rux-button secondary (click)="onOpenCreator('argumentType')">+ Add argument type</rux-button>
           <rux-button secondary (click)="onOpenCreator('metaCommand')">+ Add command</rux-button>
           @if (!isRootSelected()) {
             <button type="button" class="btn btn-danger" (click)="onDeleteSelected()">Delete</button>
@@ -260,6 +261,28 @@
               <input #typeRef class="entry-ref" list="known-type-names" placeholder="element/member type (Array/Aggregate)"
                      aria-label="New type element or member ref" (keydown.escape)="onCancelCreator()" />
               <rux-button (click)="onCreateParameterType(typeName, typeKind, typeRef)">Create</rux-button>
+              <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
+            </div>
+          }
+          @case ('argumentType') {
+            <div class="creator-row">
+              <input #argTypeName class="entry-ref" placeholder="argument type name" aria-label="New argument type name"
+                     (keydown.escape)="onCancelCreator()" />
+              <select #argTypeKind class="kind-select" aria-label="New argument type kind">
+                <option value="Integer">Integer</option>
+                <option value="Float">Float</option>
+                <option value="String">String</option>
+                <option value="Boolean">Boolean</option>
+                <option value="Enumerated">Enumerated</option>
+                <option value="Binary">Binary</option>
+                <option value="RelativeTime">RelativeTime</option>
+                <option value="AbsoluteTime">AbsoluteTime</option>
+                <option value="Array">Array</option>
+                <option value="Aggregate">Aggregate</option>
+              </select>
+              <input #argTypeRef class="entry-ref" list="known-argument-type-names" placeholder="element/member type (Array/Aggregate)"
+                     aria-label="New argument type element or member ref" (keydown.escape)="onCancelCreator()" />
+              <rux-button (click)="onCreateParameterType(argTypeName, argTypeKind, argTypeRef, 'argumentType')">Create</rux-button>
               <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
             </div>
           }
@@ -351,7 +374,7 @@
       } @else if (selectedParameterType(); as type) {
         <div class="node-title">
           <span>{{ type.name }}</span>
-          <span class="type-badge">{{ type.kind }}ParameterType</span>
+          <span class="type-badge">{{ selectedTypeElementName() }}</span>
         </div>
 
         <div class="form-field">
@@ -390,7 +413,7 @@
         @if (type.kind === 'Array') {
           <div class="form-field">
             <label for="type-arrayref">Element type ref (arrayTypeRef)</label>
-            <input id="type-arrayref" list="known-type-names" [value]="type.arrayTypeRef ?? ''" (input)="onItemFieldInput('arrayTypeRef', $event)" />
+            <input id="type-arrayref" [attr.list]="selectedItemKind() === 'argumentType' ? 'known-argument-type-names' : 'known-type-names'" [value]="type.arrayTypeRef ?? ''" (input)="onItemFieldInput('arrayTypeRef', $event)" />
           </div>
           <div class="form-field enum-editor">
             <label>Dimensions <span class="hint">(zero-based, inclusive bounds)</span></label>
@@ -414,7 +437,7 @@
             @for (member of type.members ?? []; track $index; let i = $index) {
               <div class="enum-row">
                 <input class="member-name" [value]="member.name" (input)="onMemberFieldInput(i, 'name', $event)" [attr.aria-label]="'Member ' + i + ' name'" />
-                <input class="member-typeref" list="known-type-names" [value]="member.typeRef" (input)="onMemberFieldInput(i, 'typeRef', $event)" [attr.aria-label]="'Member ' + i + ' type ref'" />
+                <input class="member-typeref" [attr.list]="selectedItemKind() === 'argumentType' ? 'known-argument-type-names' : 'known-type-names'" [value]="member.typeRef" (input)="onMemberFieldInput(i, 'typeRef', $event)" [attr.aria-label]="'Member ' + i + ' type ref'" />
                 <input class="member-initial" [value]="member.initialValue ?? ''" (input)="onMemberFieldInput(i, 'initialValue', $event)" placeholder="initial" [attr.aria-label]="'Member ' + i + ' initial value'" />
                 <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveMember(i)" [disabled]="(type.members ?? []).length <= 1" aria-label="Remove member">&times;</button>
               </div>
@@ -663,6 +686,26 @@
           <label for="command-baseref">Base command ref <span class="hint">(inheritance, optional)</span></label>
           <input id="command-baseref" list="known-metacommand-names" [value]="metaCommand.baseMetaCommandRef ?? ''" (input)="onItemFieldInput('baseMetaCommandRef', $event)" />
         </div>
+        <div class="form-field enum-editor">
+          <label>Arguments</label>
+          @for (argument of metaCommand.arguments ?? []; track $index; let i = $index) {
+            <div class="enum-row">
+              <input class="member-name" [value]="argument.name" (input)="onArgumentFieldInput(i, 'name', $event)" [attr.aria-label]="'Argument ' + i + ' name'" />
+              <input class="member-typeref" list="known-argument-type-names" [value]="argument.argumentTypeRef" (input)="onArgumentFieldInput(i, 'argumentTypeRef', $event)" placeholder="argumentTypeRef" [attr.aria-label]="'Argument ' + i + ' type ref'" />
+              <input class="member-initial" [value]="argument.initialValue ?? ''" (input)="onArgumentFieldInput(i, 'initialValue', $event)" placeholder="initial" [attr.aria-label]="'Argument ' + i + ' initial value'" />
+              <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveArgument(i)" aria-label="Remove argument">&times;</button>
+            </div>
+          }
+          <rux-button secondary (click)="onAddArgument()">+ Add argument</rux-button>
+        </div>
+        @if ((metaCommand.argumentAssignments ?? []).length > 0) {
+          <div class="form-field">
+            <label>Base command argument assignments</label>
+            @for (assignment of metaCommand.argumentAssignments ?? []; track $index) {
+              <p class="meta-text">{{ assignment.argumentName }} = {{ assignment.argumentValue }}</p>
+            }
+          </div>
+        }
         <p class="meta-text">
           Verifiers: {{ (metaCommand.completeVerifiers ?? []).length }} complete,
           {{ (metaCommand.executionVerifiers ?? []).length }} execution (preserved as XML).
@@ -694,6 +737,11 @@
       </datalist>
       <datalist id="known-metacommand-names">
         @for (name of knownMetaCommandNames(); track name) {
+          <option [value]="name"></option>
+        }
+      </datalist>
+      <datalist id="known-argument-type-names">
+        @for (name of knownArgumentTypeNames(); track name) {
           <option [value]="name"></option>
         }
       </datalist>

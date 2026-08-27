@@ -34,6 +34,40 @@ public sealed record CommandContainer(
 }
 
 /// <summary>
+/// An Argument declared on a MetaCommand's ArgumentList: name, type reference, optional
+/// initial value; unmodeled children (LongDescription, AliasSet, ...) preserved.
+/// </summary>
+public sealed record Argument(
+    string Name,
+    string ArgumentTypeRef,
+    string? InitialValue = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(Argument? other) =>
+        other is not null
+        && Name == other.Name
+        && ArgumentTypeRef == other.ArgumentTypeRef
+        && InitialValue == other.InitialValue
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Name);
+        hash.Add(ArgumentTypeRef);
+        hash.Add(InitialValue);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>One ArgumentAssignment inside a BaseMetaCommand's ArgumentAssignmentList.</summary>
+public sealed record ArgumentAssignment(string ArgumentName, string ArgumentValue);
+
+/// <summary>
 /// A MetaCommand in a CommandMetaData's MetaCommandSet — modeled just deeply enough for
 /// verifier-inheritance validation (rule R12): name, abstract flag, the BaseMetaCommand
 /// reference, and the verifier lists. ExecutionVerifiers/CompleteVerifiers are kept as raw
@@ -53,7 +87,10 @@ public sealed record MetaCommand(
     IReadOnlyList<RawXmlFragment>? PreservedVerifiers = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
-    CommandContainer? CommandContainer = null)
+    CommandContainer? CommandContainer = null,
+    IReadOnlyList<Argument>? Arguments = null,
+    IReadOnlyList<RawXmlFragment>? PreservedArguments = null,
+    IReadOnlyList<ArgumentAssignment>? ArgumentAssignments = null)
 {
     public bool Equals(MetaCommand? other) =>
         other is not null
@@ -66,7 +103,10 @@ public sealed record MetaCommand(
         && Structural.ListEquals(PreservedVerifiers, other.PreservedVerifiers)
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
-        && Equals(CommandContainer, other.CommandContainer);
+        && Equals(CommandContainer, other.CommandContainer)
+        && Structural.ListEquals(Arguments, other.Arguments)
+        && Structural.ListEquals(PreservedArguments, other.PreservedArguments)
+        && Structural.ListEquals(ArgumentAssignments, other.ArgumentAssignments);
 
     public override int GetHashCode()
     {
@@ -81,6 +121,9 @@ public sealed record MetaCommand(
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
         hash.Add(CommandContainer);
+        Structural.AddList(ref hash, Arguments);
+        Structural.AddList(ref hash, PreservedArguments);
+        Structural.AddList(ref hash, ArgumentAssignments);
         return hash.ToHashCode();
     }
 }
@@ -96,13 +139,17 @@ public sealed record MetaCommand(
 public sealed record CommandMetaData(
     IReadOnlyList<MetaCommand> MetaCommands,
     IReadOnlyList<RawXmlFragment>? PreservedEntries = null,
-    IReadOnlyList<RawXmlFragment>? Preserved = null)
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<ParameterTypeDefinition>? ArgumentTypeSet = null,
+    IReadOnlyList<RawXmlFragment>? PreservedArgumentTypes = null)
 {
     public bool Equals(CommandMetaData? other) =>
         other is not null
         && MetaCommands.SequenceEqual(other.MetaCommands)
         && Structural.ListEquals(PreservedEntries, other.PreservedEntries)
-        && Structural.ListEquals(Preserved, other.Preserved);
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(ArgumentTypeSet, other.ArgumentTypeSet)
+        && Structural.ListEquals(PreservedArgumentTypes, other.PreservedArgumentTypes);
 
     public override int GetHashCode()
     {
@@ -111,6 +158,8 @@ public sealed record CommandMetaData(
             hash.Add(metaCommand);
         Structural.AddList(ref hash, PreservedEntries);
         Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, ArgumentTypeSet);
+        Structural.AddList(ref hash, PreservedArgumentTypes);
         return hash.ToHashCode();
     }
 }

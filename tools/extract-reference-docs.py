@@ -31,6 +31,16 @@ CONSTRUCTS = {
     "AbsoluteTimeParameterType": "AbsoluteTimeParameterType",
     "ArrayParameterType": "ArrayParameterType",
     "AggregateParameterType": "AggregateParameterType",
+    "IntegerArgumentType": "IntegerArgumentType",
+    "FloatArgumentType": "FloatArgumentType",
+    "StringArgumentType": "StringArgumentType",
+    "BooleanArgumentType": "BooleanArgumentType",
+    "EnumeratedArgumentType": "EnumeratedArgumentType",
+    "BinaryArgumentType": "BinaryArgumentType",
+    "RelativeTimeArgumentType": "RelativeTimeArgumentType",
+    "AbsoluteTimeArgumentType": "AbsoluteTimeArgumentType",
+    "ArrayArgumentType": "ArrayArgumentType",
+    "AggregateArgumentType": "AggregateArgumentType",
 }
 
 

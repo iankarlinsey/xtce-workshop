@@ -30,6 +30,7 @@ import {
   collectParameterNames,
   collectContainerNames,
   collectMetaCommandNames,
+  collectArgumentTypeNames,
   moveEntry,
   selectionForLocation,
 } from './document-tree';
@@ -126,7 +127,7 @@ export class App {
 
   /** Which inline creator row is open (one at a time), or null. */
   protected readonly creating = signal<
-    'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType' | null
+    'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType' | 'argumentType' | null
   >(null);
 
   protected readonly currentDocument = signal<SpaceSystemDocument | null>(null);
@@ -232,13 +233,27 @@ export class App {
     () => this.selection()?.item?.kind ?? null
   );
 
+  /** Parameter- OR argument-type selection — the XSD mirrors the two attribute-for-attribute, so one form serves both. */
   protected readonly selectedParameterType = computed(() => {
     const doc = this.currentDocument();
     const selection = this.selection();
-    if (!doc || !selection || selection.item?.kind !== 'parameterType') {
+    const kind = selection?.item?.kind;
+    if (!doc || !selection || (kind !== 'parameterType' && kind !== 'argumentType')) {
       return null;
     }
     return getItemAtSelection(doc, selection) as ParameterTypeDoc | null;
+  });
+
+  /** The XSD element name for the selected type ("RelativeTimeAgumentType" is the schema's own typo). */
+  protected readonly selectedTypeElementName = computed(() => {
+    const type = this.selectedParameterType();
+    if (!type) {
+      return '';
+    }
+    if (this.selectedItemKind() === 'argumentType') {
+      return type.kind === 'RelativeTime' ? 'RelativeTimeAgumentType' : `${type.kind}ArgumentType`;
+    }
+    return `${type.kind}ParameterType`;
   });
 
   protected readonly selectedParameter = computed(() => {
@@ -302,6 +317,11 @@ export class App {
     return doc ? collectMetaCommandNames(doc) : [];
   });
 
+  protected readonly knownArgumentTypeNames = computed(() => {
+    const doc = this.currentDocument();
+    return doc ? collectArgumentTypeNames(doc) : [];
+  });
+
   /** XSD documentation for whatever construct is selected — the reference sheet. */
   protected readonly referenceEntry = computed<ReferenceEntry | null>(() => {
     const selection = this.selection();
@@ -315,6 +335,10 @@ export class App {
       case 'parameterType': {
         const type = this.selectedParameterType();
         return type ? XTCE_REFERENCE[`${type.kind}ParameterType`] ?? null : null;
+      }
+      case 'argumentType': {
+        const type = this.selectedParameterType();
+        return type ? XTCE_REFERENCE[`${type.kind}ArgumentType`] ?? null : null;
       }
       case 'parameter':
         return XTCE_REFERENCE['Parameter'] ?? null;
@@ -781,7 +805,7 @@ export class App {
     this.rescanSource('switchIfClean');
   }
 
-  onOpenCreator(kind: 'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType'): void {
+  onOpenCreator(kind: 'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType' | 'argumentType'): void {
     this.creating.set(this.creating() === kind ? null : kind);
   }
 
@@ -921,7 +945,12 @@ export class App {
     this.selection.set({ systemPath: selection.systemPath.slice(0, -1) });
   }
 
-  onCreateParameterType(nameInput: HTMLInputElement, kindSelect: HTMLSelectElement, refInput: HTMLInputElement): void {
+  onCreateParameterType(
+    nameInput: HTMLInputElement,
+    kindSelect: HTMLSelectElement,
+    refInput: HTMLInputElement,
+    itemKind: 'parameterType' | 'argumentType' = 'parameterType'
+  ): void {
     const name = nameInput.value.trim();
     if (!name) {
       return;
@@ -946,7 +975,7 @@ export class App {
       }
       item.members = [{ name: 'field1', typeRef: reference }];
     }
-    this.addToSelectedSystem('parameterType', item);
+    this.addToSelectedSystem(itemKind, item);
     this.creating.set(null);
   }
 
@@ -1068,6 +1097,36 @@ export class App {
     }
     this.addToSelectedSystem('metaCommand', { name });
     this.creating.set(null);
+  }
+
+  // --- MetaCommand argument editing -----------------------------------------------------
+
+  onArgumentFieldInput(index: number, field: 'name' | 'argumentTypeRef' | 'initialValue', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const metaCommand = item as MetaCommandDoc;
+      return {
+        ...metaCommand,
+        arguments: (metaCommand.arguments ?? []).map((argument, i) =>
+          i === index ? { ...argument, [field]: field === 'initialValue' && value === '' ? null : value } : argument),
+      };
+    });
+  }
+
+  onAddArgument(): void {
+    this.mutateSelectedItem((item) => {
+      const metaCommand = item as MetaCommandDoc;
+      const args = metaCommand.arguments ?? [];
+      return { ...metaCommand, arguments: [...args, { name: `arg${args.length + 1}`, argumentTypeRef: '' }] };
+    });
+  }
+
+  onRemoveArgument(index: number): void {
+    this.mutateSelectedItem((item) => {
+      const metaCommand = item as MetaCommandDoc;
+      const args = (metaCommand.arguments ?? []).filter((_, i) => i !== index);
+      return { ...metaCommand, arguments: args.length > 0 ? args : null };
+    });
   }
 
   // --- Telemetry item editing ----------------------------------------------------------
@@ -1362,6 +1421,7 @@ export class App {
       Container: { kind: 'container', items: node.telemetryMetaData?.containerSet ?? undefined },
       Message: { kind: 'message', items: node.telemetryMetaData?.messageSet?.messages },
       MetaCommand: { kind: 'metaCommand', items: node.commandMetaData?.metaCommands },
+      ArgumentType: { kind: 'argumentType', items: node.commandMetaData?.argumentTypeSet ?? undefined },
     };
     const target = lists[match.kind];
     const itemIndex = target.items?.findIndex((item) => item.name === match.name) ?? -1;

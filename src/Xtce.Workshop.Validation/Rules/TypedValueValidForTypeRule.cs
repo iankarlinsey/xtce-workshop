@@ -154,16 +154,16 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
         foreach (var metaCommand in commandMetaData.MetaCommands)
         {
             var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}";
-            var visibleArguments = ArgumentScanner.MergedArguments(context, metaCommand);
+            var visibleArguments = ModeledArguments.Merged(context, metaCommand);
 
             // #39 — an Argument's initialValue must fit its argumentTypeRef'd type.
-            foreach (var declaration in ArgumentScanner.ScanArguments(metaCommand))
+            foreach (var declaration in metaCommand.Arguments ?? [])
             {
                 if (declaration.InitialValue is null)
                 {
                     continue;
                 }
-                if (ArgumentScanner.ResolveArgumentType(context, declaration.TypeRef) is not { } argumentType)
+                if (ModeledArguments.ResolveType(context, declaration.ArgumentTypeRef) is not { } argumentType)
                 {
                     continue;
                 }
@@ -176,11 +176,11 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
             }
 
             // #33 — ArgumentAssignment values must fit the (inherited) argument's type.
-            foreach (var assignment in ArgumentScanner.ScanArgumentAssignments(metaCommand))
+            foreach (var assignment in metaCommand.ArgumentAssignments ?? [])
             {
                 var target = visibleArguments.FirstOrDefault(a => a.Decl.Name == assignment.ArgumentName);
                 if (target is null
-                    || ArgumentScanner.ResolveArgumentType(target.Scope, target.Decl.TypeRef) is not { } assignedType)
+                    || ModeledArguments.ResolveType(target.Scope, target.Decl.ArgumentTypeRef) is not { } assignedType)
                 {
                     continue;
                 }
@@ -219,7 +219,7 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
                     {
                         var target = visibleArguments.FirstOrDefault(a => a.Decl.Name == argumentRef);
                         if (target is null
-                            || ArgumentScanner.ResolveArgumentType(target.Scope, target.Decl.TypeRef) is not { } argumentType)
+                            || ModeledArguments.ResolveType(target.Scope, target.Decl.ArgumentTypeRef) is not { } argumentType)
                         {
                             continue;
                         }

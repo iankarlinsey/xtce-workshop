@@ -50,6 +50,10 @@ public static class XtceDocumentQuery
             {
                 AddIfMatched(matches, matcher, "Message", context.Path, message.Name, message.Preserved);
             }
+            foreach (var argumentType in context.Node.CommandMetaData?.ArgumentTypeSet ?? [])
+            {
+                AddIfMatched(matches, matcher, "ArgumentType", context.Path, argumentType.Name, argumentType.Preserved);
+            }
             foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
             {
                 AddIfMatched(matches, matcher, "MetaCommand", context.Path, metaCommand.Name, metaCommand.Preserved);

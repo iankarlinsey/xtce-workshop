@@ -930,9 +930,15 @@ describe('App', () => {
             },
           },
           commandMetaData: {
+            argumentTypeSet: [{ name: 'CmdU8', kind: 'Integer', signed: false, sizeInBits: 8 }],
             metaCommands: [
               { name: 'BaseCmd', abstract: true },
-              { name: 'Reboot', baseMetaCommandRef: 'BaseCmd', completeVerifiers: [{ elementName: 'CompleteVerifier', outerXml: '<CompleteVerifier/>' }] },
+              {
+                name: 'Reboot',
+                baseMetaCommandRef: 'BaseCmd',
+                arguments: [{ name: 'delay', argumentTypeRef: 'CmdU8' }],
+                completeVerifiers: [{ elementName: 'CompleteVerifier', outerXml: '<CompleteVerifier/>' }],
+              },
             ],
           },
         },
@@ -947,7 +953,7 @@ describe('App', () => {
 
       expandAllGroups(fixture);
       const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
-      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'BaseCmd', 'Reboot']);
+      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'CmdU8', 'BaseCmd', 'Reboot']);
 
       clickTreeRowByText(fixture, 'OpsMsg');
       expect((compiled.querySelector('#message-containerref') as HTMLInputElement).value).toBe('Packet');
@@ -955,7 +961,37 @@ describe('App', () => {
       clickTreeRowByText(fixture, 'Reboot');
       expect((compiled.querySelector('#command-baseref') as HTMLInputElement).value).toBe('BaseCmd');
       expect(compiled.textContent).toContain('1 complete');
+      expect((compiled.querySelector('input[aria-label="Argument 0 type ref"]') as HTMLInputElement).value).toBe('CmdU8');
     });
+
+    it('argument types open the shared type form under their ArgumentType element name', () => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      clickTreeRowByText(fixture, 'CmdU8');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('IntegerArgumentType');
+      expect((compiled.querySelector('#type-size') as HTMLInputElement).value).toBe('8');
+    });
+
+    it('editing a command argument flows into Save under arguments', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      clickTreeRowByText(fixture, 'Reboot');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const initialInput = compiled.querySelector('input[aria-label="Argument 0 initial value"]') as HTMLInputElement;
+      initialInput.value = '5';
+      initialInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.commandMetaData.metaCommands[1].arguments)
+        .toEqual([{ name: 'delay', argumentTypeRef: 'CmdU8', initialValue: '5' }]);
+      req.flush('<SpaceSystem/>');
+    }));
 
     it('editing a message containerRef flows into Save with MatchCriteria preserved', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();

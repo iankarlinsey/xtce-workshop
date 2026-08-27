@@ -269,6 +269,20 @@ public static class XtceDocumentWriter
         var slots = new List<(string Name, Action Emit)>();
         AddPreservedSlots(slots, writer, commandMetaData.Preserved);
 
+        if (commandMetaData.ArgumentTypeSet is { Count: > 0 } || commandMetaData.PreservedArgumentTypes is { Count: > 0 })
+        {
+            slots.Add(("ArgumentTypeSet", () =>
+            {
+                writer.WriteStartElement("ArgumentTypeSet", XtceNamespace);
+                foreach (var argumentType in commandMetaData.ArgumentTypeSet ?? [])
+                {
+                    WriteParameterType(writer, argumentType, asArgumentType: true);
+                }
+                WriteFragments(writer, commandMetaData.PreservedArgumentTypes);
+                writer.WriteEndElement();
+            }));
+        }
+
         if (commandMetaData.MetaCommands.Count > 0 || commandMetaData.PreservedEntries is { Count: > 0 })
         {
             slots.Add(("MetaCommandSet", () =>
@@ -308,7 +322,42 @@ public static class XtceDocumentWriter
             {
                 writer.WriteStartElement("BaseMetaCommand", XtceNamespace);
                 writer.WriteAttributeString("metaCommandRef", baseRef);
+                if (metaCommand.ArgumentAssignments is { Count: > 0 } assignments)
+                {
+                    writer.WriteStartElement("ArgumentAssignmentList", XtceNamespace);
+                    foreach (var assignment in assignments)
+                    {
+                        writer.WriteStartElement("ArgumentAssignment", XtceNamespace);
+                        writer.WriteAttributeString("argumentName", assignment.ArgumentName);
+                        writer.WriteAttributeString("argumentValue", assignment.ArgumentValue);
+                        writer.WriteEndElement();
+                    }
+                    writer.WriteEndElement();
+                }
                 WriteFragments(writer, metaCommand.BaseMetaCommandPreserved);
+                writer.WriteEndElement();
+            }));
+        }
+
+        if (metaCommand.Arguments is { Count: > 0 } || metaCommand.PreservedArguments is { Count: > 0 })
+        {
+            slots.Add(("ArgumentList", () =>
+            {
+                writer.WriteStartElement("ArgumentList", XtceNamespace);
+                foreach (var argument in metaCommand.Arguments ?? [])
+                {
+                    writer.WriteStartElement("Argument", XtceNamespace);
+                    writer.WriteAttributeString("name", argument.Name);
+                    writer.WriteAttributeString("argumentTypeRef", argument.ArgumentTypeRef);
+                    if (argument.InitialValue is { } initialValue)
+                    {
+                        writer.WriteAttributeString("initialValue", initialValue);
+                    }
+                    WritePreservedAttributes(writer, argument.PreservedAttributes);
+                    WriteFragments(writer, argument.Preserved);
+                    writer.WriteEndElement();
+                }
+                WriteFragments(writer, metaCommand.PreservedArguments);
                 writer.WriteEndElement();
             }));
         }
@@ -520,20 +569,23 @@ public static class XtceDocumentWriter
         writer.WriteEndElement();
     }
 
-    private static void WriteParameterType(XmlWriter writer, ParameterTypeDefinition parameterType)
+    private static void WriteParameterType(XmlWriter writer, ParameterTypeDefinition parameterType, bool asArgumentType = false)
     {
+        var suffix = asArgumentType ? "ArgumentType" : "ParameterType";
         var elementName = parameterType.Kind switch
         {
-            ParameterTypeKind.Integer => "IntegerParameterType",
-            ParameterTypeKind.Float => "FloatParameterType",
-            ParameterTypeKind.String => "StringParameterType",
-            ParameterTypeKind.Boolean => "BooleanParameterType",
-            ParameterTypeKind.Enumerated => "EnumeratedParameterType",
-            ParameterTypeKind.Binary => "BinaryParameterType",
-            ParameterTypeKind.RelativeTime => "RelativeTimeParameterType",
-            ParameterTypeKind.AbsoluteTime => "AbsoluteTimeParameterType",
-            ParameterTypeKind.Array => "ArrayParameterType",
-            ParameterTypeKind.Aggregate => "AggregateParameterType",
+            ParameterTypeKind.Integer => $"Integer{suffix}",
+            ParameterTypeKind.Float => $"Float{suffix}",
+            ParameterTypeKind.String => $"String{suffix}",
+            ParameterTypeKind.Boolean => $"Boolean{suffix}",
+            ParameterTypeKind.Enumerated => $"Enumerated{suffix}",
+            ParameterTypeKind.Binary => $"Binary{suffix}",
+            // The XSD's argument element is literally "RelativeTimeAgumentType" (typo
+            // and all); emitting the corrected spelling would be schema-invalid.
+            ParameterTypeKind.RelativeTime => asArgumentType ? "RelativeTimeAgumentType" : "RelativeTimeParameterType",
+            ParameterTypeKind.AbsoluteTime => $"AbsoluteTime{suffix}",
+            ParameterTypeKind.Array => $"Array{suffix}",
+            ParameterTypeKind.Aggregate => $"Aggregate{suffix}",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(parameterType), parameterType.Kind, "Unsupported parameter type kind."),
         };

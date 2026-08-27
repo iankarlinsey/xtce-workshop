@@ -237,7 +237,10 @@ describe('selectionForLocation', () => {
       containerSet: [{ name: 'Frame', entryList: [] }],
       messageSet: { messages: [{ name: 'Hk', containerRef: 'Frame' }] },
     },
-    commandMetaData: { metaCommands: [{ name: 'Reboot' }] },
+    commandMetaData: {
+      metaCommands: [{ name: 'Reboot' }],
+      argumentTypeSet: [{ name: 'CmdU8', kind: 'Integer' as const }],
+    },
   };
 
   it('maps set items at the root and in child systems', () => {
@@ -256,6 +259,12 @@ describe('selectionForLocation', () => {
       .toEqual({ systemPath: [], item: { kind: 'metaCommand', index: 0 } });
     expect(selectionForLocation(doc, 'Sat/CommandMetaData/MetaCommandSet/Reboot/CommandContainer'))
       .toEqual({ systemPath: [], item: { kind: 'metaCommand', index: 0 } });
+  });
+
+  it('maps argument types under CommandMetaData/ArgumentTypeSet', () => {
+    expect(selectionForLocation(doc, 'Sat/CommandMetaData/ArgumentTypeSet/CmdU8'))
+      .toEqual({ systemPath: [], item: { kind: 'argumentType', index: 0 } });
+    expect(selectionForLocation(doc, 'Sat/CommandMetaData/ArgumentTypeSet/NoSuch')).toBeNull();
   });
 
   it('maps bare system paths and returns null for the unmappable', () => {

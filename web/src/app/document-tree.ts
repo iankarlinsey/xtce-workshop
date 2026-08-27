@@ -114,10 +114,25 @@ export interface TelemetryMetaDataDoc {
   [key: string]: unknown;
 }
 
+export interface ArgumentDoc {
+  name: string;
+  argumentTypeRef: string;
+  initialValue?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ArgumentAssignmentDoc {
+  argumentName: string;
+  argumentValue: string;
+  [key: string]: unknown;
+}
+
 export interface MetaCommandDoc {
   name: string;
   abstract?: boolean | null;
   baseMetaCommandRef?: string | null;
+  arguments?: ArgumentDoc[] | null;
+  argumentAssignments?: ArgumentAssignmentDoc[] | null;
   executionVerifiers?: unknown[] | null;
   completeVerifiers?: unknown[] | null;
   [key: string]: unknown;
@@ -125,6 +140,7 @@ export interface MetaCommandDoc {
 
 export interface CommandMetaDataDoc {
   metaCommands: MetaCommandDoc[];
+  argumentTypeSet?: ParameterTypeDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -139,7 +155,7 @@ export interface SpaceSystemDocument {
 /** A path is a list of child indices from the root; [] is the root itself. */
 export type NodePath = number[];
 
-export type ItemKind = 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand';
+export type ItemKind = 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'argumentType';
 
 /**
  * What the user has selected: a SpaceSystem (item undefined), or one telemetry item
@@ -224,6 +240,8 @@ function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly Telemetr
       return system.telemetryMetaData?.messageSet?.messages ?? [];
     case 'metaCommand':
       return system.commandMetaData?.metaCommands ?? [];
+    case 'argumentType':
+      return system.commandMetaData?.argumentTypeSet ?? [];
   }
 }
 
@@ -259,6 +277,10 @@ function withUpdatedList(
     case 'metaCommand': {
       const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
       return { ...system, commandMetaData: { ...commandMetaData, metaCommands: update(commandMetaData.metaCommands) as MetaCommandDoc[] } };
+    }
+    case 'argumentType': {
+      const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
+      return { ...system, commandMetaData: { ...commandMetaData, argumentTypeSet: update(commandMetaData.argumentTypeSet ?? []) as ParameterTypeDoc[] } };
     }
   }
 }
@@ -316,6 +338,11 @@ export function collectContainerNames(doc: SpaceSystemDocument): string[] {
 /** Every MetaCommand name in the document — datalist fodder for metaCommandRef inputs. */
 export function collectMetaCommandNames(doc: SpaceSystemDocument): string[] {
   return collectNames(doc, (t) => t.commandMetaData?.metaCommands);
+}
+
+/** Every argument-type name in the document — datalist fodder for argumentTypeRef inputs. */
+export function collectArgumentTypeNames(doc: SpaceSystemDocument): string[] {
+  return collectNames(doc, (t) => t.commandMetaData?.argumentTypeSet);
 }
 
 function collectNames(
@@ -377,6 +404,10 @@ export function selectionForLocation(doc: SpaceSystemDocument, location: string)
     } else if (segment === 'CommandMetaData' && segments[i + 1] === 'MetaCommandSet') {
       kind = 'metaCommand';
       items = node.commandMetaData?.metaCommands ?? [];
+      nameIndex = i + 2;
+    } else if (segment === 'CommandMetaData' && segments[i + 1] === 'ArgumentTypeSet') {
+      kind = 'argumentType';
+      items = node.commandMetaData?.argumentTypeSet ?? [];
       nameIndex = i + 2;
     }
     if (kind !== null) {

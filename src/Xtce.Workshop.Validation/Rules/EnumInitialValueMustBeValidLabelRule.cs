@@ -16,7 +16,7 @@ public sealed class EnumInitialValueMustBeValidLabelRule : IValidationRule
 
     public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
-        foreach (var argumentType in ArgumentScanner.ScanArgumentTypes(context.Node.CommandMetaData))
+        foreach (var argumentType in context.Node.CommandMetaData?.ArgumentTypeSet ?? [])
         {
             if (argumentType.Kind != ParameterTypeKind.Enumerated || argumentType.InitialValue is null)
             {

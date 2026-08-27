@@ -25,6 +25,24 @@ public static class XtceDocumentReader
     /// </summary>
     private const int MaxSpaceSystemDepth = 200;
 
+    private static readonly IReadOnlyDictionary<string, ParameterTypeKind> ArgumentTypeElementKinds =
+        new Dictionary<string, ParameterTypeKind>
+        {
+            ["IntegerArgumentType"] = ParameterTypeKind.Integer,
+            ["FloatArgumentType"] = ParameterTypeKind.Float,
+            ["StringArgumentType"] = ParameterTypeKind.String,
+            ["BooleanArgumentType"] = ParameterTypeKind.Boolean,
+            ["EnumeratedArgumentType"] = ParameterTypeKind.Enumerated,
+            ["BinaryArgumentType"] = ParameterTypeKind.Binary,
+            // The XSD's element name carries a typo ("Agument"); accept the correct
+            // spelling too, leniently.
+            ["RelativeTimeAgumentType"] = ParameterTypeKind.RelativeTime,
+            ["RelativeTimeArgumentType"] = ParameterTypeKind.RelativeTime,
+            ["AbsoluteTimeArgumentType"] = ParameterTypeKind.AbsoluteTime,
+            ["ArrayArgumentType"] = ParameterTypeKind.Array,
+            ["AggregateArgumentType"] = ParameterTypeKind.Aggregate,
+        };
+
     private static readonly IReadOnlyDictionary<string, ParameterTypeKind> ParameterTypeElementKinds =
         new Dictionary<string, ParameterTypeKind>
         {
@@ -326,6 +344,8 @@ public static class XtceDocumentReader
     private static CommandMetaData ReadCommandMetaData(XmlReader reader, RecoveryContext? recovery = null, string path = "")
     {
         var metaCommands = new List<MetaCommand>();
+        List<ParameterTypeDefinition>? argumentTypes = null;
+        List<RawXmlFragment>? preservedArgumentTypes = null;
         List<RawXmlFragment>? preservedEntries = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
@@ -345,11 +365,17 @@ public static class XtceDocumentReader
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                 ReadMetaCommandSet(reader, metaCommands, ref preservedEntries, recovery, path);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ArgumentTypeSet")
+            {
+                DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                argumentTypes ??= new List<ParameterTypeDefinition>();
+                ReadArgumentTypeSet(reader, argumentTypes, ref preservedArgumentTypes, recovery, path);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // ParameterTypeSet, ParameterSet, ArgumentTypeSet, CommandContainerSet,
-                // StreamSet, AlgorithmSet — whole fragments; their definitions still feed
-                // the reference namespaces via SpaceSystemContext's scanning.
+                // ParameterTypeSet, ParameterSet, CommandContainerSet, StreamSet,
+                // AlgorithmSet — whole fragments; their definitions still feed the
+                // reference namespaces via SpaceSystemContext's scanning.
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                 Preserve(ref preserved, reader);
             }
@@ -362,7 +388,54 @@ public static class XtceDocumentReader
         DrainComments(ref preserved, ref pendingComments, null);
         reader.ReadEndElement();
 
-        return new CommandMetaData(metaCommands, preservedEntries, preserved);
+        return new CommandMetaData(metaCommands, preservedEntries, preserved, argumentTypes, preservedArgumentTypes);
+    }
+
+    private static void ReadArgumentTypeSet(
+        XmlReader reader,
+        List<ParameterTypeDefinition> argumentTypes,
+        ref List<RawXmlFragment>? preservedTypes,
+        RecoveryContext? recovery = null,
+        string path = "")
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        List<string>? pendingComments = null;
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element &&
+                ArgumentTypeElementKinds.TryGetValue(reader.LocalName, out var kind))
+            {
+                var leading = TakeLeadingComments(ref pendingComments);
+                if (recovery is null)
+                {
+                    argumentTypes.Add(ReadParameterTypeDefinition(reader, kind, leading));
+                }
+                else
+                {
+                    ReadItemWithRecovery(reader, recovery, $"{path}/CommandMetaData/ArgumentTypeSet",
+                        r => argumentTypes.Add(ReadParameterTypeDefinition(r, kind, leading)), ref preservedTypes);
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                DrainComments(ref preservedTypes, ref pendingComments, reader.LocalName);
+                Preserve(ref preservedTypes, reader);
+            }
+            else if (!TryCaptureComment(reader, ref pendingComments))
+            {
+                reader.Read();
+            }
+        }
+
+        DrainComments(ref preservedTypes, ref pendingComments, null);
+        reader.ReadEndElement();
     }
 
     private static void ReadMetaCommandSet(
@@ -420,6 +493,9 @@ public static class XtceDocumentReader
 
         string? baseMetaCommandRef = null;
         List<RawXmlFragment>? basePreserved = null;
+        List<Argument>? arguments = null;
+        List<RawXmlFragment>? preservedArguments = null;
+        List<ArgumentAssignment>? argumentAssignments = null;
         List<RawXmlFragment>? executionVerifiers = null;
         List<RawXmlFragment>? completeVerifiers = null;
         List<RawXmlFragment>? preservedVerifiers = null;
@@ -451,7 +527,13 @@ public static class XtceDocumentReader
                         List<string>? basePendingComments = null;
                         while (reader.NodeType != XmlNodeType.EndElement)
                         {
-                            if (reader.NodeType == XmlNodeType.Element)
+                            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ArgumentAssignmentList")
+                            {
+                                DrainComments(ref basePreserved, ref basePendingComments, reader.LocalName);
+                                argumentAssignments ??= new List<ArgumentAssignment>();
+                                ReadArgumentAssignmentList(reader, argumentAssignments);
+                            }
+                            else if (reader.NodeType == XmlNodeType.Element)
                             {
                                 DrainComments(ref basePreserved, ref basePendingComments, reader.LocalName);
                                 Preserve(ref basePreserved, reader);
@@ -464,6 +546,12 @@ public static class XtceDocumentReader
                         DrainComments(ref basePreserved, ref basePendingComments, null);
                         reader.ReadEndElement();
                     }
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ArgumentList")
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    arguments ??= new List<Argument>();
+                    ReadArgumentList(reader, arguments, ref preservedArguments);
                 }
                 else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "VerifierSet")
                 {
@@ -498,7 +586,96 @@ public static class XtceDocumentReader
         return new MetaCommand(
             name, isAbstract, baseMetaCommandRef, basePreserved,
             executionVerifiers, completeVerifiers, preservedVerifiers, preserved, preservedAttributes,
-            commandContainer);
+            commandContainer, arguments, preservedArguments, argumentAssignments);
+    }
+
+    private static void ReadArgumentList(XmlReader reader, List<Argument> arguments, ref List<RawXmlFragment>? preservedArguments)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+        List<string>? pendingComments = null;
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Argument")
+            {
+                var name = RequireAttribute(reader, "name", "an Argument");
+                var typeRef = RequireAttribute(reader, "argumentTypeRef", "an Argument");
+                var initialValue = reader.GetAttribute("initialValue");
+                var preservedAttributes = CapturePreservedAttributes(reader, "name", "argumentTypeRef", "initialValue");
+
+                List<RawXmlFragment>? preserved = null;
+                List<string>? argumentPendingComments = null;
+                if (reader.IsEmptyElement)
+                {
+                    reader.Read();
+                }
+                else
+                {
+                    reader.ReadStartElement();
+                    while (reader.NodeType != XmlNodeType.EndElement)
+                    {
+                        if (reader.NodeType == XmlNodeType.Element)
+                        {
+                            DrainComments(ref preserved, ref argumentPendingComments, reader.LocalName);
+                            Preserve(ref preserved, reader);
+                        }
+                        else if (!TryCaptureComment(reader, ref argumentPendingComments))
+                        {
+                            reader.Read();
+                        }
+                    }
+                    DrainComments(ref preserved, ref argumentPendingComments, null);
+                    reader.ReadEndElement();
+                }
+                arguments.Add(new Argument(name, typeRef, initialValue, preserved, preservedAttributes));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                DrainComments(ref preservedArguments, ref pendingComments, reader.LocalName);
+                Preserve(ref preservedArguments, reader);
+            }
+            else if (!TryCaptureComment(reader, ref pendingComments))
+            {
+                reader.Read();
+            }
+        }
+        DrainComments(ref preservedArguments, ref pendingComments, null);
+        reader.ReadEndElement();
+    }
+
+    private static void ReadArgumentAssignmentList(XmlReader reader, List<ArgumentAssignment> assignments)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+        reader.ReadStartElement();
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ArgumentAssignment")
+            {
+                var argumentName = RequireAttribute(reader, "argumentName", "an ArgumentAssignment");
+                var argumentValue = reader.GetAttribute("argumentValue")
+                    ?? throw new XtceParseException("an ArgumentAssignment element is missing its required 'argumentValue' attribute.");
+                assignments.Add(new ArgumentAssignment(argumentName, argumentValue));
+                reader.Skip();
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                reader.Skip();
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+        reader.ReadEndElement();
     }
 
     private static CommandContainer ReadCommandContainer(XmlReader reader)

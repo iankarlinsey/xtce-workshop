@@ -88,7 +88,7 @@ public sealed class DimSubsetLessThanTypeRule : IValidationRule
                 continue;
             }
             var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}/CommandContainer";
-            IReadOnlyList<ArgumentScanner.ScopedArgument>? visibleArguments = null;
+            IReadOnlyList<ModeledArguments.Scoped>? visibleArguments = null;
 
             foreach (var (entryName, entryXml) in ArgumentScanner.ChildElements(entryList.OuterXml))
             {
@@ -98,10 +98,10 @@ public sealed class DimSubsetLessThanTypeRule : IValidationRule
                     {
                         continue;
                     }
-                    visibleArguments ??= ArgumentScanner.MergedArguments(context, metaCommand);
+                    visibleArguments ??= ModeledArguments.Merged(context, metaCommand);
                     var argument = visibleArguments.FirstOrDefault(a => a.Decl.Name == argumentRef);
                     if (argument is null
-                        || ArgumentScanner.ResolveArgumentType(argument.Scope, argument.Decl.TypeRef)
+                        || ModeledArguments.ResolveType(argument.Scope, argument.Decl.ArgumentTypeRef)
                             is not { Kind: ParameterTypeKind.Array } argumentArrayType)
                     {
                         continue;

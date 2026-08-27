@@ -14,6 +14,7 @@ public enum NamedItemKind
     ParameterType,
     Container,
     MetaCommand,
+    ArgumentType,
 }
 
 /// <summary>
@@ -45,6 +46,8 @@ public sealed class SpaceSystemContext
     public required IReadOnlyDictionary<string, Parameter> ModeledParameters { get; init; }
     public required IReadOnlySet<string> MetaCommandNames { get; init; }
     public required IReadOnlyDictionary<string, MetaCommand> ModeledMetaCommands { get; init; }
+    public required IReadOnlySet<string> ArgumentTypeNames { get; init; }
+    public required IReadOnlyDictionary<string, ParameterTypeDefinition> ModeledArgumentTypes { get; init; }
 
     /// <summary>Inline MetaCommand/CommandContainer names → owning MetaCommand (rule R21).</summary>
     public required IReadOnlyDictionary<string, MetaCommand> InlineCommandContainerOwners { get; init; }
@@ -57,6 +60,7 @@ public sealed class SpaceSystemContext
         NamedItemKind.ParameterType => ParameterTypeNames,
         NamedItemKind.Container => ContainerNames,
         NamedItemKind.MetaCommand => MetaCommandNames,
+        NamedItemKind.ArgumentType => ArgumentTypeNames,
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
@@ -84,6 +88,8 @@ public sealed class SpaceSystemContext
         var modeledParameters = new Dictionary<string, Parameter>();
         var metaCommandNames = new HashSet<string>();
         var modeledMetaCommands = new Dictionary<string, MetaCommand>();
+        var argumentTypeNames = new HashSet<string>();
+        var modeledArgumentTypes = new Dictionary<string, ParameterTypeDefinition>();
         var inlineCommandContainerOwners = new Dictionary<string, MetaCommand>();
 
         if (node.TelemetryMetaData is { } telemetry)
@@ -142,6 +148,18 @@ public sealed class SpaceSystemContext
 
         if (node.CommandMetaData is { } commandMetaData)
         {
+            foreach (var argumentType in commandMetaData.ArgumentTypeSet ?? [])
+            {
+                argumentTypeNames.Add(argumentType.Name);
+                modeledArgumentTypes[argumentType.Name] = argumentType;
+            }
+            foreach (var fragment in commandMetaData.PreservedArgumentTypes ?? [])
+            {
+                if (XmlFragmentInspector.RootAttribute(fragment.OuterXml, "name") is { } name)
+                {
+                    argumentTypeNames.Add(name);
+                }
+            }
             foreach (var metaCommand in commandMetaData.MetaCommands)
             {
                 metaCommandNames.Add(metaCommand.Name);
@@ -195,6 +213,8 @@ public sealed class SpaceSystemContext
             ModeledParameters = modeledParameters,
             MetaCommandNames = metaCommandNames,
             ModeledMetaCommands = modeledMetaCommands,
+            ArgumentTypeNames = argumentTypeNames,
+            ModeledArgumentTypes = modeledArgumentTypes,
             InlineCommandContainerOwners = inlineCommandContainerOwners,
         };
 

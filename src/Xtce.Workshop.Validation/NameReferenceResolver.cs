@@ -147,6 +147,12 @@ public static class NameReferenceResolver
             return new ResolutionResult(ResolutionStatus.FoundModeled, Parameter: modeledParameter, DefinedIn: system);
         }
 
+        if (kind == NamedItemKind.ArgumentType &&
+            system.ModeledArgumentTypes.TryGetValue(itemName, out var modeledArgumentType))
+        {
+            return new ResolutionResult(ResolutionStatus.FoundModeled, modeledArgumentType, DefinedIn: system);
+        }
+
         if (kind == NamedItemKind.MetaCommand &&
             system.ModeledMetaCommands.TryGetValue(itemName, out var modeledMetaCommand))
         {
