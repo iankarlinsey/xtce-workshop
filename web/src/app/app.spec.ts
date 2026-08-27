@@ -1720,7 +1720,7 @@ describe('App', () => {
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('app-source-view')).toBeTruthy();
       expect(compiled.querySelector('.node-title')).toBeNull();
-      expect(compiled.querySelector('.cm-content')?.textContent).toContain('SpaceSystem');
+      expect(compiled.querySelector('.monaco-editor')).toBeTruthy();
     });
 
     it('re-parses the source text into the document when switching back to tree', async () => {
@@ -1987,7 +1987,8 @@ describe('App', () => {
 
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('app-source-view')).toBeTruthy();
-      expect(compiled.querySelector('.cm-content')?.textContent).toContain('SpaceSystem name="Broken"');
+      expect((fixture.componentInstance as unknown as { sourceText: () => string }).sourceText())
+        .toContain('SpaceSystem name="Broken"');
       expect(compiled.querySelector('.error')?.textContent).toContain('Not well-formed XML');
     });
   });

@@ -1,36 +1,93 @@
-import { Component, ElementRef, OnDestroy, effect, input, viewChild } from '@angular/core';
-import { EditorView, basicSetup } from 'codemirror';
-import { Text, EditorSelection } from '@codemirror/state';
-import { xml } from '@codemirror/lang-xml';
-import { setDiagnostics, lintGutter, Diagnostic } from '@codemirror/lint';
+import { Component, ElementRef, OnDestroy, ViewEncapsulation, effect, input, viewChild } from '@angular/core';
+import * as monaco from 'monaco-editor/editor/editor.api';
+import 'monaco-editor/languages/definitions/xml/register';
 import { SourceMarker } from '../validation';
 
+// XML colorization is main-thread Monarch; no language workers are needed. Monaco still
+// insists on an environment, so hand it an inert worker.
+declare global {
+  interface Window { MonacoEnvironment?: monaco.Environment; }
+}
+if (!window.MonacoEnvironment) {
+  window.MonacoEnvironment = {
+    getWorker: () =>
+      new Worker(URL.createObjectURL(new Blob(['self.onmessage=()=>{}'], { type: 'text/javascript' }))),
+  };
+}
+
+/** Monaco's 350KB stylesheet ships as a static asset, linked once on first use — it
+ *  stays out of the initial bundle and out of the component-style budget. */
+function ensureMonacoStyles(): void {
+  if (!document.getElementById('monaco-editor-styles')) {
+    const link = document.createElement('link');
+    link.id = 'monaco-editor-styles';
+    link.rel = 'stylesheet';
+    link.href = 'monaco/editor.main.css';
+    document.head.appendChild(link);
+  }
+}
+
 /**
- * Maps positioned findings onto CodeMirror lint markers. Lines/columns are clamped to
- * the document — a finding can reference a position past the end when the text was
- * edited after the findings were produced. Unpositioned findings produce no marker.
+ * Maps positioned findings onto Monaco model markers. Lines/columns are clamped to the
+ * document — a finding can reference a position past the end when the text was edited
+ * after the findings were produced. Unpositioned findings produce no marker.
  */
-export function mapMarkersToDiagnostics(doc: Text, markers: SourceMarker[]): Diagnostic[] {
+export function mapMarkersToMonaco(
+  model: Pick<monaco.editor.ITextModel, 'getLineCount' | 'getLineMaxColumn'>,
+  markers: SourceMarker[]
+): monaco.editor.IMarkerData[] {
   return markers
     .filter((marker) => marker.line !== null && marker.line !== undefined)
     .map((marker) => {
-      const lineNumber = Math.max(1, Math.min(marker.line!, doc.lines));
-      const line = doc.line(lineNumber);
-      const column = Math.max(0, Math.min((marker.column ?? 1) - 1, line.length));
-      const from = line.from + column;
+      const lineNumber = Math.max(1, Math.min(marker.line!, model.getLineCount()));
+      const maxColumn = model.getLineMaxColumn(lineNumber);
+      const startColumn = Math.max(1, Math.min(marker.column ?? 1, maxColumn));
       return {
-        from,
-        to: Math.min(from + 1, line.to),
-        severity: marker.severity,
+        severity: marker.severity === 'warning'
+          ? monaco.MarkerSeverity.Warning
+          : monaco.MarkerSeverity.Error,
         message: marker.message,
+        startLineNumber: lineNumber,
+        startColumn,
+        endLineNumber: lineNumber,
+        endColumn: Math.min(startColumn + 1, maxColumn),
       };
     });
 }
+
+monaco.editor.defineTheme('xtce-workshop-dark', {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [
+    { token: 'tag', foreground: '7ee787' },
+    { token: 'attribute.name', foreground: 'e6edf5' },
+    { token: 'attribute.value', foreground: 'ff7b72' },
+    { token: 'comment', foreground: '6d8093' },
+    { token: 'delimiter', foreground: 'aebfce' },
+  ],
+  colors: {
+    'editor.background': '#111a24',
+    'editor.foreground': '#e6edf5',
+    'editorLineNumber.foreground': '#4d5c6b',
+    'editorLineNumber.activeForeground': '#aebfce',
+    'editor.selectionBackground': '#58b6ff59',
+    'editor.inactiveSelectionBackground': '#58b6ff33',
+    'editor.selectionHighlightBackground': '#56f0001f',
+    'editor.lineHighlightBackground': '#58b6ff0d',
+    'editorGutter.background': '#15202e',
+    'editorCursor.foreground': '#58b6ff',
+    'editorError.foreground': '#ff3838',
+    'editorWarning.foreground': '#fce83a',
+  },
+});
 
 @Component({
   selector: 'app-source-view',
   template: '<div class="editor-host" #host></div>',
   styleUrl: './source-view.css',
+  // Monaco's DOM lives outside Angular's emulated scoping; its stylesheet (imported in
+  // source-view.css) must apply globally, and it ships with this deferred chunk.
+  encapsulation: ViewEncapsulation.None,
 })
 export class SourceViewComponent implements OnDestroy {
   /** Document text to show; replacing it resets the editor contents. */
@@ -41,7 +98,7 @@ export class SourceViewComponent implements OnDestroy {
   readonly revealTarget = input<{ line: number; column: number | null; nonce: number } | null>(null);
 
   private readonly host = viewChild<ElementRef<HTMLDivElement>>('host');
-  private view: EditorView | null = null;
+  private editor: monaco.editor.IStandaloneCodeEditor | null = null;
   private lastAppliedText: string | null = null;
   private lastRevealNonce = 0;
 
@@ -54,103 +111,45 @@ export class SourceViewComponent implements OnDestroy {
         return;
       }
 
-      if (!this.view) {
-        this.view = new EditorView({
-          doc: text,
-          extensions: [basicSetup, xml(), lintGutter(), SourceViewComponent.theme],
-          parent: host.nativeElement,
+      if (!this.editor) {
+        ensureMonacoStyles();
+        this.editor = monaco.editor.create(host.nativeElement, {
+          value: text,
+          language: 'xml',
+          theme: 'xtce-workshop-dark',
+          automaticLayout: true,
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          fixedOverflowWidgets: true,
+          fontSize: 13,
         });
         this.lastAppliedText = text;
       } else if (text !== this.lastAppliedText) {
-        this.view.dispatch({
-          changes: { from: 0, to: this.view.state.doc.length, insert: text },
-        });
+        this.editor.getModel()!.setValue(text);
         this.lastAppliedText = text;
       }
 
-      this.view.dispatch(
-        setDiagnostics(this.view.state, mapMarkersToDiagnostics(this.view.state.doc, markers))
-      );
+      const model = this.editor.getModel()!;
+      monaco.editor.setModelMarkers(model, 'xtce-workshop', mapMarkersToMonaco(model, markers));
 
       const reveal = this.revealTarget();
       if (reveal && reveal.nonce !== this.lastRevealNonce) {
         this.lastRevealNonce = reveal.nonce;
-        const lineNumber = Math.max(1, Math.min(reveal.line, this.view.state.doc.lines));
-        const line = this.view.state.doc.line(lineNumber);
-        const column = Math.max(0, Math.min((reveal.column ?? 1) - 1, line.length));
-        const position = line.from + column;
-        this.view.dispatch({
-          selection: EditorSelection.cursor(position),
-          effects: EditorView.scrollIntoView(position, { y: 'center' }),
-        });
+        const lineNumber = Math.max(1, Math.min(reveal.line, model.getLineCount()));
+        const column = Math.max(1, Math.min(reveal.column ?? 1, model.getLineMaxColumn(lineNumber)));
+        this.editor.setPosition({ lineNumber, column });
+        this.editor.revealPositionInCenter({ lineNumber, column });
       }
     });
   }
 
   /** The editor's live contents — what "switch to tree" submits for re-parsing. */
   currentText(): string {
-    return this.view?.state.doc.toString() ?? this.text();
+    return this.editor?.getModel()?.getValue() ?? this.text();
   }
 
   ngOnDestroy(): void {
-    this.view?.destroy();
-    this.view = null;
+    this.editor?.dispose();
+    this.editor = null;
   }
-
-  private static readonly theme = EditorView.theme(
-    {
-      '&': {
-        backgroundColor: 'var(--panel)',
-        color: 'var(--text)',
-        height: '100%',
-        fontSize: '0.8125rem',
-      },
-      '.cm-content': { caretColor: 'var(--accent)' },
-      '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--accent)' },
-      // drawSelection paints .cm-selectionBackground layers; the NATIVE selection must be
-      // transparent or the browser paints its own dark selection over the band whenever
-      // the window has focus.
-      '.cm-content ::selection': { backgroundColor: 'transparent' },
-      // The base dark theme's focused rule is a five-class selector ending in
-      // ".cm-selectionLayer .cm-selectionBackground" — these must OUT-SPECIFY it or the
-      // focused selection renders in the base #233, nearly invisible on this background.
-      '& .cm-selectionLayer .cm-selectionBackground': {
-        backgroundColor: 'rgba(88, 182, 255, 0.25)',
-      },
-      '&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
-        backgroundColor: 'rgba(88, 182, 255, 0.50)',
-      },
-      // Other occurrences of the selected text stay QUIETER than the selection itself.
-      '.cm-selectionMatch': {
-        backgroundColor: 'rgba(86, 240, 0, 0.12)',
-        outline: '1px solid rgba(86, 240, 0, 0.25)',
-      },
-      '.cm-searchMatch': {
-        backgroundColor: 'rgba(252, 232, 58, 0.25)',
-        outline: '1px solid rgba(252, 232, 58, 0.45)',
-      },
-      '.cm-searchMatch.cm-searchMatch-selected': {
-        backgroundColor: 'rgba(252, 232, 58, 0.45)',
-      },
-      '.cm-gutters': {
-        backgroundColor: 'var(--panel-2)',
-        color: 'var(--text-faint)',
-        border: 'none',
-        borderRight: '1px solid var(--border)',
-      },
-      // Nearly transparent: the selection layer paints BELOW line backgrounds, so an
-      // opaque active line would hide the selection exactly where the user is selecting.
-      '.cm-activeLine': { backgroundColor: 'rgba(88, 182, 255, 0.05)' },
-      '.cm-activeLineGutter': { backgroundColor: 'var(--color-background-base-hover, #1b2d3e)' },
-      '.cm-lintRange-error': {
-        backgroundImage: 'none',
-        textDecoration: 'underline wavy var(--error, #ff3838)',
-      },
-      '.cm-lintRange-warning': {
-        backgroundImage: 'none',
-        textDecoration: 'underline wavy var(--warning, #fce83a)',
-      },
-    },
-    { dark: true }
-  );
 }

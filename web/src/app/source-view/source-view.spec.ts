@@ -1,34 +1,39 @@
 import { TestBed } from '@angular/core/testing';
-import { Text } from '@codemirror/state';
-import { SourceViewComponent, mapMarkersToDiagnostics } from './source-view';
+import * as monaco from 'monaco-editor/editor/editor.api';
+import { SourceViewComponent, mapMarkersToMonaco } from './source-view';
 import { SourceMarker } from '../validation';
 
-describe('mapMarkersToDiagnostics', () => {
-  const doc = Text.of(['<SpaceSystem name="Sat">', '  <Unclosed>', '</SpaceSystem>']);
+describe('mapMarkersToMonaco', () => {
+  // Three lines: 24, 12, and 14 characters.
+  const model = {
+    getLineCount: () => 3,
+    getLineMaxColumn: (line: number) => [25, 13, 15][line - 1],
+  };
 
-  it('maps a line/column marker to the exact document position with its severity', () => {
-    const markers = mapMarkersToDiagnostics(doc, [
+  it('maps a line/column marker to the exact position with its severity', () => {
+    const markers = mapMarkersToMonaco(model, [
       { line: 2, column: 3, message: '(document): boom', severity: 'error' },
       { line: 1, column: 1, message: 'Sat: advisory', severity: 'warning' },
     ]);
 
     expect(markers.length).toBe(2);
-    expect(markers[0].from).toBe(doc.line(2).from + 2);
-    expect(markers[0].severity).toBe('error');
+    expect(markers[0].startLineNumber).toBe(2);
+    expect(markers[0].startColumn).toBe(3);
+    expect(markers[0].severity).toBe(monaco.MarkerSeverity.Error);
     expect(markers[0].message).toContain('boom');
-    expect(markers[1].severity).toBe('warning');
+    expect(markers[1].severity).toBe(monaco.MarkerSeverity.Warning);
   });
 
   it('drops unpositioned markers and clamps positions past the document end', () => {
-    const markers = mapMarkersToDiagnostics(doc, [
+    const markers = mapMarkersToMonaco(model, [
       { line: null, column: null, message: 'no position', severity: 'error' },
       { line: 99, column: 500, message: 'past the end', severity: 'error' },
     ]);
 
     expect(markers.length).toBe(1);
-    const lastLine = doc.line(doc.lines);
-    expect(markers[0].from).toBe(lastLine.from + lastLine.length);
-    expect(markers[0].to).toBeLessThanOrEqual(lastLine.to);
+    expect(markers[0].startLineNumber).toBe(3);
+    expect(markers[0].startColumn).toBe(15);
+    expect(markers[0].endColumn).toBeLessThanOrEqual(15);
   });
 });
 
@@ -37,13 +42,16 @@ describe('SourceViewComponent', () => {
     await TestBed.configureTestingModule({ imports: [SourceViewComponent] }).compileComponents();
   });
 
-  it('renders the text in a CodeMirror editor and reports live contents', () => {
+  afterEach(() => {
+    monaco.editor.getModels().forEach((model) => model.dispose());
+  });
+
+  it('renders the text in a Monaco editor and reports live contents', () => {
     const fixture = TestBed.createComponent(SourceViewComponent);
     fixture.componentRef.setInput('text', '<SpaceSystem name="Sat"/>');
     fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.cm-content')?.textContent).toContain('SpaceSystem');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.monaco-editor')).toBeTruthy();
     expect(fixture.componentInstance.currentText()).toBe('<SpaceSystem name="Sat"/>');
   });
 
@@ -57,7 +65,7 @@ describe('SourceViewComponent', () => {
     expect(fixture.componentInstance.currentText()).toBe('<b/>');
   });
 
-  it('marks finding positions in the lint gutter', () => {
+  it('publishes finding positions as model markers', () => {
     const fixture = TestBed.createComponent(SourceViewComponent);
     fixture.componentRef.setInput('text', '<SpaceSystem name="Sat">\n  <Unclosed>');
     const markers: SourceMarker[] = [
@@ -66,19 +74,24 @@ describe('SourceViewComponent', () => {
     fixture.componentRef.setInput('markers', markers);
     fixture.detectChanges();
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.cm-gutter-lint .cm-lint-marker')).toBeTruthy();
+    const published = monaco.editor.getModelMarkers({ owner: 'xtce-workshop' });
+    expect(published.length).toBe(1);
+    expect(published[0].startLineNumber).toBe(2);
+    expect(published[0].severity).toBe(monaco.MarkerSeverity.Error);
   });
 
-  it('scrolls to the reveal target line and moves the cursor there', () => {
+  it('moves the cursor to the reveal target line and column', () => {
     const fixture = TestBed.createComponent(SourceViewComponent);
     fixture.componentRef.setInput('text', 'line one\nline two\nline three');
     fixture.detectChanges();
 
-    fixture.componentRef.setInput('revealTarget', { line: 3, column: null, nonce: 1 });
+    fixture.componentRef.setInput('revealTarget', { line: 3, column: 6, nonce: 1 });
     fixture.detectChanges();
 
-    const view = (fixture.componentInstance as unknown as { view: { state: { selection: { main: { head: number } }, doc: Text } } }).view;
-    expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(3);
+    const editor = (fixture.componentInstance as unknown as {
+      editor: monaco.editor.IStandaloneCodeEditor;
+    }).editor;
+    expect(editor.getPosition()?.lineNumber).toBe(3);
+    expect(editor.getPosition()?.column).toBe(6);
   });
 });
