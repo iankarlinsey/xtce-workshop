@@ -59,8 +59,33 @@ public static class ArgumentScanner
             ["AggregateArgumentType"] = ParameterTypeKind.Aggregate,
         };
 
+    // Preserved fragments are immutable for a document's lifetime, but they are raw XML
+    // strings — re-parsing them on every lookup made R15 take MINUTES on command-heavy
+    // files (issue #94: per-argument type resolution x full ArgumentTypeSet parse).
+    // Identity-keyed memoization; the tables release entries with their documents.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<CommandMetaData, IReadOnlyList<ParameterTypeDefinition>>
+        ArgumentTypeCache = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<CommandMetaData, Dictionary<string, ParameterTypeDefinition>>
+        ArgumentTypeIndexCache = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<MetaCommand, IReadOnlyList<ArgumentDecl>>
+        ArgumentListCache = new();
+
     /// <summary>Synthetic types for every argument type declared in this node's ArgumentTypeSet.</summary>
     public static IReadOnlyList<ParameterTypeDefinition> ScanArgumentTypes(CommandMetaData? commandMetaData)
+    {
+        if (commandMetaData is not null && ArgumentTypeCache.TryGetValue(commandMetaData, out var cached))
+        {
+            return cached;
+        }
+        var scanned = ScanArgumentTypesUncached(commandMetaData);
+        if (commandMetaData is not null)
+        {
+            ArgumentTypeCache.AddOrUpdate(commandMetaData, scanned);
+        }
+        return scanned;
+    }
+
+    private static IReadOnlyList<ParameterTypeDefinition> ScanArgumentTypesUncached(CommandMetaData? commandMetaData)
     {
         var typeSet = (commandMetaData?.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ArgumentTypeSet");
         if (typeSet is null)
@@ -113,8 +138,20 @@ public static class ArgumentScanner
         }
         for (var current = scope; current is not null; current = current.Parent)
         {
-            var match = ScanArgumentTypes(current.Node.CommandMetaData).FirstOrDefault(t => t.Name == typeRef);
-            if (match is not null)
+            if (current.Node.CommandMetaData is not { } commandMetaData)
+            {
+                continue;
+            }
+            var index = ArgumentTypeIndexCache.GetValue(commandMetaData, static cmd =>
+            {
+                var byName = new Dictionary<string, ParameterTypeDefinition>();
+                foreach (var type in ScanArgumentTypes(cmd))
+                {
+                    byName.TryAdd(type.Name, type);
+                }
+                return byName;
+            });
+            if (index.TryGetValue(typeRef, out var match))
             {
                 return match;
             }
@@ -126,6 +163,11 @@ public static class ArgumentScanner
 
     /// <summary>The arguments declared directly on this MetaCommand's ArgumentList.</summary>
     public static IReadOnlyList<ArgumentDecl> ScanArguments(MetaCommand metaCommand)
+    {
+        return ArgumentListCache.GetValue(metaCommand, static cmd => ScanArgumentsUncached(cmd));
+    }
+
+    private static IReadOnlyList<ArgumentDecl> ScanArgumentsUncached(MetaCommand metaCommand)
     {
         var argumentList = (metaCommand.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ArgumentList");
         if (argumentList is null)
