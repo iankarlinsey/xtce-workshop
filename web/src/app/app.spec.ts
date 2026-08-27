@@ -103,6 +103,12 @@ describe('App', () => {
       fixture.componentInstance.onFileSelected(event);
     }
 
+    it('offers .xtce files first in the file chooser', () => {
+      const fixture = createAppAndFlushHealth();
+      const input = (fixture.nativeElement as HTMLElement).querySelector('input[type=file]');
+      expect(input?.getAttribute('accept')).toBe('.xtce,.xml');
+    });
+
     it('selects the root and shows it in the main panel after loading', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'minimal.xml');

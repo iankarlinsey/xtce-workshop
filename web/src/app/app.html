@@ -30,7 +30,7 @@
       <div class="toolbar">
         <label class="btn file-btn">
           Load
-          <input type="file" accept=".xml" (change)="onFileSelected($event)" />
+          <input type="file" accept=".xtce,.xml" (change)="onFileSelected($event)" />
         </label>
         <rux-button secondary (click)="onOpenCreator('document')">New&hellip;</rux-button>
         <rux-button (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</rux-button>
