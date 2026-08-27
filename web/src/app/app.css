@@ -279,6 +279,8 @@
   background: var(--panel-2);
   font-size: 11.5px;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--error);
 }
 
@@ -953,4 +955,17 @@
   font-family: var(--mono);
   font-size: 0.68rem;
   color: var(--text-faint);
+}
+
+.findings-heading {
+  margin: 0 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--error);
+}
+
+.load-diagnostics-partial .findings-heading {
+  color: var(--warning);
 }

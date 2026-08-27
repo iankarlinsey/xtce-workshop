@@ -72,6 +72,7 @@
         }
         @if (loadDiagnostics().length > 0 || loadSchemaErrors().length > 0) {
           <div class="load-diagnostics" [class.load-diagnostics-partial]="!loadError()">
+            <p class="findings-heading">Parse &amp; schema errors ({{ loadDiagnostics().length + loadSchemaErrors().length }})</p>
             @if (!loadError() && loadDiagnostics().length > 0) {
               <p class="load-diagnostics-summary">Loaded with {{ loadDiagnostics().length }} quarantined element(s) — carried verbatim, not editable as forms.</p>
             }
@@ -102,7 +103,7 @@
         }
         @if (validationIssues().length > 0) {
           <div class="validation-panel">
-            <p class="validation-summary">{{ validationIssues().length }} validation issue(s)</p>
+            <p class="validation-summary">Rule findings ({{ validationIssues().length }})</p>
             <ul class="validation-list">
               @for (issue of validationIssues(); track issue.location + issue.ruleId + issue.message) {
                 <li class="validation-issue" [class.severity-warning]="issue.severity === 'Warning'"
@@ -147,7 +148,7 @@
           </div>
           @if (validationIssues().length > 0) {
             <div class="validation-panel">
-              <p class="validation-summary">{{ validationIssues().length }} validation issue(s)</p>
+              <p class="validation-summary">Rule findings ({{ validationIssues().length }})</p>
               <ul class="validation-list">
                 @for (issue of validationIssues(); track issue.location + issue.ruleId + issue.message) {
                   <li class="validation-issue" [class.severity-warning]="issue.severity === 'Warning'"

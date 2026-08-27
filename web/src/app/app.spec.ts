@@ -258,7 +258,7 @@ describe('App', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.textContent).toContain('1 validation issue(s)');
+      expect(compiled.textContent).toContain('Rule findings (1)');
       expect(compiled.textContent).toContain('Mission/ParameterTypeSet/State_Type');
       expect(compiled.textContent).toContain('is not a valid label');
     });
@@ -519,7 +519,7 @@ describe('App', () => {
       });
       fixture.detectChanges();
 
-      expect(compiled.textContent).toContain('1 validation issue(s)');
+      expect(compiled.textContent).toContain('Rule findings (1)');
       expect(compiled.textContent).toContain('not a valid floating-point number');
     }));
 
