@@ -42,21 +42,38 @@ public static class SchemaValidator
     /// <summary>Schema errors with their source positions (null when the parser had none).</summary>
     public static IReadOnlyList<SchemaError> ValidateDetailed(string xml)
     {
-        var errors = new List<SchemaError>();
+        using var reader = XmlReader.Create(new StringReader(xml), CreateSettings(out var errors));
+        return Drain(reader, errors);
+    }
+
+    /// <summary>Stream overload — lets callers wrap the input for progress/cancellation.</summary>
+    public static IReadOnlyList<SchemaError> ValidateDetailed(Stream xml)
+    {
+        using var reader = XmlReader.Create(xml, CreateSettings(out var errors));
+        return Drain(reader, errors);
+    }
+
+    private static XmlReaderSettings CreateSettings(out List<SchemaError> errors)
+    {
+        var captured = new List<SchemaError>();
+        errors = captured;
         var settings = new XmlReaderSettings
         {
             ValidationType = ValidationType.Schema,
             Schemas = Schemas.Value,
             XmlResolver = null,
         };
-        settings.ValidationEventHandler += (_, e) => errors.Add(new SchemaError(
+        settings.ValidationEventHandler += (_, e) => captured.Add(new SchemaError(
             e.Message,
             e.Exception?.LineNumber > 0 ? e.Exception.LineNumber : null,
             e.Exception?.LinePosition > 0 ? e.Exception.LinePosition : null));
+        return settings;
+    }
 
+    private static IReadOnlyList<SchemaError> Drain(XmlReader reader, List<SchemaError> errors)
+    {
         try
         {
-            using var reader = XmlReader.Create(new StringReader(xml), settings);
             while (reader.Read())
             {
             }

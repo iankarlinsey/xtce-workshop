@@ -1,0 +1,123 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Testing;
+
+namespace Xtce.Workshop.Api.Tests;
+
+public class LoadJobEndpointTests
+{
+    private WebApplicationFactory<Program> _factory = null!;
+
+    [OneTimeSetUp]
+    public void CreateFactory() => _factory = new WebApplicationFactory<Program>();
+
+    [OneTimeTearDown]
+    public void DisposeFactory() => _factory.Dispose();
+
+    private static async Task<JsonElement> PollUntilTerminal(HttpClient client, string jobId, TimeSpan limit)
+    {
+        var deadline = DateTime.UtcNow + limit;
+        for (;;)
+        {
+            var snapshot = await client.GetFromJsonAsync<JsonElement>($"/api/xtce/jobs/{jobId}");
+            var state = snapshot.GetProperty("state").GetString();
+            if (state is "done" or "failed" or "cancelled")
+            {
+                return snapshot;
+            }
+            Assert.True(DateTime.UtcNow < deadline, $"job did not finish within {limit.TotalSeconds}s (state {state})");
+            await Task.Delay(50);
+        }
+    }
+
+    [Test]
+    public async Task JobFlow_ProducesTheSameResultShapeAsTheSynchronousLoad()
+    {
+        var client = _factory.CreateClient();
+        var xml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="Sat">
+              <TelemetryMetaData>
+                <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
+                <ParameterSet>
+                  <Parameter name="Good" parameterTypeRef="T"/>
+                  <Parameter name="Dangling" parameterTypeRef="Missing"/>
+                </ParameterSet>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
+
+        var start = await client.PostAsJsonAsync("/api/xtce/jobs/text", new { xml });
+        Assert.Equal(HttpStatusCode.OK, start.StatusCode);
+        var jobId = (await start.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("jobId").GetString()!;
+
+        var final = await PollUntilTerminal(client, jobId, TimeSpan.FromSeconds(15));
+        Assert.Equal("done", final.GetProperty("state").GetString());
+
+        var result = await client.GetAsync($"/api/xtce/jobs/{jobId}/result");
+        Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+        var body = await result.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Sat", body.GetProperty("name").GetString());
+        Assert.Equal("1.2", body.GetProperty("detectedVersion").GetString());
+        Assert.True(body.GetProperty("validationIssues").GetArrayLength() > 0);
+        Assert.True(body.GetProperty("positions").GetProperty("Sat/ParameterSet/Good").GetProperty("line").GetInt32() > 0);
+
+        // The result is served exactly once.
+        var again = await client.GetAsync($"/api/xtce/jobs/{jobId}/result");
+        Assert.Equal(HttpStatusCode.NotFound, again.StatusCode);
+    }
+
+    [Test]
+    public async Task JobFlow_MalformedDocument_ResultCarriesTheStandard400Shape()
+    {
+        var client = _factory.CreateClient();
+        var start = await client.PostAsJsonAsync("/api/xtce/jobs/text", new { xml = "<SpaceSystem name='X'>\n<Unclosed>" });
+        var jobId = (await start.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("jobId").GetString()!;
+        var final = await PollUntilTerminal(client, jobId, TimeSpan.FromSeconds(15));
+        Assert.Equal("done", final.GetProperty("state").GetString());
+
+        var result = await client.GetAsync($"/api/xtce/jobs/{jobId}/result");
+
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        var body = await result.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("MalformedXml",
+            body.GetProperty("diagnostics").EnumerateArray().First().GetProperty("kind").GetString());
+    }
+
+    [Test]
+    public async Task JobFlow_CancelStopsTheServerSidePipeline()
+    {
+        var client = _factory.CreateClient();
+        // Big enough to still be parsing when the cancel lands.
+        var bulk = new StringBuilder();
+        bulk.Append("""<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="Big"><TelemetryMetaData><ParameterTypeSet>""");
+        for (var i = 0; i < 120000; i++)
+        {
+            bulk.Append($"<IntegerParameterType name=\"T{i}\"><UnitSet/><IntegerDataEncoding sizeInBits=\"16\"/></IntegerParameterType>");
+        }
+        bulk.Append("</ParameterTypeSet></TelemetryMetaData></SpaceSystem>");
+
+        var start = await client.PostAsJsonAsync("/api/xtce/jobs/text", new { xml = bulk.ToString() });
+        var jobId = (await start.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("jobId").GetString()!;
+
+        var cancel = await client.DeleteAsync($"/api/xtce/jobs/{jobId}");
+        Assert.Equal(HttpStatusCode.NoContent, cancel.StatusCode);
+
+        var final = await PollUntilTerminal(client, jobId, TimeSpan.FromSeconds(15));
+        Assert.Equal("cancelled", final.GetProperty("state").GetString());
+
+        var result = await client.GetAsync($"/api/xtce/jobs/{jobId}/result");
+        Assert.Equal(HttpStatusCode.Conflict, result.StatusCode);
+    }
+
+    [Test]
+    public async Task JobFlow_UnknownJob_Is404Everywhere()
+    {
+        var client = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/xtce/jobs/nope")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/xtce/jobs/nope/result")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync("/api/xtce/jobs/nope")).StatusCode);
+    }
+}

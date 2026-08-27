@@ -100,76 +100,23 @@ public sealed class XtceDocumentController : ControllerBase
         return await LoadFromBuffer(buffer, "(source editor)", buffer.Length);
     }
 
-    private async Task<IActionResult> LoadFromBuffer(MemoryStream buffer, string sourceName, long sizeBytes)
+    private Task<IActionResult> LoadFromBuffer(MemoryStream buffer, string sourceName, long sizeBytes)
     {
-        var rootNamespace = XtceNamespace.ReadRootNamespace(buffer);
-        var detectedVersion = XtceNamespace.VersionFor(rootNamespace);
-        buffer.Position = 0;
-
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var result = XtceDocumentReader.LoadWithRecovery(buffer);
+        var outcome = LoadPipeline.Run(buffer.ToArray());
 
-        // Schema validation always runs: the source view leads with the document's full
-        // verdict, not just the load outcome.
-        buffer.Position = 0;
-        using var text = new StreamReader(buffer, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-        IReadOnlyList<SchemaError> schemaErrors = SchemaValidator.ValidateDetailed(await text.ReadToEndAsync());
-
-        if (result.Document is null)
+        if (outcome.Load.Document is null)
         {
             _logger.LogWarning("Rejected unloadable input {SourceName} ({SizeBytes} bytes): {DiagnosticCount} diagnostic(s), {SchemaErrorCount} schema error(s)",
-                sourceName, sizeBytes, result.Diagnostics.Count, schemaErrors.Count);
-            return BadRequest(new
-            {
-                error = result.Diagnostics.FirstOrDefault()?.Message ?? "The file could not be loaded.",
-                diagnostics = result.Diagnostics,
-                schemaErrors,
-                rootNamespace,
-                detectedVersion,
-                positions = result.Positions,
-            });
+                sourceName, sizeBytes, outcome.Load.Diagnostics.Count, outcome.SchemaErrors.Count);
         }
-
-        var spaceSystem = result.Document;
-        var tree = TreeNode.FromSpaceSystem(spaceSystem);
-        var validationIssues = XtceValidator.Validate(spaceSystem);
-        _logger.LogInformation(
-            "Loaded {Document} ({SizeBytes} bytes): {IssueCount} validation issue(s), {DiagnosticCount} load diagnostic(s) in {ElapsedMs} ms",
-            spaceSystem.Name, sizeBytes, validationIssues.Count, result.Diagnostics.Count, stopwatch.ElapsedMilliseconds);
-        return Ok(new
+        else
         {
-            name = spaceSystem.Name,
-            tree,
-            document = spaceSystem,
-            validationIssues,
-            diagnostics = result.Diagnostics,
-            schemaErrors,
-            rootNamespace,
-            detectedVersion,
-            positions = result.Positions,
-        });
-    }
-
-    /// <summary>
-    /// Pretty-prints source text: inter-element whitespace only, text nodes untouched.
-    /// The client re-scans the result so markers re-map onto the formatted text.
-    /// </summary>
-    [HttpPost("format")]
-    [RequestSizeLimit(1_073_741_824)]
-    public IActionResult Format([FromBody] LoadTextRequest? request)
-    {
-        if (string.IsNullOrEmpty(request?.Xml))
-        {
-            return BadRequest(new { error = "The request body must be JSON with a non-empty 'xml' property." });
+            _logger.LogInformation(
+                "Loaded {Document} ({SizeBytes} bytes): {IssueCount} validation issue(s), {DiagnosticCount} load diagnostic(s) in {ElapsedMs} ms",
+                outcome.Load.Document.Name, sizeBytes, outcome.ValidationIssues.Count, outcome.Load.Diagnostics.Count, stopwatch.ElapsedMilliseconds);
         }
-        try
-        {
-            return Content(XtceTextFormatter.Format(request.Xml), "application/xml");
-        }
-        catch (System.Xml.XmlException ex)
-        {
-            return BadRequest(new { error = $"Cannot format text that is not well-formed XML: {ex.Message}" });
-        }
+        return Task.FromResult(LoadPipeline.ToActionResult(outcome));
     }
 
     /// <summary>Writes the document back out as XTCE XML.</summary>

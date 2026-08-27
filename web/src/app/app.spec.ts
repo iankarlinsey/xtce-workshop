@@ -17,6 +17,7 @@ describe('App', () => {
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
+    App.pollDelayMs = 0; // job polling runs inline in tests
   });
 
   afterEach(() => {
@@ -30,7 +31,7 @@ describe('App', () => {
     ) as HTMLButtonElement).click();
     fixture.detectChanges();
     // New seeds a skeleton and parses it; a clean result lands in the tree.
-    httpMock.expectOne('/api/xtce/load-text').flush({
+    flushTextJob({
       name,
       document: { name, children: [] },
       validationIssues: [],
@@ -48,9 +49,41 @@ describe('App', () => {
   }
 
 
-  /** Flushes a clean load; the app auto-switches into the tree on its own. */
+  let jobCounter = 0;
+
+  /** Drives one load-job round trip: start -> poll(done) -> result. */
+  function flushJob(startUrl: string, payload: Object, resultStatus?: number) {
+    const id = `job${++jobCounter}`;
+    httpMock.expectOne(startUrl).flush({ jobId: id });
+    httpMock.expectOne(`/api/xtce/jobs/${id}`).flush({
+      state: 'done', stage: 'done', percent: 100, ruleIndex: 0, ruleCount: 0, error: null,
+    });
+    if (resultStatus) {
+      httpMock.expectOne(`/api/xtce/jobs/${id}/result`).flush(payload, { status: resultStatus, statusText: 'Bad Request' });
+    } else {
+      httpMock.expectOne(`/api/xtce/jobs/${id}/result`).flush(payload);
+    }
+  }
+
+  function flushLoadJob(payload: Object, resultStatus?: number) {
+    flushJob('/api/xtce/jobs', payload, resultStatus);
+  }
+
+  function flushTextJob(payload: Object, resultStatus?: number) {
+    flushJob('/api/xtce/jobs/text', payload, resultStatus);
+  }
+
+  function flushLoadJob400(payload: Object) {
+    flushJob('/api/xtce/jobs', payload, 400);
+  }
+
+  function flushTextJob400(payload: Object) {
+    flushJob('/api/xtce/jobs/text', payload, 400);
+  }
+
+  /** Flushes a clean load job; the app auto-switches into the tree on its own. */
   function flushLoadIntoTree(fixture: ReturnType<typeof createAppAndFlushHealth>, payload: Object) {
-    httpMock.expectOne('/api/xtce/load').flush(payload);
+    flushLoadJob(payload);
     fixture.detectChanges();
   }
 
@@ -156,7 +189,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'nested.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Mission',
         document: {
           name: 'Mission',
@@ -178,7 +211,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'telemetry.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -202,7 +235,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'nested.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Mission',
         document: {
           name: 'Mission',
@@ -228,10 +261,8 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'broken.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush(
-        { error: 'The document is not well-formed XML.' },
-        { status: 400, statusText: 'Bad Request' }
-      );
+      flushLoadJob400(
+        { error: 'The document is not well-formed XML.' });
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
@@ -243,7 +274,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'nested.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Mission',
         document: { name: 'Mission', children: [] },
         validationIssues: [
@@ -268,7 +299,7 @@ describe('App', () => {
       selectFile(fixture, 'nested.xml');
       const clickSpy = spyOn(HTMLAnchorElement.prototype, 'click');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Mission',
         document: { name: 'Mission', children: [] },
       });
@@ -306,10 +337,15 @@ describe('App', () => {
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
 
-      const request = httpMock.expectOne('/api/xtce/load-text');
+      const request = httpMock.expectOne('/api/xtce/jobs/text');
       expect(request.request.body.xml).toContain('<SpaceSystem');
       expect(compiled.querySelector('.creator-row')).toBeNull();
-      request.flush({ name: 'NewSystem', document: { name: 'NewSystem', children: [] } });
+      request.flush({ jobId: 'jobNew' });
+      httpMock.expectOne('/api/xtce/jobs/jobNew').flush({
+        state: 'done', stage: 'done', percent: 100, ruleIndex: 0, ruleCount: 0, error: null,
+      });
+      httpMock.expectOne('/api/xtce/jobs/jobNew/result')
+        .flush({ name: 'NewSystem', document: { name: 'NewSystem', children: [] } });
       fixture.detectChanges();
       expect(compiled.querySelector('.node-title')?.textContent).toContain('NewSystem');
     });
@@ -1355,7 +1391,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       postFile(fixture);
       // e.g. an intermediary (proxy/auth layer) swallowing the API response shape
-      httpMock.expectOne('/api/xtce/load').flush({ unexpected: 'shape' });
+      flushLoadJob({ unexpected: 'shape' });
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
@@ -1366,7 +1402,7 @@ describe('App', () => {
     it('renders quarantine diagnostics on a partial load', () => {
       const fixture = createAppAndFlushHealth();
       postFile(fixture);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [],
@@ -1385,13 +1421,12 @@ describe('App', () => {
     it('renders the full evidence when the load fails outright', () => {
       const fixture = createAppAndFlushHealth();
       postFile(fixture);
-      httpMock.expectOne('/api/xtce/load').flush(
+      flushLoadJob400(
         {
           error: 'Not well-formed XML: unexpected end of file.',
           diagnostics: [{ kind: 'MalformedXml', message: 'Not well-formed XML: unexpected end of file.', path: '(document)', line: 2, column: 1 }],
           schemaErrors: [],
-        },
-        { status: 400, statusText: 'Bad Request' });
+        });
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
@@ -1500,7 +1535,7 @@ describe('App', () => {
       expect(row?.textContent).toContain('Loading big.xml');
       expect(row?.querySelector('rux-indeterminate-progress')).toBeTruthy();
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
       });
@@ -1513,7 +1548,7 @@ describe('App', () => {
       selectFile(fixture, 'big.xml');
       fixture.detectChanges();
 
-      const request = httpMock.expectOne('/api/xtce/load');
+      const request = httpMock.expectOne('/api/xtce/jobs');
       request.event({ type: HttpEventType.UploadProgress, loaded: 45, total: 100 });
       fixture.detectChanges();
 
@@ -1546,7 +1581,7 @@ describe('App', () => {
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('.loading-hint')?.textContent).toContain('Large document');
       expect(compiled.querySelector('.loading-size')?.textContent).toContain('30 MB');
-      httpMock.expectOne('/api/xtce/load').flush({ name: 'H', document: { name: 'H', children: [] } });
+      flushLoadJob({ name: 'H', document: { name: 'H', children: [] } });
       fixture.detectChanges();
       expect(compiled.querySelector('.loading-modal')).toBeNull();
     });
@@ -1557,10 +1592,8 @@ describe('App', () => {
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).querySelector('.loading-modal')).toBeTruthy();
 
-      httpMock.expectOne('/api/xtce/load').flush(
-        { error: 'nope' },
-        { status: 400, statusText: 'Bad Request' }
-      );
+      flushLoadJob400(
+        { error: 'nope' });
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
@@ -1579,7 +1612,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'modern.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         rootNamespace: 'http://www.omg.org/spec/XTCE/20180204',
@@ -1596,7 +1629,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'legacy.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         rootNamespace: 'http://www.omg.org/space/xtce',
@@ -1613,7 +1646,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'other.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         rootNamespace: 'http://example.com/other',
@@ -1645,7 +1678,7 @@ describe('App', () => {
     async function loadWithIssueAndOpenTree(fixture: ReturnType<typeof createAppAndFlushHealth>) {
       const file = new File(['<x/>'], 'f.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush(payloadWithIssue);
+      flushLoadJob(payloadWithIssue);
       await file.text();
       await fixture.whenStable();
       fixture.detectChanges();
@@ -1654,7 +1687,7 @@ describe('App', () => {
         (b) => b.textContent?.trim() === 'Tree'
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
-      httpMock.expectOne('/api/xtce/load-text').flush(payloadWithIssue);
+      flushTextJob(payloadWithIssue);
       fixture.detectChanges();
     }
 
@@ -1698,10 +1731,8 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<SpaceSystem name="Broken"'], 'broken.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush(
-        { error: 'nope', diagnostics: [], schemaErrors: [] },
-        { status: 400, statusText: 'Bad Request' }
-      );
+      flushLoadJob400(
+        { error: 'nope', diagnostics: [], schemaErrors: [] });
       await file.text();
       await fixture.whenStable();
       fixture.detectChanges();
@@ -1772,9 +1803,13 @@ describe('App', () => {
       await openSourceView(fixture);
 
       clickViewToggle(fixture, 'Tree');
-      const request = httpMock.expectOne('/api/xtce/load-text');
+      const request = httpMock.expectOne('/api/xtce/jobs/text');
       expect(request.request.body.xml).toContain('SpaceSystem');
-      request.flush({
+      request.flush({ jobId: 'jobTree' });
+      httpMock.expectOne('/api/xtce/jobs/jobTree').flush({
+        state: 'done', stage: 'done', percent: 100, ruleIndex: 0, ruleCount: 0, error: null,
+      });
+      httpMock.expectOne('/api/xtce/jobs/jobTree/result').flush({
         name: 'Renamed',
         document: { name: 'Renamed', children: [] },
         validationIssues: [],
@@ -1794,14 +1829,12 @@ describe('App', () => {
       await openSourceView(fixture);
 
       clickViewToggle(fixture, 'Tree');
-      httpMock.expectOne('/api/xtce/load-text').flush(
+      flushTextJob400(
         {
           error: 'Not well-formed XML: unexpected end of file.',
           diagnostics: [{ kind: 'MalformedXml', message: 'unexpected end of file.', path: '(document)', line: 1, column: 24 }],
           schemaErrors: [],
-        },
-        { status: 400, statusText: 'Bad Request' }
-      );
+        });
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
@@ -1820,7 +1853,7 @@ describe('App', () => {
       const row = (fixture.nativeElement as HTMLElement).querySelector('.loading-modal');
       expect(row?.textContent).toContain('Re-scanning source');
 
-      httpMock.expectOne('/api/xtce/load-text').flush({
+      flushTextJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
       });
@@ -1833,7 +1866,7 @@ describe('App', () => {
       const file = new File(['<SpaceSystem name="Sat"/>'], 'ok.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [],
@@ -1854,7 +1887,7 @@ describe('App', () => {
       const file = new File(['<SpaceSystem name="Sat"/>'], 'findings.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [
@@ -1877,14 +1910,12 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<SpaceSystem name="Sat"'], 'broken.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush(
+      flushLoadJob400(
         {
           error: 'Not well-formed XML.',
           diagnostics: [{ kind: 'MalformedXml', message: 'unexpected end of file.', path: '(document)', line: 1, column: 24 }],
           schemaErrors: [],
-        },
-        { status: 400, statusText: 'Bad Request' }
-      );
+        });
       await file.text();
       await fixture.whenStable();
       fixture.detectChanges();
@@ -1895,7 +1926,7 @@ describe('App', () => {
       ) as HTMLButtonElement).click();
       fixture.detectChanges();
 
-      httpMock.expectOne('/api/xtce/load-text').flush({
+      flushTextJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [],
@@ -1918,7 +1949,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<x/>'], 'findings.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [
@@ -1948,7 +1979,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<x/>'], 'findings.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [
@@ -1971,7 +2002,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<SpaceSystem name="Sat"/>'], 'dense.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadJob({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [
@@ -1994,9 +2025,13 @@ describe('App', () => {
       fixture.detectChanges();
 
       // The automatic re-scan runs against the FORMATTED text.
-      const rescanRequest = httpMock.expectOne('/api/xtce/load-text');
+      const rescanRequest = httpMock.expectOne('/api/xtce/jobs/text');
       expect(rescanRequest.request.body.xml).toBe('<SpaceSystem name="Sat">\n</SpaceSystem>');
-      rescanRequest.flush({
+      rescanRequest.flush({ jobId: 'jobFmt' });
+      httpMock.expectOne('/api/xtce/jobs/jobFmt').flush({
+        state: 'done', stage: 'done', percent: 100, ruleIndex: 0, ruleCount: 0, error: null,
+      });
+      httpMock.expectOne('/api/xtce/jobs/jobFmt/result').flush({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [],
@@ -2015,14 +2050,12 @@ describe('App', () => {
       const file = new File(['<SpaceSystem name="Broken"'], 'broken.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
 
-      httpMock.expectOne('/api/xtce/load').flush(
+      flushLoadJob400(
         {
           error: 'Not well-formed XML.',
           diagnostics: [{ kind: 'MalformedXml', message: 'unexpected end of file.', path: '(document)', line: 1, column: 27 }],
           schemaErrors: [],
-        },
-        { status: 400, statusText: 'Bad Request' }
-      );
+        });
       await file.text(); // the component reads the same file; wait out the microtask chain
       await fixture.whenStable();
       fixture.detectChanges();

@@ -61,6 +61,7 @@ interface LoadingStage {
   state: 'pending' | 'active' | 'done';
   percent?: number;
   elapsedSeconds?: number;
+  detail?: string;
 }
 
 interface LoadingState {
@@ -68,6 +69,15 @@ interface LoadingState {
   sizeMb: number | null;
   large: boolean;
   stages: LoadingStage[];
+}
+
+interface LoadJobSnapshot {
+  state: 'running' | 'done' | 'failed' | 'cancelled';
+  stage: string;
+  percent: number;
+  ruleIndex: number;
+  ruleCount: number;
+  error: string | null;
 }
 
 interface LoadResult {
@@ -104,6 +114,10 @@ export class App {
   protected readonly loading = signal<LoadingState | null>(null);
   private loadSubscription: Subscription | null = null;
   private analyzeTicker: ReturnType<typeof setInterval> | null = null;
+  private activeJobId: string | null = null;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Poll cadence for load jobs; tests shorten it. */
+  static pollDelayMs = 400;
   protected readonly loadError = signal<string | null>(null);
   protected readonly treeSearchTerm = signal('');
 
@@ -378,14 +392,86 @@ export class App {
       clearInterval(this.analyzeTicker);
       this.analyzeTicker = null;
     }
+    if (this.pollTimer !== null) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
     this.loading.set(null);
     this.loadSubscription = null;
+    this.activeJobId = null;
   }
 
   protected onCancelLoading(): void {
     this.loadSubscription?.unsubscribe();
+    if (this.activeJobId !== null) {
+      // Real server-side cancellation: the pipeline stops chewing, not just the browser.
+      this.http.delete(`/api/xtce/jobs/${this.activeJobId}`).subscribe({ error: () => {} });
+    }
     this.closeLoading();
     this.loadError.set('Cancelled.');
+  }
+
+  /** Polls the job until terminal, painting live analyze sub-progress into the modal. */
+  private pollJob(jobId: string, onSuccess: (result: LoadResult) => void, onFailure: (err: unknown) => void): void {
+    this.activeJobId = jobId;
+    this.advanceTo('analyze');
+    const poll = () => {
+      // pollDelayMs === 0 (tests) runs inline so the whole job dance stays synchronous.
+      const schedule = (work: () => void) =>
+        App.pollDelayMs <= 0 ? work() : (this.pollTimer = setTimeout(work, App.pollDelayMs), undefined);
+      schedule(() => {
+        this.http.get<LoadJobSnapshot>(`/api/xtce/jobs/${jobId}`).subscribe({
+          next: (snapshot) => {
+            if (this.activeJobId !== jobId) {
+              return; // cancelled or superseded
+            }
+            const detail = snapshot.stage === 'parse' ? `Parsing ${snapshot.percent}%`
+              : snapshot.stage === 'schema' ? `Schema ${snapshot.percent}%`
+              : snapshot.stage === 'rules' ? `Rules ${snapshot.ruleIndex}/${snapshot.ruleCount}`
+              : undefined;
+            if (detail) {
+              this.patchStage('analyze', { detail });
+            }
+            if (snapshot.state === 'done') {
+              this.fetchJobResult(jobId, onSuccess, onFailure);
+            } else if (snapshot.state === 'failed') {
+              this.closeLoading();
+              onFailure({ error: { error: snapshot.error ?? 'The load failed.' } });
+            } else if (snapshot.state === 'cancelled') {
+              this.closeLoading();
+            } else {
+              poll();
+            }
+          },
+          error: (err) => {
+            this.closeLoading();
+            onFailure(err);
+          },
+        });
+      });
+    };
+    poll();
+  }
+
+  private fetchJobResult(jobId: string, onSuccess: (result: LoadResult) => void, onFailure: (err: unknown) => void): void {
+    this.loadSubscription = this.http.get<LoadResult>(`/api/xtce/jobs/${jobId}/result`, {
+      reportProgress: true,
+      observe: 'events',
+    }).subscribe({
+      next: (event) => {
+        this.trackLoadEvents(event);
+        if (event.type !== HttpEventType.Response) {
+          return;
+        }
+        this.advanceTo('render');
+        this.closeLoading();
+        onSuccess(event.body as LoadResult);
+      },
+      error: (err) => {
+        this.closeLoading();
+        onFailure(err);
+      },
+    });
   }
 
   /** Routes HttpClient progress events into the stage checklist. */
@@ -446,45 +532,46 @@ export class App {
     const formData = new FormData();
     formData.append('file', file);
 
-    this.loadSubscription = this.http.post<LoadResult>('/api/xtce/load', formData, {
+    const applyInitial = (result: LoadResult) => {
+      if (!result?.document) {
+        // A 200 whose body isn't our shape (e.g. an intermediary proxy/auth layer
+        // answering in the app's place) must never leave the UI silently empty.
+        this.loadError.set('The server response did not contain a document — '
+          + 'something between the browser and the API may have intercepted the request.');
+        return;
+      }
+      this.applyLoadResult(result);
+      if (isCleanResult(result)) {
+        // Clean initial load: land in the tree; anything with findings stays in
+        // source, where triage happens, with the tree one (enabled) toggle away.
+        this.sourceText.set('');
+        this.viewMode.set('tree');
+      }
+    };
+    const failInitial = (err: unknown) => {
+      const e = err as { error?: { error?: string; diagnostics?: LoadDiagnostic[]; schemaErrors?: SchemaError[];
+        rootNamespace?: string | null; detectedVersion?: string | null; positions?: Record<string, LoadPosition> | null } };
+      this.loadError.set(e?.error?.error ?? 'Failed to load file.');
+      this.loadDiagnostics.set(e?.error?.diagnostics ?? []);
+      this.loadSchemaErrors.set(e?.error?.schemaErrors ?? []);
+      this.rootNamespace.set(e?.error?.rootNamespace ?? null);
+      this.detectedVersion.set(e?.error?.detectedVersion ?? null);
+      this.loadPositions.set(e?.error?.positions ?? null);
+    };
+    this.loadSubscription = this.http.post<{ jobId: string }>('/api/xtce/jobs', formData, {
       reportProgress: true,
       observe: 'events',
     }).subscribe({
-      // A loaded file becomes the current editable/saveable document immediately. The
-      // document object is passed through Save wholesale (and mutated only via spreads),
-      // which is what carries the backend's preserved raw-XML fields through untouched —
-      // see document-tree.ts.
       next: (event) => {
         this.trackLoadEvents(event);
         if (event.type !== HttpEventType.Response) {
           return;
         }
-        const result = event.body as LoadResult;
-        this.advanceTo('render');
-        this.closeLoading();
-        if (!result?.document) {
-          // A 200 whose body isn't our shape (e.g. an intermediary proxy/auth layer
-          // answering in the app's place) must never leave the UI silently empty.
-          this.loadError.set('The server response did not contain a document — '
-            + 'something between the browser and the API may have intercepted the request.');
-          return;
-        }
-        this.applyLoadResult(result);
-        if (isCleanResult(result)) {
-          // Clean initial load: land in the tree; anything with findings stays in
-          // source, where triage happens, with the tree one (enabled) toggle away.
-          this.sourceText.set('');
-          this.viewMode.set('tree');
-        }
+        this.pollJob(event.body!.jobId, applyInitial, failInitial);
       },
       error: (err) => {
         this.closeLoading();
-        this.loadError.set(err?.error?.error ?? 'Failed to load file.');
-        this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
-        this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
-        this.rootNamespace.set(err?.error?.rootNamespace ?? null);
-        this.detectedVersion.set(err?.error?.detectedVersion ?? null);
-        this.loadPositions.set(err?.error?.positions ?? null);
+        failInitial(err);
       },
     });
   }
@@ -618,7 +705,32 @@ export class App {
     this.loadError.set(null);
     this.startLoading('Re-scanning source', text.length);
     this.patchStage('read', { state: 'done' });
-    this.loadSubscription = this.http.post<LoadResult>('/api/xtce/load-text', { xml: text }, {
+    const applyRescan = (result: LoadResult) => {
+      if (!result?.document) {
+        this.loadError.set('The server response did not contain a document.');
+        return;
+      }
+      this.applyLoadResult(result);
+      if (behavior === 'switch' || (behavior === 'switchIfClean' && isCleanResult(result))) {
+        this.sourceText.set('');
+        this.viewMode.set('tree');
+      } else {
+        this.sourceText.set(text);
+      }
+    };
+    const failRescan = (err: unknown) => {
+      const e = err as { error?: { error?: string; diagnostics?: LoadDiagnostic[]; schemaErrors?: SchemaError[];
+        positions?: Record<string, LoadPosition> | null } };
+      this.loadError.set(e?.error?.error ?? 'The source text could not be parsed.');
+      this.loadDiagnostics.set(e?.error?.diagnostics ?? []);
+      this.loadSchemaErrors.set(e?.error?.schemaErrors ?? []);
+      this.loadPositions.set(e?.error?.positions ?? null);
+      // A failed re-scan means the current text has no parseable document.
+      this.currentDocument.set(null);
+      this.validationIssues.set([]);
+      this.sourceText.set(text);
+    };
+    this.loadSubscription = this.http.post<{ jobId: string }>('/api/xtce/jobs/text', { xml: text }, {
       reportProgress: true,
       observe: 'events',
     }).subscribe({
@@ -627,31 +739,11 @@ export class App {
         if (event.type !== HttpEventType.Response) {
           return;
         }
-        const result = event.body as LoadResult;
-        this.advanceTo('render');
-        this.closeLoading();
-        if (!result?.document) {
-          this.loadError.set('The server response did not contain a document.');
-          return;
-        }
-        this.applyLoadResult(result);
-        if (behavior === 'switch' || (behavior === 'switchIfClean' && isCleanResult(result))) {
-          this.sourceText.set('');
-          this.viewMode.set('tree');
-        } else {
-          this.sourceText.set(text);
-        }
+        this.pollJob(event.body!.jobId, applyRescan, failRescan);
       },
       error: (err) => {
         this.closeLoading();
-        this.loadError.set(err?.error?.error ?? 'The source text could not be parsed.');
-        this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
-        this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
-        this.loadPositions.set(err?.error?.positions ?? null);
-        // A failed re-scan means the current text has no parseable document.
-        this.currentDocument.set(null);
-        this.validationIssues.set([]);
-        this.sourceText.set(text);
+        failRescan(err);
       },
     });
   }
