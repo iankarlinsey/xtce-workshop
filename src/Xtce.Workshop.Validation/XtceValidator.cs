@@ -40,7 +40,7 @@ public static class XtceValidator
 
     public static IReadOnlyList<ValidationIssue> Validate(
         SpaceSystem root,
-        IProgress<(int RuleIndex, int RuleCount)>? progress = null,
+        IProgress<(int RuleIndex, int RuleCount, string RuleId)>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var rootContext = SpaceSystemContext.Build(root);
@@ -50,7 +50,7 @@ public static class XtceValidator
         for (var ruleIndex = 0; ruleIndex < Rules.Count; ruleIndex++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report((ruleIndex + 1, Rules.Count));
+            progress?.Report((ruleIndex + 1, Rules.Count, Rules[ruleIndex].RuleId));
             foreach (var context in contexts)
             {
                 issues.AddRange(Rules[ruleIndex].Validate(context));

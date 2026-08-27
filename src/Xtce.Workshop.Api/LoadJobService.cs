@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace Xtce.Workshop.Api;
 
 public sealed record LoadJobSnapshot(
-    string State, string Stage, int Percent, int RuleIndex, int RuleCount, string? Error);
+    string State, string Stage, int Percent, int RuleIndex, int RuleCount, string? RuleId, string? Error);
 
 /// <summary>
 /// Background load jobs for the polling UI: Start runs the shared pipeline on a worker,
@@ -14,7 +14,7 @@ public sealed class LoadJobService
 {
     private sealed class Job
     {
-        public volatile LoadJobSnapshot Snapshot = new("running", "parse", 0, 0, 0, null);
+        public volatile LoadJobSnapshot Snapshot = new("running", "parse", 0, 0, 0, null, null);
         public readonly CancellationTokenSource Cancellation = new();
         public LoadPipelineOutcome? Outcome;
         public readonly DateTime Created = DateTime.UtcNow;
@@ -35,18 +35,18 @@ public sealed class LoadJobService
             {
                 var outcome = LoadPipeline.Run(
                     data,
-                    p => job.Snapshot = new LoadJobSnapshot("running", p.Stage, p.Percent, p.RuleIndex, p.RuleCount, null),
+                    p => job.Snapshot = new LoadJobSnapshot("running", p.Stage, p.Percent, p.RuleIndex, p.RuleCount, p.RuleId, null),
                     job.Cancellation.Token);
                 job.Outcome = outcome;
-                job.Snapshot = new LoadJobSnapshot("done", "done", 100, 0, 0, null);
+                job.Snapshot = new LoadJobSnapshot("done", "done", 100, 0, 0, null, null);
             }
             catch (OperationCanceledException)
             {
-                job.Snapshot = new LoadJobSnapshot("cancelled", "cancelled", 0, 0, 0, null);
+                job.Snapshot = new LoadJobSnapshot("cancelled", "cancelled", 0, 0, 0, null, null);
             }
             catch (Exception ex)
             {
-                job.Snapshot = new LoadJobSnapshot("failed", "failed", 0, 0, 0, ex.Message);
+                job.Snapshot = new LoadJobSnapshot("failed", "failed", 0, 0, 0, null, ex.Message);
             }
         });
         return id;

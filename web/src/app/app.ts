@@ -77,6 +77,7 @@ interface LoadJobSnapshot {
   percent: number;
   ruleIndex: number;
   ruleCount: number;
+  ruleId: string | null;
   error: string | null;
 }
 
@@ -116,6 +117,8 @@ export class App {
   private analyzeTicker: ReturnType<typeof setInterval> | null = null;
   private activeJobId: string | null = null;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastAnalyzeDetail: string | null = null;
+  private lastAnalyzeDetailAt = 0;
   /** Poll cadence for load jobs; tests shorten it. */
   static pollDelayMs = 400;
   protected readonly loadError = signal<string | null>(null);
@@ -425,11 +428,23 @@ export class App {
             if (this.activeJobId !== jobId) {
               return; // cancelled or superseded
             }
-            const detail = snapshot.stage === 'parse' ? `Parsing ${snapshot.percent}%`
+            const shortRule = snapshot.ruleId?.replace(/^XTCE-1\.2-/, '');
+            let detail = snapshot.stage === 'parse' ? `Parsing ${snapshot.percent}%`
               : snapshot.stage === 'schema' ? `Schema ${snapshot.percent}%`
-              : snapshot.stage === 'rules' ? `Rules ${snapshot.ruleIndex}/${snapshot.ruleCount}`
-              : undefined;
+              : snapshot.stage === 'rules'
+                ? `Rule ${snapshot.ruleIndex}/${snapshot.ruleCount}${shortRule ? ` — ${shortRule}` : ''}`
+                : undefined;
             if (detail) {
+              // A detail that hasn't moved in a while reads as measured work, not a hang.
+              if (detail === this.lastAnalyzeDetail) {
+                const stuck = Math.round((Date.now() - this.lastAnalyzeDetailAt) / 1000);
+                if (stuck >= 3) {
+                  detail = `${detail} (${stuck}s)`;
+                }
+              } else {
+                this.lastAnalyzeDetail = detail;
+                this.lastAnalyzeDetailAt = Date.now();
+              }
               this.patchStage('analyze', { detail });
             }
             if (snapshot.state === 'done') {

@@ -5,7 +5,7 @@ using Xtce.Workshop.Validation;
 namespace Xtce.Workshop.Api;
 
 /// <summary>One progress beat from the load pipeline, snapshotted for pollers.</summary>
-public sealed record LoadJobProgress(string Stage, int Percent, int RuleIndex, int RuleCount);
+public sealed record LoadJobProgress(string Stage, int Percent, int RuleIndex, int RuleCount, string? RuleId = null);
 
 public sealed record LoadPipelineOutcome(
     string? RootNamespace,
@@ -56,8 +56,8 @@ public static class LoadPipeline
         {
             validationIssues = XtceValidator.Validate(
                 load.Document,
-                progress is null ? null : new SynchronousProgress<(int RuleIndex, int RuleCount)>(r =>
-                    progress(new LoadJobProgress("rules", 0, r.RuleIndex, r.RuleCount))),
+                progress is null ? null : new SynchronousProgress<(int RuleIndex, int RuleCount, string RuleId)>(r =>
+                    progress(new LoadJobProgress("rules", 0, r.RuleIndex, r.RuleCount, r.RuleId))),
                 cancellationToken);
             tree = TreeNode.FromSpaceSystem(load.Document);
         }
