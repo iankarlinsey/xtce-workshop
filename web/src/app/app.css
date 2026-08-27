@@ -970,3 +970,9 @@
 .load-diagnostics-partial .findings-heading {
   color: var(--warning);
 }
+
+.file-name-line {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}

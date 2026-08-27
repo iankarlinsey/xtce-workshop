@@ -150,6 +150,28 @@ public sealed class XtceDocumentController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Pretty-prints source text: inter-element whitespace only, text nodes untouched.
+    /// The client re-scans the result so markers re-map onto the formatted text.
+    /// </summary>
+    [HttpPost("format")]
+    [RequestSizeLimit(1_073_741_824)]
+    public IActionResult Format([FromBody] LoadTextRequest? request)
+    {
+        if (string.IsNullOrEmpty(request?.Xml))
+        {
+            return BadRequest(new { error = "The request body must be JSON with a non-empty 'xml' property." });
+        }
+        try
+        {
+            return Content(XtceTextFormatter.Format(request.Xml), "application/xml");
+        }
+        catch (System.Xml.XmlException ex)
+        {
+            return BadRequest(new { error = $"Cannot format text that is not well-formed XML: {ex.Message}" });
+        }
+    }
+
     /// <summary>Writes the document back out as XTCE XML.</summary>
     [HttpPost("save")]
     public ContentResult Save([FromBody] SpaceSystem spaceSystem)

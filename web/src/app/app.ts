@@ -449,6 +449,30 @@ export class App {
     this.rescanSource('stay');
   }
 
+  /** Opt-in pretty-print of the editor text; the automatic re-scan re-maps every marker
+   *  onto the formatted text before the user can touch it. */
+  onFormat(): void {
+    const text = this.sourceView()?.currentText() ?? this.sourceText();
+    if (!text) {
+      return;
+    }
+    this.loadError.set(null);
+    this.loadingMessage.set('Formatting…');
+    this.http.post('/api/xtce/format', { xml: text }, { responseType: 'text' }).subscribe({
+      next: (formatted) => {
+        this.loadingMessage.set(null);
+        this.sourceText.set(formatted);
+        // Explicit text: the editor's signal update races the re-scan otherwise, and the
+        // re-scan would read (and then restore) the pre-format text.
+        this.rescanSource('stay', formatted);
+      },
+      error: (err) => {
+        this.loadingMessage.set(null);
+        this.loadError.set(err?.error?.error ?? 'Failed to format the source text.');
+      },
+    });
+  }
+
   /** Leaving source view IS the re-parse: the editor text becomes the document, or the
    *  view stays put with positioned diagnostics when it can't. */
   onShowTree(): void {
@@ -459,8 +483,8 @@ export class App {
     this.rescanSource('switch');
   }
 
-  private rescanSource(behavior: 'stay' | 'switch' | 'switchIfClean'): void {
-    const text = this.sourceView()?.currentText() ?? this.sourceText();
+  private rescanSource(behavior: 'stay' | 'switch' | 'switchIfClean', textOverride: string | null = null): void {
+    const text = textOverride ?? this.sourceView()?.currentText() ?? this.sourceText();
     this.loadError.set(null);
     this.loadingMessage.set('Re-scanning source…');
     this.http.post<LoadResult>('/api/xtce/load-text', { xml: text }).subscribe({

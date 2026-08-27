@@ -1924,6 +1924,49 @@ describe('App', () => {
       expect(target?.line).toBe(42);
     });
 
+    it('Format pretty-prints the editor text and automatically re-scans it', async () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<SpaceSystem name="Sat"/>'], 'dense.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [
+          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/P', message: 'finding keeps us in source' },
+        ],
+      });
+      await file.text();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('rux-button')).find(
+        (b) => b.textContent?.trim() === 'Format'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const formatRequest = httpMock.expectOne('/api/xtce/format');
+      expect(formatRequest.request.body.xml).toContain('SpaceSystem');
+      formatRequest.flush('<SpaceSystem name="Sat">\n</SpaceSystem>');
+      fixture.detectChanges();
+
+      // The automatic re-scan runs against the FORMATTED text.
+      const rescanRequest = httpMock.expectOne('/api/xtce/load-text');
+      expect(rescanRequest.request.body.xml).toBe('<SpaceSystem name="Sat">\n</SpaceSystem>');
+      rescanRequest.flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [],
+        diagnostics: [],
+        schemaErrors: [],
+      });
+      fixture.detectChanges();
+
+      expect(compiled.querySelector('.main-panel-source')).toBeTruthy();
+      expect((fixture.componentInstance as unknown as { sourceText: () => string }).sourceText())
+        .toBe('<SpaceSystem name="Sat">\n</SpaceSystem>');
+    });
+
     it('opens the original file text in source view when a file fails to load', async () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<SpaceSystem name="Broken"'], 'broken.xml', { type: 'application/xml' });
