@@ -111,11 +111,14 @@ export class SourceViewComponent implements OnDestroy {
       // transparent or the browser paints its own dark selection over the band whenever
       // the window has focus.
       '.cm-content ::selection': { backgroundColor: 'transparent' },
-      '.cm-selectionBackground': {
-        backgroundColor: 'rgba(88, 182, 255, 0.30)',
+      // The base dark theme's focused rule is a five-class selector ending in
+      // ".cm-selectionLayer .cm-selectionBackground" — these must OUT-SPECIFY it or the
+      // focused selection renders in the base #233, nearly invisible on this background.
+      '& .cm-selectionLayer .cm-selectionBackground': {
+        backgroundColor: 'rgba(88, 182, 255, 0.25)',
       },
-      '&.cm-focused .cm-selectionBackground': {
-        backgroundColor: 'rgba(88, 182, 255, 0.48)',
+      '&.cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+        backgroundColor: 'rgba(88, 182, 255, 0.50)',
       },
       // Other occurrences of the selected text stay QUIETER than the selection itself.
       '.cm-selectionMatch': {
