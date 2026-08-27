@@ -108,6 +108,11 @@
   gap: 6px;
 }
 
+.load-diagnostic-jump,
+.validation-issue {
+  cursor: pointer;
+}
+
 .loading-row {
   display: flex;
   align-items: center;
@@ -243,6 +248,7 @@
   border: 1px solid var(--border);
   border-radius: 5px;
   overflow: hidden;
+  flex-shrink: 0; /* the sidebar scrolls; findings never get flex-crushed */
 }
 
 .validation-summary {
@@ -877,6 +883,7 @@
   padding: 0.4rem 0.6rem;
   margin: 0.4rem 0;
   font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 .load-diagnostics-partial {

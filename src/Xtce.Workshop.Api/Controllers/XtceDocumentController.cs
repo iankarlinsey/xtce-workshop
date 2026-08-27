@@ -66,7 +66,7 @@ public sealed class XtceDocumentController : ControllerBase
             {
                 error,
                 diagnostics = Array.Empty<LoadDiagnostic>(),
-                schemaErrors = Array.Empty<string>(),
+                schemaErrors = Array.Empty<SchemaError>(),
             });
         }
 
@@ -92,7 +92,7 @@ public sealed class XtceDocumentController : ControllerBase
             {
                 error = "The request body must be JSON with a non-empty 'xml' property.",
                 diagnostics = Array.Empty<LoadDiagnostic>(),
-                schemaErrors = Array.Empty<string>(),
+                schemaErrors = Array.Empty<SchemaError>(),
             });
         }
 
@@ -109,13 +109,11 @@ public sealed class XtceDocumentController : ControllerBase
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var result = XtceDocumentReader.LoadWithRecovery(buffer);
 
-        IReadOnlyList<string> schemaErrors = [];
-        if (result.Diagnostics.Count > 0)
-        {
-            buffer.Position = 0;
-            using var text = new StreamReader(buffer, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-            schemaErrors = SchemaValidator.Validate(await text.ReadToEndAsync());
-        }
+        // Schema validation always runs: the source view leads with the document's full
+        // verdict, not just the load outcome.
+        buffer.Position = 0;
+        using var text = new StreamReader(buffer, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+        IReadOnlyList<SchemaError> schemaErrors = SchemaValidator.ValidateDetailed(await text.ReadToEndAsync());
 
         if (result.Document is null)
         {
@@ -128,6 +126,7 @@ public sealed class XtceDocumentController : ControllerBase
                 schemaErrors,
                 rootNamespace,
                 detectedVersion,
+                positions = result.Positions,
             });
         }
 
@@ -147,6 +146,7 @@ public sealed class XtceDocumentController : ControllerBase
             schemaErrors,
             rootNamespace,
             detectedVersion,
+            positions = result.Positions,
         });
     }
 

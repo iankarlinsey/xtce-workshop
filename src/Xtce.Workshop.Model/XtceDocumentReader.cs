@@ -62,7 +62,7 @@ public static class XtceDocumentReader
         catch (XtceParseException ex)
         {
             recovery.Add(new LoadDiagnostic(LoadDiagnosticKind.ModelError, ex.Message, "(document root)", null, null));
-            return new XtceLoadResult(null, recovery.Diagnostics);
+            return new XtceLoadResult(null, recovery.Diagnostics, recovery.Positions);
         }
     }
 
@@ -94,6 +94,15 @@ public static class XtceDocumentReader
                 }
             }
 
+            if (recovery is not null && reader is IXmlLineInfo rootLineInfo && rootLineInfo.HasLineInfo())
+            {
+                var rootName = reader.GetAttribute("name");
+                if (!string.IsNullOrEmpty(rootName))
+                {
+                    recovery.RecordPosition(rootName, rootLineInfo.LineNumber, rootLineInfo.LinePosition);
+                }
+            }
+
             var root = ReadSpaceSystem(reader, depth: 0, TakeLeadingComments(ref prologComments), recovery);
 
             // Document-epilog comments after the root's end tag.
@@ -112,7 +121,7 @@ public static class XtceDocumentReader
                 root = root with { Preserved = [.. root.Preserved ?? [], .. trailing] };
             }
 
-            return new XtceLoadResult(root, recovery?.Diagnostics ?? []);
+            return new XtceLoadResult(root, recovery?.Diagnostics ?? [], recovery?.Positions);
         }
         catch (XmlException ex)
         {
@@ -126,7 +135,7 @@ public static class XtceDocumentReader
                 "(document)",
                 ex.LineNumber > 0 ? ex.LineNumber : null,
                 ex.LinePosition > 0 ? ex.LinePosition : null));
-            return new XtceLoadResult(null, recovery.Diagnostics);
+            return new XtceLoadResult(null, recovery.Diagnostics, recovery.Positions);
         }
     }
 
@@ -143,11 +152,23 @@ public static class XtceDocumentReader
         /// </summary>
         public int LineOffset { get; set; }
 
+        /// <summary>Element positions keyed by the validator's location grammar.</summary>
+        public Dictionary<string, LoadPosition> Positions { get; } = new();
+
         public void Add(LoadDiagnostic diagnostic)
         {
             if (Diagnostics.Count < MaxDiagnostics)
             {
                 Diagnostics.Add(diagnostic);
+            }
+        }
+
+        /// <summary>First occurrence wins — duplicate names are their own validation finding.</summary>
+        public void RecordPosition(string locationPath, int? line, int? column)
+        {
+            if (line is not null && !Positions.ContainsKey(locationPath))
+            {
+                Positions[locationPath] = new LoadPosition(line.Value, column ?? 1);
             }
         }
     }
@@ -170,6 +191,10 @@ public static class XtceDocumentReader
         int? column = lineInfo?.HasLineInfo() == true ? lineInfo.LinePosition : null;
         var elementName = reader.LocalName;
         var nameAttribute = reader.GetAttribute("name");
+        if (nameAttribute is not null)
+        {
+            recovery.RecordPosition($"{parentPath}/{nameAttribute}", line, column);
+        }
         var outerXml = reader.ReadOuterXml();
 
         var savedOffset = recovery.LineOffset;
@@ -365,7 +390,7 @@ public static class XtceDocumentReader
                 else
                 {
                     ReadItemWithRecovery(reader, recovery, $"{path}/CommandMetaData/MetaCommandSet",
-                        r => metaCommands.Add(ReadMetaCommand(r, leading)), ref preservedEntries);
+                        r => metaCommands.Add(ReadMetaCommand(r, leading, recovery, $"{path}/CommandMetaData/MetaCommandSet")), ref preservedEntries);
                 }
             }
             else if (reader.NodeType == XmlNodeType.Element)
@@ -384,9 +409,12 @@ public static class XtceDocumentReader
         reader.ReadEndElement();
     }
 
-    private static MetaCommand ReadMetaCommand(XmlReader reader, List<RawXmlFragment>? leadingComments = null)
+    private static MetaCommand ReadMetaCommand(
+        XmlReader reader, List<RawXmlFragment>? leadingComments = null,
+        RecoveryContext? recovery = null, string? setPath = null)
     {
         var name = RequireAttribute(reader, "name", "a MetaCommand");
+        var commandPath = setPath is null ? null : $"{setPath}/{name}";
         var isAbstract = ParseBool(reader, "abstract");
         var preservedAttributes = CapturePreservedAttributes(reader, "name", "abstract");
 
@@ -445,6 +473,11 @@ public static class XtceDocumentReader
                 else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CommandContainer")
                 {
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    if (recovery is not null && commandPath is not null && reader is IXmlLineInfo containerLineInfo && containerLineInfo.HasLineInfo())
+                    {
+                        recovery.RecordPosition($"{commandPath}/CommandContainer",
+                            containerLineInfo.LineNumber + recovery.LineOffset, containerLineInfo.LinePosition);
+                    }
                     commandContainer = ReadCommandContainer(reader);
                 }
                 else if (reader.NodeType == XmlNodeType.Element)

@@ -31,7 +31,11 @@ import {
   collectMetaCommandNames,
   moveEntry,
 } from './document-tree';
-import { ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics, SearchMatch, UsageMatch, LoadDiagnostic } from './validation';
+import {
+  ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics,
+  SearchMatch, UsageMatch, LoadDiagnostic, SchemaError, LoadPosition, SourceMarker,
+  resolveLocation,
+} from './validation';
 import { XTCE_REFERENCE, ReferenceEntry } from './xtce-reference';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
@@ -41,9 +45,10 @@ interface LoadResult {
   document: SpaceSystemDocument;
   validationIssues: ValidationIssue[];
   diagnostics?: LoadDiagnostic[];
-  schemaErrors?: string[];
+  schemaErrors?: SchemaError[];
   rootNamespace?: string | null;
   detectedVersion?: string | null;
+  positions?: Record<string, LoadPosition> | null;
 }
 
 @Component({
@@ -84,7 +89,39 @@ export class App {
   protected readonly documentMetrics = signal<DocumentMetrics | null>(null);
   protected readonly searchMatches = signal<SearchMatch[] | null>(null);
   protected readonly loadDiagnostics = signal<LoadDiagnostic[]>([]);
-  protected readonly loadSchemaErrors = signal<string[]>([]);
+  protected readonly loadSchemaErrors = signal<SchemaError[]>([]);
+  /** Reader's element-position index for the loaded text, by validator location. */
+  protected readonly loadPositions = signal<Record<string, LoadPosition> | null>(null);
+  /** Line the source editor should scroll to; nonce lets the same line re-trigger. */
+  protected readonly revealTarget = signal<{ line: number; column: number | null; nonce: number } | null>(null);
+  private revealNonce = 0;
+
+  /** Every finding class merged into positioned source markers. */
+  protected readonly sourceMarkers = computed<SourceMarker[]>(() => {
+    const positions = this.loadPositions();
+    const markers: SourceMarker[] = [];
+    for (const diagnostic of this.loadDiagnostics()) {
+      markers.push({
+        line: diagnostic.line, column: diagnostic.column,
+        message: `${diagnostic.path}: ${diagnostic.message}`, severity: 'error',
+      });
+    }
+    for (const schemaError of this.loadSchemaErrors()) {
+      markers.push({
+        line: schemaError.line, column: schemaError.column,
+        message: schemaError.message, severity: 'error',
+      });
+    }
+    for (const issue of this.validationIssues()) {
+      const position = resolveLocation(issue.location, positions);
+      markers.push({
+        line: position?.line ?? null, column: position?.column ?? null,
+        message: `${issue.location}: ${issue.message}`,
+        severity: issue.severity === 'Warning' ? 'warning' : 'error',
+      });
+    }
+    return markers;
+  });
   protected readonly parameterUsages = signal<UsageMatch[] | null>(null);
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -256,6 +293,13 @@ export class App {
     this.loadSchemaErrors.set([]);
     this.rootNamespace.set(null);
     this.detectedVersion.set(null);
+    this.loadPositions.set(null);
+
+    // Source-first: the file's own text is visible immediately, before (and regardless
+    // of) anything the server says. Markers land on this exact text when the parse
+    // response arrives.
+    this.viewMode.set('source');
+    file.text().then((fileText) => this.sourceText.set(fileText));
     this.saveError.set(null);
     this.validationIssues.set([]);
     this.treeSearchTerm.set('');
@@ -278,9 +322,9 @@ export class App {
             + 'something between the browser and the API may have intercepted the request.');
           return;
         }
+        // Stay in source view: the verifier leads with the text and its markers; the
+        // tree is one toggle away now that the parse succeeded.
         this.applyLoadResult(result);
-        this.sourceText.set('');
-        this.viewMode.set('tree');
       },
       error: (err) => {
         this.loadingMessage.set(null);
@@ -289,14 +333,7 @@ export class App {
         this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
         this.rootNamespace.set(err?.error?.rootNamespace ?? null);
         this.detectedVersion.set(err?.error?.detectedVersion ?? null);
-        if (err?.error?.diagnostics) {
-          // The server understood the request and rejected the CONTENT — open the file's
-          // text in source view so the problem can be fixed here instead of elsewhere.
-          file.text().then((text) => {
-            this.sourceText.set(text);
-            this.viewMode.set('source');
-          });
-        }
+        this.loadPositions.set(err?.error?.positions ?? null);
       },
     });
   }
@@ -310,6 +347,23 @@ export class App {
     this.loadSchemaErrors.set(result.schemaErrors ?? []);
     this.rootNamespace.set(result.rootNamespace ?? null);
     this.detectedVersion.set(result.detectedVersion ?? null);
+    this.loadPositions.set(result.positions ?? null);
+  }
+
+  /** Scrolls the source editor to a finding's line, entering source view if needed. */
+  protected onRevealLine(line: number | null, column: number | null = null): void {
+    if (line === null) {
+      return;
+    }
+    if (this.viewMode() !== 'source') {
+      this.onShowSource();
+    }
+    this.revealTarget.set({ line, column, nonce: ++this.revealNonce });
+  }
+
+  protected onRevealIssue(issue: ValidationIssue): void {
+    const position = resolveLocation(issue.location, this.loadPositions());
+    this.onRevealLine(position?.line ?? null, position?.column ?? null);
   }
 
   // --- Tree/Source view toggle -----------------------------------------------------------
@@ -329,20 +383,44 @@ export class App {
       next: (xmlText) => {
         this.sourceText.set(xmlText);
         this.viewMode.set('source');
+        // Markers must describe exactly the text on screen: re-parse the fresh
+        // serialization so positions and findings refer to it, not to the original file.
+        this.http.post<LoadResult>('/api/xtce/load-text', { xml: xmlText }).subscribe({
+          next: (result) => {
+            if (result?.document) {
+              this.applyLoadResult(result);
+            }
+          },
+          error: () => {
+            // The serialization should always re-parse; if not, the text still shows,
+            // just without fresh markers.
+          },
+        });
       },
       error: () => this.saveError.set('Failed to serialize the document for source view.'),
     });
   }
 
+  /** Re-runs the whole pipeline on the current editor text, staying in source view:
+   *  markers refresh, and a successful parse is what unlocks the Tree toggle. */
+  onRescan(): void {
+    this.rescanSource(false);
+  }
+
   /** Leaving source view IS the re-parse: the editor text becomes the document, or the
    *  view stays put with positioned diagnostics when it can't. */
   onShowTree(): void {
-    if (this.viewMode() === 'tree') {
+    // rux-button hosts still emit clicks when [disabled]; the tree needs a parsed document.
+    if (this.viewMode() === 'tree' || !this.currentDocument()) {
       return;
     }
+    this.rescanSource(true);
+  }
+
+  private rescanSource(switchToTreeOnSuccess: boolean): void {
     const text = this.sourceView()?.currentText() ?? this.sourceText();
     this.loadError.set(null);
-    this.loadingMessage.set('Re-parsing source…');
+    this.loadingMessage.set('Re-scanning source…');
     this.http.post<LoadResult>('/api/xtce/load-text', { xml: text }).subscribe({
       next: (result) => {
         this.loadingMessage.set(null);
@@ -351,14 +429,22 @@ export class App {
           return;
         }
         this.applyLoadResult(result);
-        this.sourceText.set('');
-        this.viewMode.set('tree');
+        if (switchToTreeOnSuccess) {
+          this.sourceText.set('');
+          this.viewMode.set('tree');
+        } else {
+          this.sourceText.set(text);
+        }
       },
       error: (err) => {
         this.loadingMessage.set(null);
         this.loadError.set(err?.error?.error ?? 'The source text could not be parsed.');
         this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
         this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
+        this.loadPositions.set(err?.error?.positions ?? null);
+        // A failed re-scan means the current text has no parseable document.
+        this.currentDocument.set(null);
+        this.validationIssues.set([]);
         this.sourceText.set(text);
       },
     });

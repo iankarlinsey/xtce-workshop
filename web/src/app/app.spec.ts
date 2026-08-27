@@ -1,4 +1,4 @@
-import { DeferBlockBehavior, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { DeferBlockBehavior, DeferBlockState, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { App } from './app';
@@ -10,8 +10,10 @@ describe('App', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [provideHttpClient(), provideHttpClientTesting()],
-      // The source editor lives behind @defer; let deferred blocks render on their own.
-      deferBlockBehavior: DeferBlockBehavior.Playthrough,
+      // The source editor lives behind @defer. Manual keeps CodeMirror OUT of fakeAsync
+      // editing tests (which only pass through source mode); tests that assert on the
+      // editor render it explicitly via renderSourceEditor.
+      deferBlockBehavior: DeferBlockBehavior.Manual,
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
@@ -46,6 +48,33 @@ describe('App', () => {
     fixture.detectChanges();
     httpMock.expectOne('/api/health').flush({ status: 'ok' });
     return fixture;
+  }
+
+  /** Source-first: a load lands in source view; drive the app into tree for editing tests. */
+  function switchToTreeAfterLoad(fixture: ReturnType<typeof createAppAndFlushHealth>, payload: Object) {
+    fixture.detectChanges();
+    const treeButton = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.view-toggle rux-button')
+    ).find((b) => b.textContent?.trim() === 'Tree') as HTMLElement;
+    treeButton.click();
+    fixture.detectChanges();
+    httpMock.expectOne('/api/xtce/load-text').flush(payload);
+    fixture.detectChanges();
+  }
+
+  /** Flushes a load and lands the app in the tree, re-flushing the re-scan with the same payload. */
+  function flushLoadIntoTree(fixture: ReturnType<typeof createAppAndFlushHealth>, payload: Object) {
+    httpMock.expectOne('/api/xtce/load').flush(payload);
+    switchToTreeAfterLoad(fixture, payload);
+  }
+
+  /** Renders the @defer'd source editor (Manual defer behavior leaves it as placeholder). */
+  async function renderSourceEditor(fixture: ReturnType<typeof createAppAndFlushHealth>) {
+    const deferBlocks = await fixture.getDeferBlocks();
+    for (const block of deferBlocks) {
+      await block.render(DeferBlockState.Complete);
+    }
+    fixture.detectChanges();
   }
 
   /** Tree item groups default collapsed; expand every group so item rows are reachable. */
@@ -126,7 +155,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       selectFile(fixture, 'minimal.xml');
 
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Minimal',
         document: { name: 'Minimal', children: [] },
       });
@@ -326,7 +355,7 @@ describe('App', () => {
     function loadNestedDocument(fixture: ReturnType<typeof createAppAndFlushHealth>) {
       const file = new File(['<xml/>'], 'nested.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Mission',
         document: {
           name: 'Mission',
@@ -342,7 +371,7 @@ describe('App', () => {
     function loadTelemetryDocument(fixture: ReturnType<typeof createAppAndFlushHealth>) {
       const file = new File(['<xml/>'], 'telemetry.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -693,7 +722,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<xml/>'], 'raw.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -735,7 +764,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<xml/>'], 'arr.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -782,7 +811,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<xml/>'], 'agg.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -858,7 +887,7 @@ describe('App', () => {
     function loadMessagingDocument(fixture: ReturnType<typeof createAppAndFlushHealth>) {
       const file = new File(['<xml/>'], 'msg.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -1057,7 +1086,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<xml/>'], 'raw.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -1086,7 +1115,7 @@ describe('App', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<xml/>'], 'pres.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -1349,7 +1378,7 @@ describe('App', () => {
         document: { name: 'Sat', children: [] },
         validationIssues: [],
         diagnostics: [{ kind: 'ModelError', message: "missing 'parameterTypeRef'", path: 'Sat/ParameterSet/Parameter[NoTypeRef]', line: 7, column: 8 }],
-        schemaErrors: ['The required attribute parameterTypeRef is missing.'],
+        schemaErrors: [{ message: 'The required attribute parameterTypeRef is missing.', line: 7, column: 8 }],
       });
       fixture.detectChanges();
 
@@ -1384,7 +1413,7 @@ describe('App', () => {
     function loadSearchableDocument(fixture: ReturnType<typeof createAppAndFlushHealth>) {
       const file = new File(['<xml/>'], 'telemetry.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
-      httpMock.expectOne('/api/xtce/load').flush({
+      flushLoadIntoTree(fixture, {
         name: 'Sat',
         document: {
           name: 'Sat',
@@ -1570,7 +1599,23 @@ describe('App', () => {
       fixture.detectChanges();
     }
 
-    it('serializes the current document and opens it in the source editor', async () => {
+    /** Into source view from a created document: save serializes, then the pairing re-parse runs. */
+    async function openSourceView(fixture: ReturnType<typeof createAppAndFlushHealth>, xml = '<SpaceSystem name="Sat"/>') {
+      clickViewToggle(fixture, 'Source');
+      httpMock.expectOne('/api/xtce/save').flush(xml);
+      fixture.detectChanges();
+      httpMock.expectOne('/api/xtce/load-text').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [],
+        diagnostics: [],
+        schemaErrors: [],
+      });
+      fixture.detectChanges();
+      await renderSourceEditor(fixture);
+    }
+
+    it('serializes the document, re-parses it for fresh markers, and shows the editor', async () => {
       const fixture = createAppAndFlushHealth();
       createDocumentInline(fixture, 'Sat');
 
@@ -1578,9 +1623,14 @@ describe('App', () => {
       const request = httpMock.expectOne('/api/xtce/save');
       expect(request.request.body.name).toBe('Sat');
       request.flush('<SpaceSystem name="Sat"/>');
-      fixture.detectChanges(); // renders the @defer placeholder and starts the chunk load
-      await fixture.whenStable();
       fixture.detectChanges();
+      // The pairing rule: markers must describe exactly the text on screen.
+      httpMock.expectOne('/api/xtce/load-text').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+      });
+      fixture.detectChanges();
+      await renderSourceEditor(fixture);
 
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('app-source-view')).toBeTruthy();
@@ -1591,11 +1641,7 @@ describe('App', () => {
     it('re-parses the source text into the document when switching back to tree', async () => {
       const fixture = createAppAndFlushHealth();
       createDocumentInline(fixture, 'Sat');
-      clickViewToggle(fixture, 'Source');
-      httpMock.expectOne('/api/xtce/save').flush('<SpaceSystem name="Sat"/>');
-      fixture.detectChanges();
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await openSourceView(fixture);
 
       clickViewToggle(fixture, 'Tree');
       const request = httpMock.expectOne('/api/xtce/load-text');
@@ -1617,11 +1663,7 @@ describe('App', () => {
     it('stays in source view with the error when the edited text no longer parses', async () => {
       const fixture = createAppAndFlushHealth();
       createDocumentInline(fixture, 'Sat');
-      clickViewToggle(fixture, 'Source');
-      httpMock.expectOne('/api/xtce/save').flush('<SpaceSystem name="Sat"/>');
-      fixture.detectChanges();
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await openSourceView(fixture);
 
       clickViewToggle(fixture, 'Tree');
       httpMock.expectOne('/api/xtce/load-text').flush(
@@ -1637,20 +1679,18 @@ describe('App', () => {
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('app-source-view')).toBeTruthy();
       expect(compiled.querySelector('.error')?.textContent).toContain('Not well-formed XML');
+      // The text has no parseable document any more, so the tree is gated off.
+      expect(compiled.querySelector('.tree-container')).toBeNull();
     });
 
-    it('shows the re-parsing spinner while switching back to tree', async () => {
+    it('shows the re-scanning spinner while switching back to tree', async () => {
       const fixture = createAppAndFlushHealth();
       createDocumentInline(fixture, 'Sat');
-      clickViewToggle(fixture, 'Source');
-      httpMock.expectOne('/api/xtce/save').flush('<SpaceSystem name="Sat"/>');
-      fixture.detectChanges();
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await openSourceView(fixture);
 
       clickViewToggle(fixture, 'Tree');
       const row = (fixture.nativeElement as HTMLElement).querySelector('.loading-row');
-      expect(row?.textContent).toContain('Re-parsing source');
+      expect(row?.textContent).toContain('Re-scanning source');
 
       httpMock.expectOne('/api/xtce/load-text').flush({
         name: 'Sat',
@@ -1658,6 +1698,123 @@ describe('App', () => {
       });
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).querySelector('.loading-row')).toBeNull();
+    });
+
+    it('lands in source view after a successful load, with the tree one toggle away', async () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<SpaceSystem name="Sat"/>'], 'ok.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+      });
+      await file.text();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await renderSourceEditor(fixture);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('app-source-view')).toBeTruthy();
+      expect(compiled.querySelector('.cm-content')?.textContent).toContain('SpaceSystem name="Sat"');
+
+      clickViewToggle(fixture, 'Tree');
+      httpMock.expectOne('/api/xtce/load-text').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+      });
+      fixture.detectChanges();
+      expect(compiled.querySelector('.node-title')?.textContent).toContain('Sat');
+    });
+
+    it('Re-scan re-runs the pipeline on the editor text and stays in source view', async () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<SpaceSystem name="Sat"'], 'broken.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush(
+        {
+          error: 'Not well-formed XML.',
+          diagnostics: [{ kind: 'MalformedXml', message: 'unexpected end of file.', path: '(document)', line: 1, column: 24 }],
+          schemaErrors: [],
+        },
+        { status: 400, statusText: 'Bad Request' }
+      );
+      await file.text();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('rux-button')).find(
+        (b) => b.textContent?.trim() === 'Re-scan'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      httpMock.expectOne('/api/xtce/load-text').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [],
+        diagnostics: [],
+        schemaErrors: [],
+      });
+      fixture.detectChanges();
+
+      // Still in source view; the parse succeeded so the tree is now available.
+      expect(compiled.querySelector('.main-panel-source')).toBeTruthy();
+      expect(compiled.querySelector('.error')).toBeNull();
+      expect(compiled.querySelector('.tree-container')).toBeTruthy();
+    });
+
+    it('maps validation issues onto source lines through the position index', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<x/>'], 'findings.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [
+          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/ITEM6', message: 'dangling ref' },
+          { ruleId: 'R05', severity: 'Warning', location: 'Sat/ContainerSet/Frame/EntryList/Deep', message: 'subset' },
+          { ruleId: 'R99', severity: 'Error', location: 'Elsewhere/Unknown', message: 'unmapped' },
+        ],
+        positions: {
+          'Sat/ParameterSet/ITEM6': { line: 42, column: 7 },
+          'Sat/ContainerSet/Frame': { line: 90, column: 5 },
+        },
+      });
+      fixture.detectChanges();
+
+      type Marker = { line: number | null; message: string; severity: string };
+      const markers = (fixture.componentInstance as unknown as { sourceMarkers: () => Marker[] }).sourceMarkers();
+      const byMessage = (part: string) => markers.find((m) => m.message.includes(part))!;
+      expect(byMessage('dangling ref').line).toBe(42);
+      expect(byMessage('dangling ref').severity).toBe('error');
+      // Deeper citation falls back to the longest recorded ancestor.
+      expect(byMessage('subset').line).toBe(90);
+      expect(byMessage('subset').severity).toBe('warning');
+      expect(byMessage('unmapped').line).toBeNull();
+    });
+
+    it('clicking a validation issue reveals its source line', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<x/>'], 'findings.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [
+          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/ITEM6', message: 'dangling ref' },
+        ],
+        positions: { 'Sat/ParameterSet/ITEM6': { line: 42, column: 7 } },
+      });
+      fixture.detectChanges();
+
+      ((fixture.nativeElement as HTMLElement).querySelector('.validation-issue') as HTMLElement).click();
+      fixture.detectChanges();
+
+      const target = (fixture.componentInstance as unknown as {
+        revealTarget: () => { line: number } | null;
+      }).revealTarget();
+      expect(target?.line).toBe(42);
     });
 
     it('opens the original file text in source view when a file fails to load', async () => {
@@ -1675,9 +1832,8 @@ describe('App', () => {
       );
       await file.text(); // the component reads the same file; wait out the microtask chain
       await fixture.whenStable();
-      fixture.detectChanges(); // renders the @defer placeholder and starts the chunk load
-      await fixture.whenStable();
       fixture.detectChanges();
+      await renderSourceEditor(fixture);
 
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('app-source-view')).toBeTruthy();

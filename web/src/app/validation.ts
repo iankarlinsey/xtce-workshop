@@ -96,3 +96,48 @@ export interface LoadDiagnostic {
   line: number | null;
   column: number | null;
 }
+
+export interface SchemaError {
+  message: string;
+  line: number | null;
+  column: number | null;
+}
+
+export interface LoadPosition {
+  line: number;
+  column: number;
+}
+
+/** One finding of any class, positioned for display in the source editor. */
+export interface SourceMarker {
+  line: number | null;
+  column: number | null;
+  message: string;
+  severity: 'error' | 'warning';
+}
+
+/**
+ * Resolves a validator location (e.g. "Sat/ContainerSet/Frame") to a source position via
+ * the reader's position index, falling back to the longest recorded ancestor path so a
+ * deeper citation still lands near its owner.
+ */
+export function resolveLocation(
+  location: string,
+  positions: Record<string, LoadPosition> | null
+): LoadPosition | null {
+  if (!positions) {
+    return null;
+  }
+  let candidate = location;
+  for (;;) {
+    const position = positions[candidate];
+    if (position) {
+      return position;
+    }
+    const cut = candidate.lastIndexOf('/');
+    if (cut < 0) {
+      return null;
+    }
+    candidate = candidate.slice(0, cut);
+  }
+}

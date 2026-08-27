@@ -36,16 +36,23 @@ public static class SchemaValidator
     });
 
     /// <summary>All schema validation errors/warnings for the given XML; empty = valid.</summary>
-    public static IReadOnlyList<string> Validate(string xml)
+    public static IReadOnlyList<string> Validate(string xml) =>
+        ValidateDetailed(xml).Select(error => error.Message).ToList();
+
+    /// <summary>Schema errors with their source positions (null when the parser had none).</summary>
+    public static IReadOnlyList<SchemaError> ValidateDetailed(string xml)
     {
-        var errors = new List<string>();
+        var errors = new List<SchemaError>();
         var settings = new XmlReaderSettings
         {
             ValidationType = ValidationType.Schema,
             Schemas = Schemas.Value,
             XmlResolver = null,
         };
-        settings.ValidationEventHandler += (_, e) => errors.Add(e.Message);
+        settings.ValidationEventHandler += (_, e) => errors.Add(new SchemaError(
+            e.Message,
+            e.Exception?.LineNumber > 0 ? e.Exception.LineNumber : null,
+            e.Exception?.LinePosition > 0 ? e.Exception.LinePosition : null));
 
         try
         {
@@ -56,9 +63,15 @@ public static class SchemaValidator
         }
         catch (XmlException ex)
         {
-            errors.Add($"Not well-formed: {ex.Message}");
+            errors.Add(new SchemaError(
+                $"Not well-formed: {ex.Message}",
+                ex.LineNumber > 0 ? ex.LineNumber : null,
+                ex.LinePosition > 0 ? ex.LinePosition : null));
         }
 
         return errors;
     }
 }
+
+/// <summary>One XSD validation error, positioned when the validator reported a position.</summary>
+public sealed record SchemaError(string Message, int? Line, int? Column);
