@@ -48,6 +48,19 @@ describe('App', () => {
     return fixture;
   }
 
+  /** Tree item groups default collapsed; expand every group so item rows are reachable. */
+  function expandAllGroups(fixture: ReturnType<typeof createAppAndFlushHealth>) {
+    const compiled = fixture.nativeElement as HTMLElement;
+    for (let i = 0; i < 25; i++) {
+      const collapsedToggle = compiled.querySelector('.group-row .toggle[aria-expanded="false"]');
+      if (!collapsedToggle) {
+        return;
+      }
+      (collapsedToggle.closest('.group-row') as HTMLElement).click();
+      fixture.detectChanges();
+    }
+  }
+
   /** Runs the revalidation debounce down and answers the resulting validate request. */
   function flushRevalidate(issues: unknown[] = []) {
     tick(App.revalidateDelayMs);
@@ -165,6 +178,7 @@ describe('App', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
+      expandAllGroups(fixture);
       const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
       expect(itemLabels).toEqual(['Volt_Type', 'BusVoltage', 'Frame']);
     });
@@ -348,6 +362,7 @@ describe('App', () => {
     }
 
     function clickTreeRowByText(fixture: ReturnType<typeof createAppAndFlushHealth>, text: string) {
+      expandAllGroups(fixture);
       const compiled = fixture.nativeElement as HTMLElement;
       const row = Array.from(compiled.querySelectorAll('.tree-node-row')).find((r) =>
         r.textContent?.includes(text)
@@ -551,6 +566,7 @@ describe('App', () => {
       fixture.detectChanges();
       flushRevalidate();
 
+      expandAllGroups(fixture);
       const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
       expect(itemLabels).toContain('Flag_Type');
 
@@ -575,6 +591,7 @@ describe('App', () => {
       flushRevalidate();
 
       expect(compiled.querySelector('.node-title')?.textContent).toContain('Sat');
+      expandAllGroups(fixture);
       const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
       expect(itemLabels).not.toContain('BusVoltage');
     }));
@@ -870,6 +887,7 @@ describe('App', () => {
       loadMessagingDocument(fixture);
       const compiled = fixture.nativeElement as HTMLElement;
 
+      expandAllGroups(fixture);
       const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
       expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'BaseCmd', 'Reboot']);
 

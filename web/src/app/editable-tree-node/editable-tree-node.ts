@@ -9,6 +9,12 @@ import {
 
 export type { SpaceSystemDocument } from '../document-tree';
 
+interface ItemGroup {
+  kind: ItemKind;
+  label: string;
+  items: { index: number; name: string }[];
+}
+
 /**
  * Renders one SpaceSystemDocument node as a pure navigation/selection tree — a row for the
  * SpaceSystem itself, grouped rows for its telemetry items (parameter types, parameters,
@@ -46,26 +52,60 @@ export class EditableTreeNodeComponent {
 
   protected readonly hasExpandableContent = computed(() => {
     const node = this.node();
-    return node.children.length > 0 || this.visibleItems().length > 0;
+    return node.children.length > 0 || this.groups().length > 0;
   });
 
-  /** Flattened telemetry item rows, each tagged with its kind and set index. */
-  protected readonly visibleItems = computed(() => {
-    const telemetry = this.node().telemetryMetaData ?? { parameterTypeSet: [], parameterSet: [] };
+  /** Per-kind collapsible groups of item rows; empty kinds produce no group. */
+  protected readonly groups = computed<ItemGroup[]>(() => {
+    const node = this.node();
+    const telemetry = node.telemetryMetaData;
     const term = this.searchTerm().trim().toLowerCase();
-    const rows: { kind: ItemKind; index: number; name: string }[] = [];
-    telemetry.parameterTypeSet.forEach((type, index) =>
-      rows.push({ kind: 'parameterType', index, name: type.name }));
-    telemetry.parameterSet.forEach((parameter, index) =>
-      rows.push({ kind: 'parameter', index, name: parameter.name }));
-    (telemetry.containerSet ?? []).forEach((container, index) =>
-      rows.push({ kind: 'container', index, name: container.name }));
-    (telemetry.messageSet?.messages ?? []).forEach((message, index) =>
-      rows.push({ kind: 'message', index, name: message.name }));
-    (this.node().commandMetaData?.metaCommands ?? []).forEach((metaCommand, index) =>
-      rows.push({ kind: 'metaCommand', index, name: metaCommand.name }));
-    return term ? rows.filter((row) => row.name.toLowerCase().includes(term)) : rows;
+    const sources: { kind: ItemKind; label: string; names: string[] }[] = [
+      { kind: 'parameterType', label: 'Parameter Types', names: (telemetry?.parameterTypeSet ?? []).map((t) => t.name) },
+      { kind: 'parameter', label: 'Parameters', names: (telemetry?.parameterSet ?? []).map((p) => p.name) },
+      { kind: 'container', label: 'Containers', names: (telemetry?.containerSet ?? []).map((c) => c.name) },
+      { kind: 'message', label: 'Messages', names: (telemetry?.messageSet?.messages ?? []).map((m) => m.name) },
+      { kind: 'metaCommand', label: 'Commands', names: (node.commandMetaData?.metaCommands ?? []).map((m) => m.name) },
+    ];
+    return sources
+      .map(({ kind, label, names }) => ({
+        kind,
+        label,
+        items: names
+          .map((name, index) => ({ index, name }))
+          .filter((row) => !term || row.name.toLowerCase().includes(term)),
+      }))
+      .filter((group) => group.items.length > 0);
   });
+
+  /** Groups the user explicitly opened; everything starts collapsed. */
+  private readonly expandedGroups = signal<ReadonlySet<ItemKind>>(new Set());
+
+  protected isGroupExpanded(kind: ItemKind): boolean {
+    if (this.searchTerm().trim()) {
+      return true; // searching shows the matches, not the collapse state
+    }
+    const selection = this.selection();
+    if (
+      selection?.item?.kind === kind &&
+      selection.systemPath.length === this.path().length &&
+      selection.systemPath.every((index, i) => index === this.path()[i])
+    ) {
+      return true; // the selected item must never hide inside a collapsed group
+    }
+    return this.expandedGroups().has(kind);
+  }
+
+  protected toggleGroup(kind: ItemKind, event: Event): void {
+    event.stopPropagation();
+    const next = new Set(this.expandedGroups());
+    if (next.has(kind)) {
+      next.delete(kind);
+    } else {
+      next.add(kind);
+    }
+    this.expandedGroups.set(next);
+  }
 
   protected toggle(event: Event): void {
     event.stopPropagation();

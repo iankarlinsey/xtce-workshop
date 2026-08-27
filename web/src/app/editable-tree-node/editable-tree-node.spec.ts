@@ -41,18 +41,66 @@ describe('EditableTreeNodeComponent', () => {
     expect(emitted).toEqual({ systemPath: [1] });
   });
 
-  it('renders telemetry item rows with their names', () => {
+  /** Groups default collapsed; open every one so item rows are reachable. */
+  function expandGroups(fixture: ReturnType<typeof render>) {
+    const compiled = fixture.nativeElement as HTMLElement;
+    for (let i = 0; i < 10; i++) {
+      const collapsedToggle = compiled.querySelector('.group-row .toggle[aria-expanded="false"]');
+      if (!collapsedToggle) {
+        return;
+      }
+      (collapsedToggle.closest('.group-row') as HTMLElement).click();
+      fixture.detectChanges();
+    }
+  }
+
+  it('renders per-kind group headers with counts, omitting empty kinds, items hidden', () => {
     const fixture = render(withTelemetry());
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const headers = Array.from(compiled.querySelectorAll('.group-row')).map((row) =>
+      `${row.querySelector('.group-label')?.textContent?.trim()}:${row.querySelector('.group-count')?.textContent?.trim()}`);
+    expect(headers).toEqual(['Parameter Types:2', 'Parameters:1', 'Containers:1']);
+    expect(compiled.querySelector('.item-row')).toBeNull(); // collapsed by default
+  });
+
+  it('renders telemetry item rows with their names once their groups are expanded', () => {
+    const fixture = render(withTelemetry());
+    expandGroups(fixture);
 
     const compiled = fixture.nativeElement as HTMLElement;
     const labels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
     expect(labels).toEqual(['Volt_Type', 'Mode_Type', 'BusVoltage', 'Frame']);
   });
 
+  it('toggling a group emits no selection and hides its items again', () => {
+    const fixture = render(withTelemetry());
+    let emitted: Selection | undefined;
+    fixture.componentInstance.select.subscribe((s) => (emitted = s));
+    expandGroups(fixture);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    (compiled.querySelector('.group-row') as HTMLElement).click(); // collapse Parameter Types
+    fixture.detectChanges();
+
+    expect(emitted).toBeUndefined();
+    const labels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+    expect(labels).toEqual(['BusVoltage', 'Frame']);
+  });
+
+  it('always shows the group holding the current selection, collapsed or not', () => {
+    const fixture = render(withTelemetry(), [], { systemPath: [], item: { kind: 'container', index: 0 } });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const labels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+    expect(labels).toEqual(['Frame']); // only the selected item's group is open
+  });
+
   it('emits an item selection when an item row is clicked', () => {
     const fixture = render(withTelemetry());
     let emitted: Selection | undefined;
     fixture.componentInstance.select.subscribe((s) => (emitted = s));
+    expandGroups(fixture);
 
     const rows = fixture.nativeElement.querySelectorAll('.item-row');
     (rows[2] as HTMLElement).click(); // BusVoltage — the parameter
