@@ -50,6 +50,12 @@
         </div>
       }
 
+      @if (loadingMessage(); as message) {
+        <div class="loading-row">
+          <rux-indeterminate-progress></rux-indeterminate-progress>
+          <span>{{ message }}</span>
+        </div>
+      }
       @if (selectedFileName()) {
         <p class="meta-text">Selected: {{ selectedFileName() }}</p>
       }

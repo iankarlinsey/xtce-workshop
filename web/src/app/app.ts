@@ -64,6 +64,8 @@ export class App {
   protected readonly healthStatus = signal<HealthStatus>('checking');
   protected readonly backendVersion = signal<string | null>(null);
   protected readonly selectedFileName = signal<string | null>(null);
+  /** Message shown with a spinner while a parse request is in flight, or null. */
+  protected readonly loadingMessage = signal<string | null>(null);
   protected readonly loadError = signal<string | null>(null);
   protected readonly treeSearchTerm = signal('');
 
@@ -261,12 +263,14 @@ export class App {
     const formData = new FormData();
     formData.append('file', file);
 
+    this.loadingMessage.set(`Loading ${file.name}…`);
     this.http.post<LoadResult>('/api/xtce/load', formData).subscribe({
       // A loaded file becomes the current editable/saveable document immediately. The
       // document object is passed through Save wholesale (and mutated only via spreads),
       // which is what carries the backend's preserved raw-XML fields through untouched —
       // see document-tree.ts.
       next: (result) => {
+        this.loadingMessage.set(null);
         if (!result?.document) {
           // A 200 whose body isn't our shape (e.g. an intermediary proxy/auth layer
           // answering in the app's place) must never leave the UI silently empty.
@@ -279,6 +283,7 @@ export class App {
         this.viewMode.set('tree');
       },
       error: (err) => {
+        this.loadingMessage.set(null);
         this.loadError.set(err?.error?.error ?? 'Failed to load file.');
         this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
         this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
@@ -337,8 +342,10 @@ export class App {
     }
     const text = this.sourceView()?.currentText() ?? this.sourceText();
     this.loadError.set(null);
+    this.loadingMessage.set('Re-parsing source…');
     this.http.post<LoadResult>('/api/xtce/load-text', { xml: text }).subscribe({
       next: (result) => {
+        this.loadingMessage.set(null);
         if (!result?.document) {
           this.loadError.set('The server response did not contain a document.');
           return;
@@ -348,6 +355,7 @@ export class App {
         this.viewMode.set('tree');
       },
       error: (err) => {
+        this.loadingMessage.set(null);
         this.loadError.set(err?.error?.error ?? 'The source text could not be parsed.');
         this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
         this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);

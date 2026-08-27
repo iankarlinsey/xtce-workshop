@@ -1438,6 +1438,48 @@ describe('App', () => {
     });
   });
 
+  describe('Loading indicator', () => {
+    function selectFile(fixture: ReturnType<typeof createAppAndFlushHealth>, name: string) {
+      const file = new File(['<xml/>'], name, { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+    }
+
+    it('shows a spinner with the filename while the load request is in flight', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'big.xml');
+      fixture.detectChanges();
+
+      const row = (fixture.nativeElement as HTMLElement).querySelector('.loading-row');
+      expect(row).toBeTruthy();
+      expect(row?.textContent).toContain('Loading big.xml');
+      expect(row?.querySelector('rux-indeterminate-progress')).toBeTruthy();
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+      });
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-row')).toBeNull();
+    });
+
+    it('clears the spinner when the load fails', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'bad.xml');
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-row')).toBeTruthy();
+
+      httpMock.expectOne('/api/xtce/load').flush(
+        { error: 'nope' },
+        { status: 400, statusText: 'Bad Request' }
+      );
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('.loading-row')).toBeNull();
+      expect(compiled.querySelector('.error')?.textContent).toContain('nope');
+    });
+  });
+
   describe('Namespace detection', () => {
     function selectFile(fixture: ReturnType<typeof createAppAndFlushHealth>, name: string) {
       const file = new File(['<xml/>'], name, { type: 'application/xml' });
@@ -1571,6 +1613,27 @@ describe('App', () => {
       const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.querySelector('app-source-view')).toBeTruthy();
       expect(compiled.querySelector('.error')?.textContent).toContain('Not well-formed XML');
+    });
+
+    it('shows the re-parsing spinner while switching back to tree', async () => {
+      const fixture = createAppAndFlushHealth();
+      createDocumentInline(fixture, 'Sat');
+      clickViewToggle(fixture, 'Source');
+      httpMock.expectOne('/api/xtce/save').flush('<SpaceSystem name="Sat"/>');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      clickViewToggle(fixture, 'Tree');
+      const row = (fixture.nativeElement as HTMLElement).querySelector('.loading-row');
+      expect(row?.textContent).toContain('Re-parsing source');
+
+      httpMock.expectOne('/api/xtce/load-text').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+      });
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.loading-row')).toBeNull();
     });
 
     it('opens the original file text in source view when a file fails to load', async () => {
