@@ -30,6 +30,7 @@ import {
   collectContainerNames,
   collectMetaCommandNames,
   moveEntry,
+  selectionForLocation,
 } from './document-tree';
 import {
   ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics,
@@ -39,6 +40,17 @@ import {
 import { XTCE_REFERENCE, ReferenceEntry } from './xtce-reference';
 
 type HealthStatus = 'checking' | 'ok' | 'unreachable';
+
+/** Clean = nothing to triage: no load diagnostics, schema errors, or rule findings. */
+function isCleanResult(result: {
+  diagnostics?: unknown[];
+  schemaErrors?: unknown[];
+  validationIssues?: unknown[];
+}): boolean {
+  return (result.diagnostics ?? []).length === 0 &&
+    (result.schemaErrors ?? []).length === 0 &&
+    (result.validationIssues ?? []).length === 0;
+}
 
 interface LoadResult {
   name: string;
@@ -76,7 +88,7 @@ export class App {
 
   /** Which inline creator row is open (one at a time), or null. */
   protected readonly creating = signal<
-    'document' | 'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType' | null
+    'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType' | null
   >(null);
 
   protected readonly currentDocument = signal<SpaceSystemDocument | null>(null);
@@ -143,6 +155,13 @@ export class App {
       ? 'Declares no namespace — the workshop targets XTCE 1.2.'
       : `Declares '${ns}', which is not an XTCE namespace — the workshop targets XTCE 1.2.`;
   });
+
+  /** True when a parsed document has no findings of any class — the all-clear state. */
+  protected readonly allClear = computed(() =>
+    this.currentDocument() !== null &&
+    this.loadDiagnostics().length === 0 &&
+    this.loadSchemaErrors().length === 0 &&
+    this.validationIssues().length === 0);
 
   /** Tree/Source projection of the same document; source is the current serialization. */
   protected readonly viewMode = signal<'tree' | 'source'>('tree');
@@ -322,9 +341,13 @@ export class App {
             + 'something between the browser and the API may have intercepted the request.');
           return;
         }
-        // Stay in source view: the verifier leads with the text and its markers; the
-        // tree is one toggle away now that the parse succeeded.
         this.applyLoadResult(result);
+        if (isCleanResult(result)) {
+          // Clean initial load: land in the tree; anything with findings stays in
+          // source, where triage happens, with the tree one (enabled) toggle away.
+          this.sourceText.set('');
+          this.viewMode.set('tree');
+        }
       },
       error: (err) => {
         this.loadingMessage.set(null);
@@ -359,6 +382,25 @@ export class App {
       this.onShowSource();
     }
     this.revealTarget.set({ line, column, nonce: ++this.revealNonce });
+  }
+
+  /** Tree view: a rule finding selects its node; unmappable ones fall back to source. */
+  protected onSelectIssueNode(issue: ValidationIssue): void {
+    const doc = this.currentDocument();
+    const selection = doc ? selectionForLocation(doc, issue.location) : null;
+    if (selection) {
+      this.onSelect(selection);
+      return;
+    }
+    // Nothing in the modeled tree corresponds (e.g. quarantined content): the source
+    // text is the only place this finding exists, positioned or not.
+    if (this.viewMode() !== 'source') {
+      this.onShowSource();
+    }
+    const position = resolveLocation(issue.location, this.loadPositions());
+    if (position) {
+      this.revealTarget.set({ line: position.line, column: position.column, nonce: ++this.revealNonce });
+    }
   }
 
   protected onRevealIssue(issue: ValidationIssue): void {
@@ -404,7 +446,7 @@ export class App {
   /** Re-runs the whole pipeline on the current editor text, staying in source view:
    *  markers refresh, and a successful parse is what unlocks the Tree toggle. */
   onRescan(): void {
-    this.rescanSource(false);
+    this.rescanSource('stay');
   }
 
   /** Leaving source view IS the re-parse: the editor text becomes the document, or the
@@ -414,10 +456,10 @@ export class App {
     if (this.viewMode() === 'tree' || !this.currentDocument()) {
       return;
     }
-    this.rescanSource(true);
+    this.rescanSource('switch');
   }
 
-  private rescanSource(switchToTreeOnSuccess: boolean): void {
+  private rescanSource(behavior: 'stay' | 'switch' | 'switchIfClean'): void {
     const text = this.sourceView()?.currentText() ?? this.sourceText();
     this.loadError.set(null);
     this.loadingMessage.set('Re-scanning source…');
@@ -429,7 +471,7 @@ export class App {
           return;
         }
         this.applyLoadResult(result);
-        if (switchToTreeOnSuccess) {
+        if (behavior === 'switch' || (behavior === 'switchIfClean' && isCleanResult(result))) {
           this.sourceText.set('');
           this.viewMode.set('tree');
         } else {
@@ -450,23 +492,29 @@ export class App {
     });
   }
 
-  onOpenCreator(kind: 'document' | 'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType'): void {
+  onNewDocument(): void {
+    const skeleton = '<?xml version="1.0" encoding="UTF-8"?>\n'
+      + '<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="NewSystem">\n'
+      + '</SpaceSystem>\n';
+    this.selectedFileName.set(null);
+    this.loadError.set(null);
+    this.loadDiagnostics.set([]);
+    this.loadSchemaErrors.set([]);
+    this.rootNamespace.set(null);
+    this.detectedVersion.set(null);
+    this.loadPositions.set(null);
+    this.currentDocument.set(null);
+    this.validationIssues.set([]);
+    this.viewMode.set('source');
+    this.sourceText.set(skeleton);
+    this.rescanSource('switchIfClean');
+  }
+
+  onOpenCreator(kind: 'child' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'parameterType'): void {
     this.creating.set(this.creating() === kind ? null : kind);
   }
 
   onCancelCreator(): void {
-    this.creating.set(null);
-  }
-
-  onCreateDocument(nameInput: HTMLInputElement): void {
-    const name = nameInput.value.trim();
-    if (!name) {
-      return;
-    }
-    this.currentDocument.set({ name, children: [] });
-    this.selection.set({ systemPath: [] });
-    this.saveError.set(null);
-    this.validationIssues.set([]);
     this.creating.set(null);
   }
 
@@ -963,14 +1011,24 @@ export class App {
 
   // --- Save / search / revalidation ----------------------------------------------------
 
+  /** Save writes the current TEXT: in source view the editor bytes verbatim (parseable
+   *  or not), in tree view the serialization of the edits — the same bytes toggling to
+   *  source would show. */
   onSaveDocument(): void {
+    this.saveError.set(null);
+    if (this.viewMode() === 'source') {
+      const text = this.sourceView()?.currentText() ?? this.sourceText();
+      if (!text) {
+        return;
+      }
+      const name = this.currentDocument()?.name ?? this.selectedFileName() ?? 'document';
+      this.downloadXml(text, /\.(xml|xtce)$/.test(name) ? name : `${name}.xml`);
+      return;
+    }
     const doc = this.currentDocument();
     if (!doc) {
       return;
     }
-
-    this.saveError.set(null);
-
     this.http.post(
       '/api/xtce/save',
       doc,

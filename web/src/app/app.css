@@ -108,6 +108,28 @@
   gap: 6px;
 }
 
+.header-toolbar {
+  margin-bottom: 0;
+  flex-wrap: nowrap;
+}
+
+.rescan-side {
+  align-self: flex-start;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.all-clear {
+  margin: 4px 0 8px;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--ok, #56f000);
+  border: 1px solid var(--ok, #2e5c1e);
+  border-radius: var(--radius-base, 3px);
+  flex-shrink: 0;
+}
+
 .load-diagnostic-jump,
 .validation-issue {
   cursor: pointer;

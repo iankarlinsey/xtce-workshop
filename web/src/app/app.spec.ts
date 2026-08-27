@@ -23,23 +23,20 @@ describe('App', () => {
     httpMock.verify();
   });
 
-  function createDocumentInline(fixture: ReturnType<typeof TestBed.createComponent<App>>, name: string | null) {
+  function createDocumentInline(fixture: ReturnType<typeof TestBed.createComponent<App>>, name: string) {
     const compiled = fixture.nativeElement as HTMLElement;
-    (Array.from(compiled.querySelectorAll('rux-button, button')).find(
-      (b) => b.textContent?.includes('New')
+    (Array.from(compiled.querySelectorAll('rux-button')).find(
+      (b) => b.textContent?.trim() === 'New'
     ) as HTMLButtonElement).click();
     fixture.detectChanges();
-    if (name === null) {
-      (Array.from(compiled.querySelectorAll('.creator-row rux-button, .creator-row button')).find(
-        (b) => b.textContent?.trim() === 'Cancel'
-      ) as HTMLButtonElement).click();
-    } else {
-      const input = compiled.querySelector('input[aria-label="New document name"]') as HTMLInputElement;
-      input.value = name;
-      (Array.from(compiled.querySelectorAll('.creator-row rux-button, .creator-row button')).find(
-        (b) => b.textContent?.trim() === 'Create'
-      ) as HTMLButtonElement).click();
-    }
+    // New seeds a skeleton and parses it; a clean result lands in the tree.
+    httpMock.expectOne('/api/xtce/load-text').flush({
+      name,
+      document: { name, children: [] },
+      validationIssues: [],
+      diagnostics: [],
+      schemaErrors: [],
+    });
     fixture.detectChanges();
   }
 
@@ -50,22 +47,11 @@ describe('App', () => {
     return fixture;
   }
 
-  /** Source-first: a load lands in source view; drive the app into tree for editing tests. */
-  function switchToTreeAfterLoad(fixture: ReturnType<typeof createAppAndFlushHealth>, payload: Object) {
-    fixture.detectChanges();
-    const treeButton = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('.view-toggle rux-button')
-    ).find((b) => b.textContent?.trim() === 'Tree') as HTMLElement;
-    treeButton.click();
-    fixture.detectChanges();
-    httpMock.expectOne('/api/xtce/load-text').flush(payload);
-    fixture.detectChanges();
-  }
 
-  /** Flushes a load and lands the app in the tree, re-flushing the re-scan with the same payload. */
+  /** Flushes a clean load; the app auto-switches into the tree on its own. */
   function flushLoadIntoTree(fixture: ReturnType<typeof createAppAndFlushHealth>, payload: Object) {
     httpMock.expectOne('/api/xtce/load').flush(payload);
-    switchToTreeAfterLoad(fixture, payload);
+    fixture.detectChanges();
   }
 
   /** Renders the @defer'd source editor (Manual defer behavior leaves it as placeholder). */
@@ -310,15 +296,22 @@ describe('App', () => {
       expect(compiled.querySelector('.creator-row')).toBeNull(); // creator closes on create
     });
 
-    it('cancelling the inline creator leaves no document', () => {
+    it('New submits the skeleton for parsing without any name prompt', () => {
       const fixture = createAppAndFlushHealth();
       fixture.detectChanges();
 
-      createDocumentInline(fixture, null);
-
       const compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.querySelector('.node-title')).toBeNull();
+      (Array.from(compiled.querySelectorAll('rux-button')).find(
+        (b) => b.textContent?.trim() === 'New'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const request = httpMock.expectOne('/api/xtce/load-text');
+      expect(request.request.body.xml).toContain('<SpaceSystem');
       expect(compiled.querySelector('.creator-row')).toBeNull();
+      request.flush({ name: 'NewSystem', document: { name: 'NewSystem', children: [] } });
+      fixture.detectChanges();
+      expect(compiled.querySelector('.node-title')?.textContent).toContain('NewSystem');
     });
 
     it('posts the current document and triggers a download on save', () => {
@@ -1552,7 +1545,7 @@ describe('App', () => {
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.textContent).toContain('Declared: XTCE 1.2');
+      expect(compiled.textContent).toContain('XTCE 1.2');
       expect(compiled.querySelector('.namespace-advisory')).toBeNull();
     });
 
@@ -1587,6 +1580,98 @@ describe('App', () => {
 
       const advisory = (fixture.nativeElement as HTMLElement).querySelector('.namespace-advisory');
       expect(advisory?.textContent).toContain('not an XTCE namespace');
+    });
+  });
+
+  describe('Tree-side findings', () => {
+    const payloadWithIssue = {
+      name: 'Sat',
+      document: {
+        name: 'Sat',
+        children: [],
+        telemetryMetaData: {
+          parameterTypeSet: [{ name: 'T', kind: 'Integer' }],
+          parameterSet: [{ name: 'P', parameterTypeRef: 'Ghost' }],
+        },
+      },
+      validationIssues: [
+        { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/P', message: 'dangling ref' },
+      ],
+    };
+
+    async function loadWithIssueAndOpenTree(fixture: ReturnType<typeof createAppAndFlushHealth>) {
+      const file = new File(['<x/>'], 'f.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush(payloadWithIssue);
+      await file.text();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('.view-toggle rux-button')).find(
+        (b) => b.textContent?.trim() === 'Tree'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      httpMock.expectOne('/api/xtce/load-text').flush(payloadWithIssue);
+      fixture.detectChanges();
+    }
+
+    it('clicking a rule finding in tree view selects the offending node', async () => {
+      const fixture = createAppAndFlushHealth();
+      await loadWithIssueAndOpenTree(fixture);
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (compiled.querySelector('.validation-issue') as HTMLElement).click();
+      fixture.detectChanges();
+
+      // The parameter's form opens in the main panel; the group auto-reveals it.
+      expect(compiled.querySelector('.node-title')?.textContent).toContain('P');
+      const selectedRow = compiled.querySelector('.item-row.selected');
+      expect(selectedRow?.textContent).toContain('P');
+    });
+
+    it('an unmappable finding falls back to the source position', async () => {
+      const fixture = createAppAndFlushHealth();
+      await loadWithIssueAndOpenTree(fixture);
+      (fixture.componentInstance as unknown as {
+        validationIssues: { set: (v: unknown[]) => void };
+      }).validationIssues.set([
+        { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/NotInModel', message: 'ghost' },
+      ]);
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (compiled.querySelector('.validation-issue') as HTMLElement).click();
+      fixture.detectChanges();
+
+      // Falls back to source view (serialize + pairing re-parse).
+      httpMock.expectOne('/api/xtce/save').flush('<SpaceSystem name="Sat"/>');
+      fixture.detectChanges();
+      httpMock.expectOne('/api/xtce/load-text').flush(payloadWithIssue);
+      fixture.detectChanges();
+      expect(compiled.querySelector('.main-panel-source')).toBeTruthy();
+    });
+
+    it('Save in source view downloads the editor text verbatim without a server call', async () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<SpaceSystem name="Broken"'], 'broken.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/load').flush(
+        { error: 'nope', diagnostics: [], schemaErrors: [] },
+        { status: 400, statusText: 'Bad Request' }
+      );
+      await file.text();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const clickSpy = spyOn(HTMLAnchorElement.prototype, 'click');
+      const urlSpy = spyOn(URL, 'createObjectURL').and.returnValue('blob:test');
+      fixture.componentInstance.onSaveDocument();
+
+      httpMock.expectNone('/api/xtce/save');
+      expect(clickSpy).toHaveBeenCalled();
+      expect(urlSpy).toHaveBeenCalled();
+      const blob = urlSpy.calls.mostRecent().args[0] as Blob;
+      expect(await blob.text()).toBe('<SpaceSystem name="Broken"');
     });
   });
 
@@ -1700,7 +1785,7 @@ describe('App', () => {
       expect((fixture.nativeElement as HTMLElement).querySelector('.loading-row')).toBeNull();
     });
 
-    it('lands in source view after a successful load, with the tree one toggle away', async () => {
+    it('auto-switches to tree when the initial load is completely clean', async () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<SpaceSystem name="Sat"/>'], 'ok.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
@@ -1708,26 +1793,44 @@ describe('App', () => {
       httpMock.expectOne('/api/xtce/load').flush({
         name: 'Sat',
         document: { name: 'Sat', children: [] },
+        validationIssues: [],
+        diagnostics: [],
+        schemaErrors: [],
       });
       await file.text();
       await fixture.whenStable();
       fixture.detectChanges();
-      await renderSourceEditor(fixture);
 
       const compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.querySelector('app-source-view')).toBeTruthy();
-      expect(compiled.querySelector('.cm-content')?.textContent).toContain('SpaceSystem name="Sat"');
-
-      clickViewToggle(fixture, 'Tree');
-      httpMock.expectOne('/api/xtce/load-text').flush({
-        name: 'Sat',
-        document: { name: 'Sat', children: [] },
-      });
-      fixture.detectChanges();
+      expect(compiled.querySelector('.main-panel-source')).toBeNull();
       expect(compiled.querySelector('.node-title')?.textContent).toContain('Sat');
     });
 
-    it('Re-scan re-runs the pipeline on the editor text and stays in source view', async () => {
+    it('stays in source with the tree enabled when the load has findings', async () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<SpaceSystem name="Sat"/>'], 'findings.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+
+      httpMock.expectOne('/api/xtce/load').flush({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [
+          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/P', message: 'dangling ref' },
+        ],
+      });
+      await file.text();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('.main-panel-source')).toBeTruthy();
+      const treeButton = Array.from(compiled.querySelectorAll('.view-toggle rux-button')).find(
+        (b) => b.textContent?.trim() === 'Tree'
+      ) as HTMLButtonElement & { disabled: boolean };
+      expect(treeButton.disabled).toBeFalsy();
+    });
+
+    it('Re-scan re-runs the pipeline and stays in source view with an all-clear', async () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<SpaceSystem name="Sat"'], 'broken.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
@@ -1758,10 +1861,14 @@ describe('App', () => {
       });
       fixture.detectChanges();
 
-      // Still in source view; the parse succeeded so the tree is now available.
+      // Clean re-scan: stay put, show the all-clear, and enable the Tree toggle.
       expect(compiled.querySelector('.main-panel-source')).toBeTruthy();
       expect(compiled.querySelector('.error')).toBeNull();
-      expect(compiled.querySelector('.tree-container')).toBeTruthy();
+      expect(compiled.querySelector('.all-clear')).toBeTruthy();
+      const treeButton = Array.from(compiled.querySelectorAll('.view-toggle rux-button')).find(
+        (b) => b.textContent?.trim() === 'Tree'
+      ) as HTMLButtonElement & { disabled: boolean };
+      expect(treeButton.disabled).toBeFalsy();
     });
 
     it('maps validation issues onto source lines through the position index', () => {

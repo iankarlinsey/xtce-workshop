@@ -344,3 +344,56 @@ export function moveEntry(container: SequenceContainerDoc, index: number, delta:
   entryList.splice(target, 0, entry);
   return { ...container, entryList };
 }
+
+/**
+ * Maps a validator location ("Sat/Bus/ParameterSet/Volt") onto a tree Selection, or null
+ * when nothing in the modeled tree corresponds to it (e.g. content inside a quarantined
+ * fragment). Segments after the item name (like "/CommandContainer") still select the
+ * owning item.
+ */
+export function selectionForLocation(doc: SpaceSystemDocument, location: string): Selection | null {
+  const segments = location.split('/');
+  if (segments[0] !== doc.name) {
+    return null;
+  }
+  let node = doc;
+  const systemPath: number[] = [];
+  let i = 1;
+  while (i < segments.length) {
+    const segment = segments[i];
+    const itemLists: Record<string, { kind: ItemKind; items: { name: string }[] }> = {
+      ParameterTypeSet: { kind: 'parameterType', items: node.telemetryMetaData?.parameterTypeSet ?? [] },
+      ParameterSet: { kind: 'parameter', items: node.telemetryMetaData?.parameterSet ?? [] },
+      ContainerSet: { kind: 'container', items: node.telemetryMetaData?.containerSet ?? [] },
+      MessageSet: { kind: 'message', items: node.telemetryMetaData?.messageSet?.messages ?? [] },
+    };
+    let kind: ItemKind | null = null;
+    let items: { name: string }[] = [];
+    let nameIndex = -1;
+    if (itemLists[segment]) {
+      kind = itemLists[segment].kind;
+      items = itemLists[segment].items;
+      nameIndex = i + 1;
+    } else if (segment === 'CommandMetaData' && segments[i + 1] === 'MetaCommandSet') {
+      kind = 'metaCommand';
+      items = node.commandMetaData?.metaCommands ?? [];
+      nameIndex = i + 2;
+    }
+    if (kind !== null) {
+      const name = segments[nameIndex];
+      if (name === undefined) {
+        return { systemPath };
+      }
+      const index = items.findIndex((item) => item.name === name);
+      return index >= 0 ? { systemPath, item: { kind, index } } : null;
+    }
+    const childIndex = node.children.findIndex((child) => child.name === segment);
+    if (childIndex < 0) {
+      return null;
+    }
+    systemPath.push(childIndex);
+    node = node.children[childIndex];
+    i++;
+  }
+  return { systemPath };
+}

@@ -11,6 +11,7 @@ import {
   collectParameterTypeNames,
   SpaceSystemDocument,
   ParameterTypeDoc,
+  selectionForLocation,
 } from './document-tree';
 
 describe('document-tree', () => {
@@ -214,5 +215,53 @@ describe('document-tree', () => {
 
       expect(collectParameterTypeNames(doc)).toEqual(['Amp_Type', 'Mode_Type', 'Volt_Type']);
     });
+  });
+});
+
+describe('selectionForLocation', () => {
+  const doc = {
+    name: 'Sat',
+    children: [
+      {
+        name: 'Bus',
+        children: [],
+        telemetryMetaData: {
+          parameterTypeSet: [],
+          parameterSet: [{ name: 'Volt', parameterTypeRef: 'T' }],
+        },
+      },
+    ],
+    telemetryMetaData: {
+      parameterTypeSet: [{ name: 'T', kind: 'Integer' as const }],
+      parameterSet: [],
+      containerSet: [{ name: 'Frame', entryList: [] }],
+      messageSet: { messages: [{ name: 'Hk', containerRef: 'Frame' }] },
+    },
+    commandMetaData: { metaCommands: [{ name: 'Reboot' }] },
+  };
+
+  it('maps set items at the root and in child systems', () => {
+    expect(selectionForLocation(doc, 'Sat/ParameterTypeSet/T'))
+      .toEqual({ systemPath: [], item: { kind: 'parameterType', index: 0 } });
+    expect(selectionForLocation(doc, 'Sat/Bus/ParameterSet/Volt'))
+      .toEqual({ systemPath: [0], item: { kind: 'parameter', index: 0 } });
+    expect(selectionForLocation(doc, 'Sat/ContainerSet/Frame'))
+      .toEqual({ systemPath: [], item: { kind: 'container', index: 0 } });
+    expect(selectionForLocation(doc, 'Sat/MessageSet/Hk'))
+      .toEqual({ systemPath: [], item: { kind: 'message', index: 0 } });
+  });
+
+  it('maps commands and keeps deeper suffixes on the owning command', () => {
+    expect(selectionForLocation(doc, 'Sat/CommandMetaData/MetaCommandSet/Reboot'))
+      .toEqual({ systemPath: [], item: { kind: 'metaCommand', index: 0 } });
+    expect(selectionForLocation(doc, 'Sat/CommandMetaData/MetaCommandSet/Reboot/CommandContainer'))
+      .toEqual({ systemPath: [], item: { kind: 'metaCommand', index: 0 } });
+  });
+
+  it('maps bare system paths and returns null for the unmappable', () => {
+    expect(selectionForLocation(doc, 'Sat')).toEqual({ systemPath: [] });
+    expect(selectionForLocation(doc, 'Sat/Bus')).toEqual({ systemPath: [0] });
+    expect(selectionForLocation(doc, 'Other/ParameterSet/X')).toBeNull();
+    expect(selectionForLocation(doc, 'Sat/ParameterSet/Nope')).toBeNull();
   });
 });

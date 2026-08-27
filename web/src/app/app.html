@@ -8,15 +8,30 @@
       <div class="header-divider"></div>
       <span class="doc-name">{{ doc.name }}</span>
     }
+    <div class="toolbar header-toolbar">
+      <label class="btn file-btn">
+        Load
+        <input type="file" accept=".xtce,.xml" (change)="onFileSelected($event)" />
+      </label>
+      <rux-button secondary (click)="onNewDocument()">New</rux-button>
+      <rux-button (click)="onSaveDocument()" [disabled]="!currentDocument() && !sourceText()">Save</rux-button>
+      <rux-button secondary (click)="onRunReport()" [disabled]="!currentDocument()">Report</rux-button>
+    </div>
     @if (currentDocument() || sourceText()) {
       <div class="view-toggle" role="group" aria-label="Document view">
+        <rux-button [secondary]="viewMode() !== 'source'" (click)="onShowSource()">Source</rux-button>
         <rux-button [secondary]="viewMode() !== 'tree'" [disabled]="!currentDocument()"
                     (click)="onShowTree()">Tree</rux-button>
-        <rux-button [secondary]="viewMode() !== 'source'" (click)="onShowSource()">Source</rux-button>
       </div>
-      @if (viewMode() === 'source') {
-        <rux-button secondary class="rescan-button" (click)="onRescan()">Re-scan</rux-button>
-      }
+    }
+    @if (detectedVersion() === '1.2') {
+      <span class="meta-text">XTCE 1.2</span>
+    }
+    @if (loadingMessage(); as message) {
+      <div class="loading-row">
+        <rux-indeterminate-progress></rux-indeterminate-progress>
+        <span>{{ message }}</span>
+      </div>
     }
     <div class="spacer"></div>
     <div class="health-indicator" [class.health-ok]="healthStatus() === 'ok'" [class.health-down]="healthStatus() === 'unreachable'">
@@ -31,126 +46,119 @@
 
   <div class="app-body">
     <aside class="sidebar">
-      <div class="toolbar">
-        <label class="btn file-btn">
-          Load
-          <input type="file" accept=".xtce,.xml" (change)="onFileSelected($event)" />
-        </label>
-        <rux-button secondary (click)="onOpenCreator('document')">New&hellip;</rux-button>
-        <rux-button (click)="onSaveDocument()" [disabled]="!currentDocument()">Save</rux-button>
-        <rux-button secondary (click)="onRunReport()" [disabled]="!currentDocument()">Report</rux-button>
-      </div>
-
       @if (reportError()) {
         <p class="error">{{ reportError() }}</p>
-      }
-
-      @if (creating() === 'document') {
-        <div class="creator-row">
-          <input #newDocName class="entry-ref" placeholder="SpaceSystem name" aria-label="New document name"
-                 (keydown.enter)="onCreateDocument(newDocName)" (keydown.escape)="onCancelCreator()" />
-          <rux-button (click)="onCreateDocument(newDocName)">Create</rux-button>
-          <rux-button secondary (click)="onCancelCreator()">Cancel</rux-button>
-        </div>
-      }
-
-      @if (loadingMessage(); as message) {
-        <div class="loading-row">
-          <rux-indeterminate-progress></rux-indeterminate-progress>
-          <span>{{ message }}</span>
-        </div>
-      }
-      @if (selectedFileName()) {
-        <p class="meta-text">Selected: {{ selectedFileName() }}</p>
-      }
-      @if (detectedVersion() === '1.2') {
-        <p class="meta-text">Declared: XTCE 1.2</p>
-      }
-      @if (namespaceAdvisory(); as advisory) {
-        <p class="namespace-advisory">{{ advisory }}</p>
-      }
-      @if (loadError()) {
-        <p class="error">{{ loadError() }}</p>
-      }
-      @if (loadDiagnostics().length > 0 || loadSchemaErrors().length > 0) {
-        <div class="load-diagnostics" [class.load-diagnostics-partial]="!loadError()">
-          @if (!loadError()) {
-            <p class="load-diagnostics-summary">Loaded with {{ loadDiagnostics().length }} quarantined element(s) — carried verbatim, not editable as forms.</p>
-          }
-          <ul class="load-diagnostics-list">
-            @for (diagnostic of loadDiagnostics(); track diagnostic.path + diagnostic.message) {
-              <li class="load-diagnostic" [class.load-diagnostic-jump]="diagnostic.line !== null"
-                  (click)="onRevealLine(diagnostic.line, diagnostic.column)">
-                <span class="load-diagnostic-kind">{{ diagnostic.kind === 'MalformedXml' ? 'XML' : 'MODEL' }}</span>
-                @if (diagnostic.line !== null) {
-                  <span class="load-diagnostic-pos">{{ diagnostic.line }}:{{ diagnostic.column ?? 0 }}</span>
-                }
-                <span class="load-diagnostic-path">{{ diagnostic.path }}</span>
-                <span class="load-diagnostic-msg">{{ diagnostic.message }}</span>
-              </li>
-            }
-            @for (schemaError of loadSchemaErrors(); track schemaError.message + schemaError.line) {
-              <li class="load-diagnostic" [class.load-diagnostic-jump]="schemaError.line !== null"
-                  (click)="onRevealLine(schemaError.line, schemaError.column)">
-                <span class="load-diagnostic-kind">SCHEMA</span>
-                @if (schemaError.line !== null) {
-                  <span class="load-diagnostic-pos">{{ schemaError.line }}:{{ schemaError.column ?? 0 }}</span>
-                }
-                <span class="load-diagnostic-msg">{{ schemaError.message }}</span>
-              </li>
-            }
-          </ul>
-        </div>
       }
       @if (saveError()) {
         <p class="error">{{ saveError() }}</p>
       }
-
-      @if (validationIssues().length > 0) {
-        <div class="validation-panel">
-          <p class="validation-summary">{{ validationIssues().length }} validation issue(s)</p>
-          <ul class="validation-list">
-            @for (issue of validationIssues(); track issue.location + issue.ruleId + issue.message) {
-              <li class="validation-issue" [class.severity-warning]="issue.severity === 'Warning'"
-                  (click)="onRevealIssue(issue)">
-                <span class="validation-location">{{ issue.location }}</span>
-                <span class="validation-message">{{ issue.message }}</span>
-              </li>
-            }
-          </ul>
-        </div>
+      @if (namespaceAdvisory(); as advisory) {
+        <p class="namespace-advisory">{{ advisory }}</p>
       }
 
-      @if (currentDocument(); as doc) {
-        <label class="search-field">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input type="search" (input)="onTreeSearchInput($event)" placeholder="Filter by name, alias, or glob" />
-        </label>
-        @if (searchMatches(); as matches) {
-          <div class="search-results">
-            @if (matches.length === 0) {
-              <p class="meta-text">No name or alias matches.</p>
+      @if (viewMode() === 'source') {
+        @if (sourceText() || currentDocument()) {
+          <rux-button secondary class="rescan-side" (click)="onRescan()">Re-scan</rux-button>
+        }
+        @if (selectedFileName()) {
+          <p class="meta-text">Selected: {{ selectedFileName() }}</p>
+        }
+        @if (loadError()) {
+          <p class="error">{{ loadError() }}</p>
+        }
+        @if (allClear()) {
+          <p class="all-clear">No findings — the document parses, validates against the schema, and passes every rule.</p>
+        }
+        @if (loadDiagnostics().length > 0 || loadSchemaErrors().length > 0) {
+          <div class="load-diagnostics" [class.load-diagnostics-partial]="!loadError()">
+            @if (!loadError() && loadDiagnostics().length > 0) {
+              <p class="load-diagnostics-summary">Loaded with {{ loadDiagnostics().length }} quarantined element(s) — carried verbatim, not editable as forms.</p>
             }
-            @for (match of matches; track match.kind + match.systemPath + match.name) {
-              <button type="button" class="search-result" (click)="onSelectSearchMatch(match)">
-                <span class="search-result-kind">{{ match.kind }}</span>
-                <span class="search-result-name">{{ match.systemPath }}/{{ match.name }}</span>
-                @if (match.matchedAlias) {
-                  <span class="search-result-alias">alias: {{ match.matchedAlias }}</span>
-                }
-              </button>
-            }
+            <ul class="load-diagnostics-list">
+              @for (diagnostic of loadDiagnostics(); track diagnostic.path + diagnostic.message) {
+                <li class="load-diagnostic" [class.load-diagnostic-jump]="diagnostic.line !== null"
+                    (click)="onRevealLine(diagnostic.line, diagnostic.column)">
+                  <span class="load-diagnostic-kind">{{ diagnostic.kind === 'MalformedXml' ? 'XML' : 'MODEL' }}</span>
+                  @if (diagnostic.line !== null) {
+                    <span class="load-diagnostic-pos">{{ diagnostic.line }}:{{ diagnostic.column ?? 0 }}</span>
+                  }
+                  <span class="load-diagnostic-path">{{ diagnostic.path }}</span>
+                  <span class="load-diagnostic-msg">{{ diagnostic.message }}</span>
+                </li>
+              }
+              @for (schemaError of loadSchemaErrors(); track schemaError.message + schemaError.line) {
+                <li class="load-diagnostic" [class.load-diagnostic-jump]="schemaError.line !== null"
+                    (click)="onRevealLine(schemaError.line, schemaError.column)">
+                  <span class="load-diagnostic-kind">SCHEMA</span>
+                  @if (schemaError.line !== null) {
+                    <span class="load-diagnostic-pos">{{ schemaError.line }}:{{ schemaError.column ?? 0 }}</span>
+                  }
+                  <span class="load-diagnostic-msg">{{ schemaError.message }}</span>
+                </li>
+              }
+            </ul>
           </div>
         }
-        <div class="tree-container">
-          <app-editable-tree-node
-            [node]="doc"
-            [path]="[]"
-            [selection]="selection()"
-            [searchTerm]="treeSearchTerm()"
-            (select)="onSelect($event)"
-          />
-        </div>
+        @if (validationIssues().length > 0) {
+          <div class="validation-panel">
+            <p class="validation-summary">{{ validationIssues().length }} validation issue(s)</p>
+            <ul class="validation-list">
+              @for (issue of validationIssues(); track issue.location + issue.ruleId + issue.message) {
+                <li class="validation-issue" [class.severity-warning]="issue.severity === 'Warning'"
+                    (click)="onRevealIssue(issue)">
+                  <span class="validation-location">{{ issue.location }}</span>
+                  <span class="validation-message">{{ issue.message }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      } @else {
+        @if (currentDocument(); as doc) {
+          <label class="search-field">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="search" (input)="onTreeSearchInput($event)" placeholder="Filter by name, alias, or glob" />
+          </label>
+          @if (searchMatches(); as matches) {
+            <div class="search-results">
+              @if (matches.length === 0) {
+                <p class="meta-text">No name or alias matches.</p>
+              }
+              @for (match of matches; track match.kind + match.systemPath + match.name) {
+                <button type="button" class="search-result" (click)="onSelectSearchMatch(match)">
+                  <span class="search-result-kind">{{ match.kind }}</span>
+                  <span class="search-result-name">{{ match.systemPath }}/{{ match.name }}</span>
+                  @if (match.matchedAlias) {
+                    <span class="search-result-alias">alias: {{ match.matchedAlias }}</span>
+                  }
+                </button>
+              }
+            </div>
+          }
+          <div class="tree-container">
+            <app-editable-tree-node
+              [node]="doc"
+              [path]="[]"
+              [selection]="selection()"
+              [searchTerm]="treeSearchTerm()"
+              (select)="onSelect($event)"
+            />
+          </div>
+          @if (validationIssues().length > 0) {
+            <div class="validation-panel">
+              <p class="validation-summary">{{ validationIssues().length }} validation issue(s)</p>
+              <ul class="validation-list">
+                @for (issue of validationIssues(); track issue.location + issue.ruleId + issue.message) {
+                  <li class="validation-issue" [class.severity-warning]="issue.severity === 'Warning'"
+                      (click)="onSelectIssueNode(issue)">
+                    <span class="validation-location">{{ issue.location }}</span>
+                    <span class="validation-message">{{ issue.message }}</span>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        }
       }
     </aside>
 
