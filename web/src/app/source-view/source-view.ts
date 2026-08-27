@@ -110,10 +110,15 @@ export class SourceViewComponent implements OnDestroy {
       // drawSelection paints .cm-selectionBackground layers (native ::selection is
       // transparent), so this color is the ONLY selection feedback — keep it loud.
       '.cm-selectionBackground': {
-        backgroundColor: 'rgba(88, 182, 255, 0.22)',
+        backgroundColor: 'rgba(88, 182, 255, 0.30)',
       },
       '&.cm-focused .cm-selectionBackground': {
-        backgroundColor: 'rgba(88, 182, 255, 0.35)',
+        backgroundColor: 'rgba(88, 182, 255, 0.48)',
+      },
+      // Other occurrences of the selected text stay QUIETER than the selection itself.
+      '.cm-selectionMatch': {
+        backgroundColor: 'rgba(86, 240, 0, 0.12)',
+        outline: '1px solid rgba(86, 240, 0, 0.25)',
       },
       '.cm-searchMatch': {
         backgroundColor: 'rgba(252, 232, 58, 0.25)',
@@ -128,7 +133,9 @@ export class SourceViewComponent implements OnDestroy {
         border: 'none',
         borderRight: '1px solid var(--border)',
       },
-      '.cm-activeLine': { backgroundColor: 'var(--color-background-base-hover, #1b2d3e)' },
+      // Nearly transparent: the selection layer paints BELOW line backgrounds, so an
+      // opaque active line would hide the selection exactly where the user is selecting.
+      '.cm-activeLine': { backgroundColor: 'rgba(88, 182, 255, 0.05)' },
       '.cm-activeLineGutter': { backgroundColor: 'var(--color-background-base-hover, #1b2d3e)' },
       '.cm-lintRange-error': {
         backgroundImage: 'none',
