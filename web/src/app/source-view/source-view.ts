@@ -107,8 +107,10 @@ export class SourceViewComponent implements OnDestroy {
       },
       '.cm-content': { caretColor: 'var(--accent)' },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--accent)' },
-      // drawSelection paints .cm-selectionBackground layers (native ::selection is
-      // transparent), so this color is the ONLY selection feedback — keep it loud.
+      // drawSelection paints .cm-selectionBackground layers; the NATIVE selection must be
+      // transparent or the browser paints its own dark selection over the band whenever
+      // the window has focus.
+      '.cm-content ::selection': { backgroundColor: 'transparent' },
       '.cm-selectionBackground': {
         backgroundColor: 'rgba(88, 182, 255, 0.30)',
       },
