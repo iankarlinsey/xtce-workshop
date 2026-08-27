@@ -113,8 +113,9 @@
   flex-wrap: nowrap;
 }
 
-.rescan-side {
-  align-self: flex-start;
+.side-actions {
+  display: flex;
+  gap: 6px;
   margin-bottom: 6px;
   flex-shrink: 0;
 }

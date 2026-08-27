@@ -15,7 +15,6 @@
       </label>
       <rux-button secondary (click)="onNewDocument()">New</rux-button>
       <rux-button (click)="onSaveDocument()" [disabled]="!currentDocument() && !sourceText()">Save</rux-button>
-      <rux-button secondary (click)="onRunReport()" [disabled]="!currentDocument()">Report</rux-button>
     </div>
     <div class="spacer"></div>
     @if (currentDocument() || sourceText()) {
@@ -59,7 +58,10 @@
 
       @if (viewMode() === 'source') {
         @if (sourceText() || currentDocument()) {
-          <rux-button secondary class="rescan-side" (click)="onRescan()">Re-scan</rux-button>
+          <div class="side-actions">
+            <rux-button secondary (click)="onRescan()">Re-scan</rux-button>
+            <rux-button secondary (click)="onRunReport()" [disabled]="!currentDocument()">Report</rux-button>
+          </div>
         }
         @if (selectedFileName()) {
           <p class="meta-text">Selected: {{ selectedFileName() }}</p>
@@ -117,6 +119,9 @@
         }
       } @else {
         @if (currentDocument(); as doc) {
+          <div class="side-actions">
+            <rux-button secondary (click)="onRunReport()">Report</rux-button>
+          </div>
           <label class="search-field">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
             <input type="search" (input)="onTreeSearchInput($event)" placeholder="Filter by name, alias, or glob" />
