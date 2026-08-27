@@ -106,4 +106,29 @@ public class EncodingInternalsRulesTests
 
         Assert.DoesNotContain(issues, i => i.RuleId == R03);
     }
+
+    [Test]
+    public void SplineInsideModeledArgumentTypeEncoding_IsStillReachable()
+    {
+        // Regression: after #95 modeled ArgumentTypeSet (and #96 modeled encodings), the
+        // fragment enumerator must reach calibrators via ArgumentTypeSet →
+        // DataEncoding.Preserved — a bad spline on an argument type must still fire R13.
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <CommandMetaData>
+                <ArgumentTypeSet>
+                  <IntegerArgumentType name="A">
+                    <IntegerDataEncoding>
+                      <DefaultCalibrator><SplineCalibrator order="2"><SplinePoint raw="0" calibrated="0"/><SplinePoint raw="1" calibrated="1"/></SplineCalibrator></DefaultCalibrator>
+                    </IntegerDataEncoding>
+                  </IntegerArgumentType>
+                </ArgumentTypeSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """;
+        var document = XtceDocumentReader.Load(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        var issue = Assert.Single(XtceValidator.Validate(document), i => i.RuleId == R13);
+        Assert.Equal("S/CommandMetaData/ArgumentTypeSet/A", issue.Location);
+    }
 }

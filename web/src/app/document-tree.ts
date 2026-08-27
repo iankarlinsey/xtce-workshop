@@ -37,6 +37,16 @@ export interface MemberDoc {
   [key: string]: unknown;
 }
 
+export interface DataEncodingDoc {
+  kind: 'Integer' | 'Float' | 'String' | 'Binary';
+  encoding?: string | null;
+  sizeInBits?: number | null;
+  changeThreshold?: string | null;
+  bitOrder?: string | null;
+  byteOrder?: string | null;
+  [key: string]: unknown;
+}
+
 export interface ParameterTypeDoc {
   name: string;
   kind: ParameterTypeKind;
@@ -49,6 +59,7 @@ export interface ParameterTypeDoc {
   arrayTypeRef?: string | null;
   dimensions?: DimensionDoc[] | null;
   members?: MemberDoc[] | null;
+  dataEncoding?: DataEncodingDoc | null;
   [key: string]: unknown;
 }
 

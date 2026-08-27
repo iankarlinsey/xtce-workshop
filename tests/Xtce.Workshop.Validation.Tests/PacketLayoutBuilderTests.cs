@@ -185,4 +185,50 @@ public class PacketLayoutBuilderTests
         Assert.Equal(8, layout!.TotalSizeInBits);
         Assert.Null(PacketLayoutBuilder.Build(root, [], "BusFrame"));
     }
+
+    [Test]
+    public void ModeledEncodings_DriveEntrySizes()
+    {
+        // Reader-built document: encodings are modeled (#96), not fragments — the layout
+        // must take Integer/Float sizes from attributes (with XSD defaults) and the
+        // String/Binary shapes from the preserved size children.
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <TelemetryMetaData>
+                <ParameterTypeSet>
+                  <IntegerParameterType name="U12"><IntegerDataEncoding sizeInBits="12"/></IntegerParameterType>
+                  <FloatParameterType name="F"><FloatDataEncoding/></FloatParameterType>
+                  <StringParameterType name="Fixed64">
+                    <StringDataEncoding><SizeInBits><Fixed><FixedValue>64</FixedValue></Fixed></SizeInBits></StringDataEncoding>
+                  </StringParameterType>
+                  <StringParameterType name="Var256">
+                    <StringDataEncoding><Variable maxSizeInBits="256"><DynamicValue><ParameterInstanceRef parameterRef="A"/></DynamicValue></Variable></StringDataEncoding>
+                  </StringParameterType>
+                </ParameterTypeSet>
+                <ParameterSet>
+                  <Parameter name="A" parameterTypeRef="U12"/>
+                  <Parameter name="B" parameterTypeRef="F"/>
+                  <Parameter name="C" parameterTypeRef="Fixed64"/>
+                  <Parameter name="D" parameterTypeRef="Var256"/>
+                </ParameterSet>
+                <ContainerSet>
+                  <SequenceContainer name="Frame">
+                    <EntryList>
+                      <ParameterRefEntry parameterRef="A"/>
+                      <ParameterRefEntry parameterRef="B"/>
+                      <ParameterRefEntry parameterRef="C"/>
+                      <ParameterRefEntry parameterRef="D"/>
+                    </EntryList>
+                  </SequenceContainer>
+                </ContainerSet>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
+        var root = XtceDocumentReader.Load(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        var layout = PacketLayoutBuilder.Build(root, [], "Frame")!;
+
+        Assert.Equal([12L, 32L, 64L, 256L], layout.Rows.Select(r => r.SizeInBits).ToList());
+        Assert.Equal([false, false, false, true], layout.Rows.Select(r => r.IsVariable).ToList());
+    }
 }

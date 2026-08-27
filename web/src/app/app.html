@@ -445,6 +445,50 @@
             <rux-button secondary (click)="onAddMember()">+ Add member</rux-button>
           </div>
         }
+        @if (canHaveEncoding(type.kind)) {
+          <div class="form-field enum-editor">
+            <label>Data encoding</label>
+            @if (type.dataEncoding; as encoding) {
+              <div class="enum-row">
+                <span class="type-badge">{{ encoding.kind }}DataEncoding</span>
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveEncoding()" aria-label="Remove data encoding">&times;</button>
+              </div>
+              <div class="form-field">
+                <label for="enc-encoding">Encoding <span class="hint">{{ encoding.kind === 'Integer' ? '(XTCE default: unsigned)' : encoding.kind === 'Float' ? '(XTCE default: IEEE754_1985)' : encoding.kind === 'String' ? '(XTCE default: UTF-8)' : '' }}</span></label>
+                <input id="enc-encoding" [value]="encoding.encoding ?? ''" (input)="onEncodingFieldInput('encoding', $event)" />
+              </div>
+              @if (encoding.kind === 'Integer' || encoding.kind === 'Float') {
+                <div class="form-field">
+                  <label for="enc-size">Size in bits <span class="hint">(XTCE default: {{ encoding.kind === 'Integer' ? 8 : 32 }})</span></label>
+                  <input id="enc-size" type="number" [value]="encoding.sizeInBits ?? ''" (input)="onEncodingNumberFieldInput('sizeInBits', $event)" />
+                </div>
+                <div class="form-field">
+                  <label for="enc-threshold">Change threshold</label>
+                  <input id="enc-threshold" [value]="encoding.changeThreshold ?? ''" (input)="onEncodingFieldInput('changeThreshold', $event)" />
+                </div>
+              }
+              <div class="form-field">
+                <label for="enc-bitorder">Bit order <span class="hint">(default: mostSignificantBitFirst)</span></label>
+                <input id="enc-bitorder" [value]="encoding.bitOrder ?? ''" (input)="onEncodingFieldInput('bitOrder', $event)" />
+              </div>
+              <div class="form-field">
+                <label for="enc-byteorder">Byte order <span class="hint">(default: mostSignificantByteFirst)</span></label>
+                <input id="enc-byteorder" [value]="encoding.byteOrder ?? ''" (input)="onEncodingFieldInput('byteOrder', $event)" />
+              </div>
+              <app-preserved-xml [item]="encoding" />
+            } @else {
+              <div class="creator-row">
+                <select #encodingKind class="kind-select" aria-label="New data encoding kind">
+                  <option value="Integer">Integer</option>
+                  <option value="Float">Float</option>
+                  <option value="String">String</option>
+                  <option value="Binary">Binary</option>
+                </select>
+                <rux-button secondary (click)="onAddEncoding(encodingKind)">+ Add encoding</rux-button>
+              </div>
+            }
+          </div>
+        }
         @if (type.kind === 'Enumerated') {
           <div class="form-field enum-editor">
             <label>Enumeration list</label>

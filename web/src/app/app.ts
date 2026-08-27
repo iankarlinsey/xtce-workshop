@@ -7,6 +7,7 @@ import { SourceViewComponent } from './source-view/source-view';
 import {
   SpaceSystemDocument,
   ParameterTypeDoc,
+  DataEncodingDoc,
   ParameterDoc,
   SequenceContainerDoc,
   ParameterTypeKind,
@@ -1157,6 +1158,51 @@ export class App {
     }
     this.setDocument(deleteItemAtSelection(doc, selection));
     this.selection.set({ systemPath: selection.systemPath });
+  }
+
+  // --- Data encoding editing -----------------------------------------------------------
+
+  /** The XSD gives the six non-time scalar kinds a data-encoding choice. */
+  protected canHaveEncoding(kind: ParameterTypeKind): boolean {
+    return ['Integer', 'Float', 'String', 'Boolean', 'Enumerated', 'Binary'].includes(kind);
+  }
+
+  onEncodingFieldInput(field: string, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      if (!type.dataEncoding) {
+        return type;
+      }
+      return { ...type, dataEncoding: { ...type.dataEncoding, [field]: value === '' ? null : value } };
+    });
+  }
+
+  onEncodingNumberFieldInput(field: string, event: Event): void {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    const parsed = raw === '' ? null : Number(raw);
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      if (!type.dataEncoding) {
+        return type;
+      }
+      return {
+        ...type,
+        dataEncoding: { ...type.dataEncoding, [field]: parsed !== null && Number.isFinite(parsed) ? parsed : null },
+      };
+    });
+  }
+
+  onAddEncoding(kindSelect: HTMLSelectElement): void {
+    const kind = kindSelect.value as DataEncodingDoc['kind'];
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      return type.dataEncoding ? type : { ...type, dataEncoding: { kind } };
+    });
+  }
+
+  onRemoveEncoding(): void {
+    this.mutateSelectedItem((item) => ({ ...(item as ParameterTypeDoc), dataEncoding: null }));
   }
 
   // --- Enumeration list editing --------------------------------------------------------

@@ -77,9 +77,11 @@ public class PreservationRoundTripTests
         var loaded = LoadPreservationSample();
         var counterType = loaded.TelemetryMetaData!.ParameterTypeSet.Single(t => t.Name == "Counter_Type");
 
+        Assert.Equal(["UnitSet"], counterType.Preserved!.Select(f => f.ElementName).ToList());
+        // The data encoding is modeled since #96 — attributes on the record, no fragment.
         Assert.Equal(
-            ["UnitSet", "IntegerDataEncoding"],
-            counterType.Preserved!.Select(f => f.ElementName).ToList());
+            (DataEncodingKind.Integer, "unsigned", 16L),
+            (counterType.DataEncoding!.Kind, counterType.DataEncoding.Encoding, counterType.DataEncoding.SizeInBits!.Value));
         var attributeNames = counterType.PreservedAttributes!.Select(a => a.Name).ToList();
         Assert.Contains("baseType", attributeNames);
         Assert.Contains("shortDescription", attributeNames);

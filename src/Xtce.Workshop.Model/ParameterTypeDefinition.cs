@@ -36,6 +36,61 @@ public sealed record EnumerationEntry(
     long? MaxValue = null,
     string? ShortDescription = null);
 
+/// <summary>The four DataEncoding element kinds of the XSD's BaseDataType choice.</summary>
+public enum DataEncodingKind
+{
+    Integer,
+    Float,
+    String,
+    Binary,
+}
+
+/// <summary>
+/// The data-encoding element on a scalar parameter/argument type (Integer/Float/String/
+/// BinaryDataEncoding). Attributes are modeled; child elements — calibrators, the
+/// SizeInBits/Variable size shapes, transform algorithms, ErrorDetectCorrect — ride in
+/// Preserved in original order and are re-emitted verbatim, so nested shapes are never
+/// decomposed and re-synthesized. Absent attributes stay null (XSD defaults such as
+/// sizeInBits=8/32 are applied by consumers at check time, never baked in). The time
+/// types' Encoding wrapper is a different XSD shape and stays a preserved fragment on
+/// the type itself.
+/// </summary>
+public sealed record DataEncoding(
+    DataEncodingKind Kind,
+    string? Encoding = null,
+    long? SizeInBits = null,
+    string? ChangeThreshold = null,
+    string? BitOrder = null,
+    string? ByteOrder = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(DataEncoding? other) =>
+        other is not null
+        && Kind == other.Kind
+        && Encoding == other.Encoding
+        && SizeInBits == other.SizeInBits
+        && ChangeThreshold == other.ChangeThreshold
+        && BitOrder == other.BitOrder
+        && ByteOrder == other.ByteOrder
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Kind);
+        hash.Add(Encoding);
+        hash.Add(SizeInBits);
+        hash.Add(ChangeThreshold);
+        hash.Add(BitOrder);
+        hash.Add(ByteOrder);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
 /// <summary>
 /// One entry in a ParameterTypeSet — all ten kinds are modeled (issues #21/#28/#31):
 /// the eight scalars (Integer, Float, String, Boolean, Enumerated, Binary, RelativeTime,
@@ -48,7 +103,8 @@ public sealed record EnumerationEntry(
 /// Modeled attributes stay null when absent from the source — XSD defaults (signed=true,
 /// sizeInBits=32, oneStringValue="True", zeroStringValue="False") are applied by consumers
 /// (validators) at check time, never baked in on load, so an attribute the author omitted
-/// stays omitted on save. Unmodeled child elements (UnitSet, data encodings, alarms,
+/// stays omitted on save. The scalar kinds' data-encoding element is modeled as
+/// <see cref="DataEncoding"/>; other unmodeled child elements (UnitSet, alarms,
 /// ValidRange, ToString, aliases...) live in Preserved; unmodeled attributes (baseType,
 /// shortDescription, restrictionPattern, characterWidth...) in PreservedAttributes.
 /// </summary>
@@ -65,7 +121,8 @@ public sealed record ParameterTypeDefinition(
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
     string? ArrayTypeRef = null,
     IReadOnlyList<Dimension>? Dimensions = null,
-    IReadOnlyList<Member>? Members = null)
+    IReadOnlyList<Member>? Members = null,
+    DataEncoding? DataEncoding = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -81,7 +138,8 @@ public sealed record ParameterTypeDefinition(
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
         && ArrayTypeRef == other.ArrayTypeRef
         && Structural.ListEquals(Dimensions, other.Dimensions)
-        && Structural.ListEquals(Members, other.Members);
+        && Structural.ListEquals(Members, other.Members)
+        && Equals(DataEncoding, other.DataEncoding);
 
     public override int GetHashCode()
     {
@@ -99,6 +157,7 @@ public sealed record ParameterTypeDefinition(
         hash.Add(ArrayTypeRef);
         Structural.AddList(ref hash, Dimensions);
         Structural.AddList(ref hash, Members);
+        hash.Add(DataEncoding);
         return hash.ToHashCode();
     }
 }

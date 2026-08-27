@@ -82,7 +82,8 @@ public sealed class NoInheritanceCyclesRule : IValidationRule
 /// methods (CCSDS 660.1-G-2 4.3.2.2.5.5 RECOMMENDATIONs — "It is an error if SizeInBits is
 /// set and both TerminationChar and LeadingSize are set"; for Variable, where the dynamic
 /// lookup is schema-required, "it [is] an error for more than one of these to be set, even
-/// though the syntax allows it"). StringDataEncoding lives in preserved fragments.
+/// though the syntax allows it"). Checks modeled string encodings on parameter/argument
+/// types, plus any still riding inside preserved fragments.
 /// </summary>
 public sealed class StringLengthSpecConflictsRule : IValidationRule
 {
@@ -91,21 +92,60 @@ public sealed class StringLengthSpecConflictsRule : IValidationRule
 
     public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
+        // Modeled string encodings on parameter and argument types.
+        foreach (var (type, location) in ModeledTypes(context))
+        {
+            if (type.DataEncoding is not { Kind: DataEncodingKind.String } encoding)
+            {
+                continue;
+            }
+            var children = encoding.Preserved ?? [];
+            var info = new XmlFragmentInspector.StringEncodingInfo(
+                IsVariable: children.Any(f => f.ElementName == "Variable"),
+                HasTerminationChar: children.Any(f => XmlFragmentInspector.ContainsElement(f.OuterXml, "TerminationChar")),
+                HasLeadingSize: children.Any(f => XmlFragmentInspector.ContainsElement(f.OuterXml, "LeadingSize")));
+            foreach (var issue in Check(info, location))
+            {
+                yield return issue;
+            }
+        }
+
+        // String encodings still inside preserved fragments (e.g. command-side sets).
         foreach (var (fragment, location) in FragmentEnumerator.EnumerateNode(context))
         {
             foreach (var encoding in XmlFragmentInspector.FindStringEncodings(fragment.OuterXml))
             {
-                if (encoding.IsVariable && (encoding.HasTerminationChar || encoding.HasLeadingSize))
+                foreach (var issue in Check(encoding, location))
                 {
-                    yield return new ValidationIssue(RuleId, Severity, location,
-                        "Variable string encoding also sets LeadingSize/TerminationChar — more than one length-determination method is an error.");
-                }
-                else if (!encoding.IsVariable && encoding.HasTerminationChar && encoding.HasLeadingSize)
-                {
-                    yield return new ValidationIssue(RuleId, Severity, location,
-                        "String encoding sets SizeInBits with BOTH TerminationChar and LeadingSize — an error per CCSDS 660.1-G-2.");
+                    yield return issue;
                 }
             }
+        }
+    }
+
+    private static IEnumerable<(ParameterTypeDefinition Type, string Location)> ModeledTypes(SpaceSystemContext context)
+    {
+        foreach (var type in context.Node.TelemetryMetaData?.ParameterTypeSet ?? [])
+        {
+            yield return (type, $"{context.Path}/ParameterTypeSet/{type.Name}");
+        }
+        foreach (var type in context.Node.CommandMetaData?.ArgumentTypeSet ?? [])
+        {
+            yield return (type, $"{context.Path}/CommandMetaData/ArgumentTypeSet/{type.Name}");
+        }
+    }
+
+    private IEnumerable<ValidationIssue> Check(XmlFragmentInspector.StringEncodingInfo encoding, string location)
+    {
+        if (encoding.IsVariable && (encoding.HasTerminationChar || encoding.HasLeadingSize))
+        {
+            yield return new ValidationIssue(RuleId, Severity, location,
+                "Variable string encoding also sets LeadingSize/TerminationChar — more than one length-determination method is an error.");
+        }
+        else if (!encoding.IsVariable && encoding.HasTerminationChar && encoding.HasLeadingSize)
+        {
+            yield return new ValidationIssue(RuleId, Severity, location,
+                "String encoding sets SizeInBits with BOTH TerminationChar and LeadingSize — an error per CCSDS 660.1-G-2.");
         }
     }
 }
@@ -242,7 +282,8 @@ public sealed class TelemeteredParameterRequiresEncodingRule : IValidationRule
                 continue;
             }
 
-            var hasEncoding = (type.Preserved ?? []).Any(f => EncodingElements.Contains(f.ElementName));
+            var hasEncoding = type.DataEncoding is not null
+                || (type.Preserved ?? []).Any(f => EncodingElements.Contains(f.ElementName));
             if (!hasEncoding)
             {
                 yield return new ValidationIssue(RuleId, Severity,

@@ -408,7 +408,7 @@ describe('App', () => {
           preserved: [{ elementName: 'Header', outerXml: '<Header/>' }],
           telemetryMetaData: {
             parameterTypeSet: [
-              { name: 'Volt_Type', kind: 'Float', sizeInBits: 32 },
+              { name: 'Volt_Type', kind: 'Float', sizeInBits: 32, dataEncoding: { kind: 'Float', sizeInBits: 32, encoding: 'IEEE754_1985' } },
               { name: 'Mode_Type', kind: 'Enumerated', enumerations: [{ value: 0, label: 'IDLE' }] },
             ],
             parameterSet: [{ name: 'BusVoltage', parameterTypeRef: 'Volt_Type', initialValue: '28.5' }],
@@ -604,6 +604,49 @@ describe('App', () => {
         { value: 0, label: 'IDLE' },
         { value: 1, label: 'ACTIVE' },
       ]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('the type form shows the modeled data encoding and edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Volt_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect((compiled.querySelector('#enc-encoding') as HTMLInputElement).value).toBe('IEEE754_1985');
+      expect((compiled.querySelector('#enc-size') as HTMLInputElement).value).toBe('32');
+
+      const sizeInput = compiled.querySelector('#enc-size') as HTMLInputElement;
+      sizeInput.value = '64';
+      sizeInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[0].dataEncoding)
+        .toEqual({ kind: 'Float', sizeInBits: 64, encoding: 'IEEE754_1985' });
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('a type without an encoding offers the add-encoding picker and creates one', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Mode_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const kindSelect = compiled.querySelector('select[aria-label="New data encoding kind"]') as HTMLSelectElement;
+      expect(kindSelect).toBeTruthy();
+      kindSelect.value = 'Integer';
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
+        (b) => b.textContent?.trim() === '+ Add encoding'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[1].dataEncoding).toEqual({ kind: 'Integer' });
       req.flush('<SpaceSystem/>');
     }));
 

@@ -27,6 +27,17 @@ public static class FragmentEnumerator
             {
                 yield return (fragment, $"{commandPath}/{fragment.ElementName}");
             }
+            foreach (var fragment in commandMetaData.PreservedArgumentTypes ?? [])
+            {
+                yield return (fragment, $"{commandPath}/ArgumentTypeSet");
+            }
+            foreach (var argumentType in commandMetaData.ArgumentTypeSet ?? [])
+            {
+                foreach (var pair in EnumerateType(argumentType, $"{commandPath}/ArgumentTypeSet/{argumentType.Name}"))
+                {
+                    yield return pair;
+                }
+            }
             foreach (var fragment in commandMetaData.PreservedEntries ?? [])
             {
                 yield return (fragment, $"{commandPath}/MetaCommandSet");
@@ -35,6 +46,17 @@ public static class FragmentEnumerator
             {
                 var metaCommandPath = $"{commandPath}/MetaCommandSet/{metaCommand.Name}";
                 foreach (var fragment in metaCommand.Preserved ?? [])
+                {
+                    yield return (fragment, metaCommandPath);
+                }
+                foreach (var argument in metaCommand.Arguments ?? [])
+                {
+                    foreach (var fragment in argument.Preserved ?? [])
+                    {
+                        yield return (fragment, metaCommandPath);
+                    }
+                }
+                foreach (var fragment in metaCommand.PreservedArguments ?? [])
                 {
                     yield return (fragment, metaCommandPath);
                 }
@@ -92,28 +114,9 @@ public static class FragmentEnumerator
 
         foreach (var type in telemetry.ParameterTypeSet)
         {
-            var typePath = $"{path}/ParameterTypeSet/{type.Name}";
-            foreach (var fragment in type.Preserved ?? [])
+            foreach (var pair in EnumerateType(type, $"{path}/ParameterTypeSet/{type.Name}"))
             {
-                yield return (fragment, typePath);
-            }
-            foreach (var member in type.Members ?? [])
-            {
-                foreach (var fragment in member.Preserved ?? [])
-                {
-                    yield return (fragment, $"{typePath}/{member.Name}");
-                }
-            }
-            foreach (var dimension in type.Dimensions ?? [])
-            {
-                if (dimension.StartingIndex.Raw is { } startRaw)
-                {
-                    yield return (startRaw, typePath);
-                }
-                if (dimension.EndingIndex.Raw is { } endRaw)
-                {
-                    yield return (endRaw, typePath);
-                }
+                yield return pair;
             }
         }
 
@@ -161,6 +164,42 @@ public static class FragmentEnumerator
                 {
                     yield return (fragment, $"{path}/MessageSet/{message.Name}");
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// One parameter/argument type's reachable fragments: its own preserved children, its
+    /// modeled encoding's preserved children (calibrators, ErrorDetectCorrect, size
+    /// shapes — what R03/R13 look inside), member fragments, and raw dimension bounds.
+    /// </summary>
+    private static IEnumerable<(RawXmlFragment Fragment, string Location)> EnumerateType(
+        ParameterTypeDefinition type, string typePath)
+    {
+        foreach (var fragment in type.Preserved ?? [])
+        {
+            yield return (fragment, typePath);
+        }
+        foreach (var fragment in type.DataEncoding?.Preserved ?? [])
+        {
+            yield return (fragment, typePath);
+        }
+        foreach (var member in type.Members ?? [])
+        {
+            foreach (var fragment in member.Preserved ?? [])
+            {
+                yield return (fragment, $"{typePath}/{member.Name}");
+            }
+        }
+        foreach (var dimension in type.Dimensions ?? [])
+        {
+            if (dimension.StartingIndex.Raw is { } startRaw)
+            {
+                yield return (startRaw, typePath);
+            }
+            if (dimension.EndingIndex.Raw is { } endRaw)
+            {
+                yield return (endRaw, typePath);
             }
         }
     }

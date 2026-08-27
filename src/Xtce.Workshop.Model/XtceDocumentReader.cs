@@ -58,6 +58,15 @@ public static class XtceDocumentReader
             ["AggregateParameterType"] = ParameterTypeKind.Aggregate,
         };
 
+    private static readonly IReadOnlyDictionary<string, DataEncodingKind> DataEncodingElementKinds =
+        new Dictionary<string, DataEncodingKind>
+        {
+            ["IntegerDataEncoding"] = DataEncodingKind.Integer,
+            ["FloatDataEncoding"] = DataEncodingKind.Float,
+            ["StringDataEncoding"] = DataEncodingKind.String,
+            ["BinaryDataEncoding"] = DataEncodingKind.Binary,
+        };
+
     public static SpaceSystem Load(Stream xmlStream)
     {
         var result = LoadCore(xmlStream, recovery: null);
@@ -1318,9 +1327,9 @@ public static class XtceDocumentReader
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // Unmodeled parameter type kind (Array, Aggregate) — preserved verbatim.
-                // The set is XSD choice-unbounded, so re-emitting these after the modeled
-                // entries stays schema-valid.
+                // All ten XSD kinds are modeled, so only foreign/unknown elements land
+                // here — preserved verbatim. The set is XSD choice-unbounded, so
+                // re-emitting these after the modeled entries stays schema-valid.
                 DrainComments(ref preservedTypes, ref pendingComments, reader.LocalName);
                 Preserve(ref preservedTypes, reader);
             }
@@ -1371,6 +1380,7 @@ public static class XtceDocumentReader
 
         var preserved = leadingComments;
         List<string>? pendingComments = null;
+        DataEncoding? dataEncoding = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1399,11 +1409,17 @@ public static class XtceDocumentReader
                 {
                     members.AddRange(ReadMemberList(reader));
                 }
+                else if (reader.NodeType == XmlNodeType.Element && dataEncoding is null
+                         && DataEncodingElementKinds.TryGetValue(reader.LocalName, out var encodingKind))
+                {
+                    dataEncoding = ReadDataEncoding(reader, encodingKind);
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // UnitSet, data-encoding choice, DefaultAlarm, ContextAlarmList, ToString,
-                    // ValidRange, SizeRangeInCharacters, LongDescription, AliasSet, ... —
-                    // none modeled yet; preserved verbatim.
+                    // UnitSet, alarms, ToString, ValidRange, SizeRangeInCharacters,
+                    // LongDescription, AliasSet, time-type Encoding/ReferenceTime, ... —
+                    // not modeled; preserved verbatim. (A schema-invalid second data
+                    // encoding also lands here, keeping the round trip lossless.)
                     Preserve(ref preserved, reader);
                 }
                 else if (!TryCaptureComment(reader, ref pendingComments))
@@ -1429,7 +1445,51 @@ public static class XtceDocumentReader
             preservedAttributes,
             arrayTypeRef,
             dimensions,
-            members);
+            members,
+            dataEncoding);
+    }
+
+    private static DataEncoding ReadDataEncoding(XmlReader reader, DataEncodingKind kind)
+    {
+        var encoding = reader.GetAttribute("encoding");
+        var sizeInBits = ParseLong(reader, "sizeInBits");
+        var changeThreshold = reader.GetAttribute("changeThreshold");
+        var bitOrder = reader.GetAttribute("bitOrder");
+        var byteOrder = reader.GetAttribute("byteOrder");
+        var preservedAttributes = CapturePreservedAttributes(reader,
+            ["encoding", "sizeInBits", "changeThreshold", "bitOrder", "byteOrder"]);
+
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // Calibrators, ErrorDetectCorrect, the SizeInBits/Variable size shapes,
+                    // transform algorithms — preserved verbatim in original order.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new DataEncoding(kind, encoding, sizeInBits, changeThreshold, bitOrder, byteOrder, preserved, preservedAttributes);
     }
 
     private static List<Dimension> ReadDimensionList(XmlReader reader)

@@ -178,6 +178,12 @@ public static class PacketLayoutBuilder
     /// <summary>Statically-known encoded size of a type, in bits (shared with the CSV exporter).</summary>
     internal static (long? Size, bool Variable) EncodedSize(ParameterTypeDefinition type)
     {
+        if (type.DataEncoding is { } dataEncoding)
+        {
+            return XmlFragmentInspector.FindEncodedSize(dataEncoding);
+        }
+        // The time types' Encoding wrapper is still a preserved fragment (and documents
+        // built by hand may carry a whole data encoding as one).
         foreach (var fragment in type.Preserved ?? [])
         {
             if (fragment.ElementName is "IntegerDataEncoding" or "FloatDataEncoding"

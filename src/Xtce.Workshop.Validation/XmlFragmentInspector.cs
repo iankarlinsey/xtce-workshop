@@ -1,4 +1,5 @@
 using System.Xml;
+using Xtce.Workshop.Model;
 
 namespace Xtce.Workshop.Validation;
 
@@ -230,6 +231,70 @@ public static class XmlFragmentInspector
             }
             return new ChecksumInfo(name, hasInputAlgorithm);
         });
+
+    /// <summary>Whether an element with the given local name occurs anywhere in the fragment.</summary>
+    public static bool ContainsElement(string outerXml, string elementName) =>
+        ScanElements(outerXml, elementName, (_, _) => true).Count > 0;
+
+    /// <summary>
+    /// Statically-known encoded size of a modeled data encoding: Integer/Float from the
+    /// sizeInBits attribute (XSD defaults 8/32), String/Binary from the preserved
+    /// SizeInBits/Variable size-shape children — same semantics as
+    /// <see cref="FindEncodedSizeInBits"/> had over whole encoding fragments.
+    /// </summary>
+    public static (long? SizeInBits, bool IsVariable) FindEncodedSize(DataEncoding encoding)
+    {
+        switch (encoding.Kind)
+        {
+            case DataEncodingKind.Integer:
+                return (encoding.SizeInBits ?? 8, false);
+            case DataEncodingKind.Float:
+                return (encoding.SizeInBits ?? 32, false);
+        }
+
+        foreach (var child in encoding.Preserved ?? [])
+        {
+            if (child.ElementName == "Variable")
+            {
+                return (long.TryParse(RootAttribute(child.OuterXml, "maxSizeInBits"), out var max) ? max : null, true);
+            }
+            if (child.ElementName == "SizeInBits")
+            {
+                return SizeFromSizeInBitsShape(child.OuterXml);
+            }
+        }
+        return (null, false);
+    }
+
+    /// <summary>String's Fixed/FixedValue or Binary's FixedValue|DynamicValue|DiscreteLookupList.</summary>
+    private static (long? SizeInBits, bool IsVariable) SizeFromSizeInBitsShape(string outerXml)
+    {
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+
+            while (reader.Read())
+            {
+                if (reader.NodeType != XmlNodeType.Element)
+                {
+                    continue;
+                }
+                switch (reader.LocalName)
+                {
+                    case "FixedValue":
+                        return (long.TryParse(reader.ReadElementContentAsString(), out var s) ? s : null, false);
+                    case "DynamicValue" or "DiscreteLookupList":
+                        return (null, true);
+                }
+            }
+        }
+        catch (XmlException)
+        {
+        }
+
+        return (null, false);
+    }
 
     private static IReadOnlyList<T> ScanElements<T>(string outerXml, string elementName, Func<XmlReader, int, T> capture)
     {

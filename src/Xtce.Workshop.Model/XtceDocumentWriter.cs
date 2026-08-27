@@ -630,6 +630,13 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, parameterType.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        if (parameterType.DataEncoding is { } dataEncoding)
+        {
+            // Added before the preserved slots: the reader models the FIRST encoding it
+            // meets, so on a (schema-invalid) double encoding the modeled one must also
+            // come back out first for the round trip to hold.
+            slots.Add((DataEncodingElementName(dataEncoding.Kind), () => WriteDataEncoding(writer, dataEncoding)));
+        }
         AddPreservedSlots(slots, writer, parameterType.Preserved);
         if (parameterType.Kind == ParameterTypeKind.Array)
         {
@@ -692,6 +699,45 @@ public static class XtceDocumentWriter
         }
         EmitInSchemaOrder(ParameterTypeChildOrder, slots);
 
+        writer.WriteEndElement();
+    }
+
+    private static string DataEncodingElementName(DataEncodingKind kind) => kind switch
+    {
+        DataEncodingKind.Integer => "IntegerDataEncoding",
+        DataEncodingKind.Float => "FloatDataEncoding",
+        DataEncodingKind.String => "StringDataEncoding",
+        DataEncodingKind.Binary => "BinaryDataEncoding",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported data encoding kind."),
+    };
+
+    private static void WriteDataEncoding(XmlWriter writer, DataEncoding encoding)
+    {
+        writer.WriteStartElement(DataEncodingElementName(encoding.Kind), XtceNamespace);
+        if (encoding.Encoding is not null)
+        {
+            writer.WriteAttributeString("encoding", encoding.Encoding);
+        }
+        if (encoding.SizeInBits is { } sizeInBits)
+        {
+            writer.WriteAttributeString("sizeInBits", XmlConvert.ToString(sizeInBits));
+        }
+        if (encoding.ChangeThreshold is not null)
+        {
+            writer.WriteAttributeString("changeThreshold", encoding.ChangeThreshold);
+        }
+        if (encoding.BitOrder is not null)
+        {
+            writer.WriteAttributeString("bitOrder", encoding.BitOrder);
+        }
+        if (encoding.ByteOrder is not null)
+        {
+            writer.WriteAttributeString("byteOrder", encoding.ByteOrder);
+        }
+        WritePreservedAttributes(writer, encoding.PreservedAttributes);
+        // Children ride in original order — the XSD sequences inside each encoding kind
+        // are exactly the order the reader preserved them in.
+        WriteFragments(writer, encoding.Preserved);
         writer.WriteEndElement();
     }
 
