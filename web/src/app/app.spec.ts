@@ -1,5 +1,5 @@
 import { DeferBlockBehavior, DeferBlockState, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, HttpEventType } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { App } from './app';
 
@@ -1506,6 +1506,49 @@ describe('App', () => {
       });
       fixture.detectChanges();
       expect((fixture.nativeElement as HTMLElement).querySelector('.loading-modal')).toBeNull();
+    });
+
+    it('shows staged progress: upload percent from events, cancel aborts the request', () => {
+      const fixture = createAppAndFlushHealth();
+      selectFile(fixture, 'big.xml');
+      fixture.detectChanges();
+
+      const request = httpMock.expectOne('/api/xtce/load');
+      request.event({ type: HttpEventType.UploadProgress, loaded: 45, total: 100 });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      const stages = Array.from(compiled.querySelectorAll('.loading-stage')).map((s) => s.textContent?.trim());
+      expect(stages.some((s) => s?.includes('Upload') && s.includes('45%'))).toBeTrue();
+
+      request.event({ type: HttpEventType.UploadProgress, loaded: 100, total: 100 });
+      fixture.detectChanges();
+      const analyze = Array.from(compiled.querySelectorAll('.loading-stage'))
+        .find((s) => s.textContent?.includes('Analyze')) as HTMLElement;
+      expect(analyze.classList).toContain('stage-active');
+
+      (Array.from(compiled.querySelectorAll('.loading-modal rux-button')).find(
+        (b) => b.textContent?.trim() === 'Cancel'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(request.cancelled).toBeTrue();
+      expect(compiled.querySelector('.loading-modal')).toBeNull();
+      expect(compiled.querySelector('.error')?.textContent).toContain('Cancelled');
+    });
+
+    it('flags large documents in the modal', () => {
+      const fixture = createAppAndFlushHealth();
+      const big = new File([new ArrayBuffer(30 * 1048576)], 'huge.xtce', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [big] } } as unknown as Event);
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('.loading-hint')?.textContent).toContain('Large document');
+      expect(compiled.querySelector('.loading-size')?.textContent).toContain('30 MB');
+      httpMock.expectOne('/api/xtce/load').flush({ name: 'H', document: { name: 'H', children: [] } });
+      fixture.detectChanges();
+      expect(compiled.querySelector('.loading-modal')).toBeNull();
     });
 
     it('clears the spinner when the load fails', () => {

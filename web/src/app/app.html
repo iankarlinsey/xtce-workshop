@@ -35,11 +35,35 @@
     </div>
   </header>
 
-  @if (loadingMessage(); as message) {
+  @if (loading(); as progress) {
     <div class="loading-overlay">
       <div class="loading-modal" role="status">
-        <rux-indeterminate-progress></rux-indeterminate-progress>
-        <span>{{ message }}</span>
+        <div class="loading-title-row">
+          <rux-indeterminate-progress></rux-indeterminate-progress>
+          <div>
+            <p class="loading-title">{{ progress.title }}&hellip;@if (progress.sizeMb !== null) {
+              <span class="loading-size">{{ progress.sizeMb }} MB</span>
+            }</p>
+            @if (progress.large) {
+              <p class="loading-hint">Large document &mdash; analysis may take a minute.</p>
+            }
+          </div>
+        </div>
+        <ul class="loading-stages">
+          @for (stage of progress.stages; track stage.id) {
+            <li class="loading-stage" [class.stage-done]="stage.state === 'done'"
+                [class.stage-active]="stage.state === 'active'">
+              <span class="stage-mark">{{ stage.state === 'done' ? '✓' : stage.state === 'active' ? '●' : '○' }}</span>
+              <span class="stage-label">{{ stage.label }}</span>
+              @if (stage.percent !== undefined && stage.state !== 'done') {
+                <span class="stage-detail">{{ stage.percent }}%</span>
+              } @else if (stage.state === 'active' && stage.elapsedSeconds !== undefined) {
+                <span class="stage-detail">{{ stage.elapsedSeconds }}s</span>
+              }
+            </li>
+          }
+        </ul>
+        <rux-button secondary class="loading-cancel" (click)="onCancelLoading()">Cancel</rux-button>
       </div>
     </div>
   }

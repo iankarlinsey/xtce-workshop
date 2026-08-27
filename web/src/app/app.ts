@@ -1,5 +1,6 @@
 import { Component, CUSTOM_ELEMENTS_SCHEMA, computed, inject, signal, viewChild } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEventType, HttpEvent } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import { EditableTreeNodeComponent } from './editable-tree-node/editable-tree-node';
 import { PreservedXmlComponent } from './preserved-xml/preserved-xml';
 import { SourceViewComponent } from './source-view/source-view';
@@ -52,6 +53,23 @@ function isCleanResult(result: {
     (result.validationIssues ?? []).length === 0;
 }
 
+type LoadingStageId = 'read' | 'upload' | 'analyze' | 'download' | 'render';
+
+interface LoadingStage {
+  id: LoadingStageId;
+  label: string;
+  state: 'pending' | 'active' | 'done';
+  percent?: number;
+  elapsedSeconds?: number;
+}
+
+interface LoadingState {
+  title: string;
+  sizeMb: number | null;
+  large: boolean;
+  stages: LoadingStage[];
+}
+
 interface LoadResult {
   name: string;
   document: SpaceSystemDocument;
@@ -81,8 +99,11 @@ export class App {
   protected readonly healthStatus = signal<HealthStatus>('checking');
   protected readonly backendVersion = signal<string | null>(null);
   protected readonly selectedFileName = signal<string | null>(null);
-  /** Message shown with a spinner while a parse request is in flight, or null. */
-  protected readonly loadingMessage = signal<string | null>(null);
+
+  /** Staged loading modal state; null = no operation in flight. */
+  protected readonly loading = signal<LoadingState | null>(null);
+  private loadSubscription: Subscription | null = null;
+  private analyzeTicker: ReturnType<typeof setInterval> | null = null;
   protected readonly loadError = signal<string | null>(null);
   protected readonly treeSearchTerm = signal('');
 
@@ -299,6 +320,100 @@ export class App {
     });
   }
 
+  private startLoading(title: string, sizeBytes: number | null): void {
+    const sizeMb = sizeBytes === null ? null : Math.round(sizeBytes / 1048576 * 10) / 10;
+    this.loading.set({
+      title,
+      sizeMb,
+      large: (sizeBytes ?? 0) > 25 * 1048576,
+      stages: [
+        { id: 'read', label: 'Read file', state: 'pending' },
+        { id: 'upload', label: 'Upload', state: 'pending' },
+        { id: 'analyze', label: 'Analyze (server)', state: 'pending' },
+        { id: 'download', label: 'Download results', state: 'pending' },
+        { id: 'render', label: 'Open in editor', state: 'pending' },
+      ],
+    });
+  }
+
+  private patchStage(id: LoadingStageId, patch: Partial<LoadingStage>): void {
+    const current = this.loading();
+    if (!current) {
+      return;
+    }
+    this.loading.set({
+      ...current,
+      stages: current.stages.map((stage) => (stage.id === id ? { ...stage, ...patch } : stage)),
+    });
+  }
+
+  /** Marks every stage before `id` done and `id` active — stages only move forward. */
+  private advanceTo(id: LoadingStageId): void {
+    const current = this.loading();
+    if (!current) {
+      return;
+    }
+    const target = current.stages.findIndex((stage) => stage.id === id);
+    this.loading.set({
+      ...current,
+      stages: current.stages.map((stage, index) => ({
+        ...stage,
+        state: index < target ? 'done' : index === target ? 'active' : stage.state,
+      })),
+    });
+    if (id === 'analyze' && this.analyzeTicker === null) {
+      this.patchStage('analyze', { elapsedSeconds: 0 });
+      this.analyzeTicker = setInterval(() => {
+        const state = this.loading();
+        const analyze = state?.stages.find((stage) => stage.id === 'analyze');
+        if (analyze?.state === 'active') {
+          this.patchStage('analyze', { elapsedSeconds: (analyze.elapsedSeconds ?? 0) + 1 });
+        }
+      }, 1000);
+    }
+  }
+
+  private closeLoading(): void {
+    if (this.analyzeTicker !== null) {
+      clearInterval(this.analyzeTicker);
+      this.analyzeTicker = null;
+    }
+    this.loading.set(null);
+    this.loadSubscription = null;
+  }
+
+  protected onCancelLoading(): void {
+    this.loadSubscription?.unsubscribe();
+    this.closeLoading();
+    this.loadError.set('Cancelled.');
+  }
+
+  /** Routes HttpClient progress events into the stage checklist. */
+  private trackLoadEvents(event: HttpEvent<unknown>): void {
+    switch (event.type) {
+      case HttpEventType.UploadProgress: {
+        this.advanceTo('upload');
+        if (event.total) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          this.patchStage('upload', { percent });
+          if (percent >= 100) {
+            this.advanceTo('analyze');
+          }
+        }
+        break;
+      }
+      case HttpEventType.ResponseHeader:
+        this.advanceTo('download');
+        break;
+      case HttpEventType.DownloadProgress:
+        this.advanceTo('download');
+        if (event.total) {
+          this.patchStage('download', { percent: Math.round((event.loaded / event.total) * 100) });
+        }
+        break;
+    }
+  }
+
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -318,7 +433,12 @@ export class App {
     // of) anything the server says. Markers land on this exact text when the parse
     // response arrives.
     this.viewMode.set('source');
-    file.text().then((fileText) => this.sourceText.set(fileText));
+    this.startLoading(`Loading ${file.name}`, file.size);
+    this.advanceTo('read');
+    file.text().then((fileText) => {
+      this.sourceText.set(fileText);
+      this.patchStage('read', { state: 'done' });
+    });
     this.saveError.set(null);
     this.validationIssues.set([]);
     this.treeSearchTerm.set('');
@@ -326,14 +446,22 @@ export class App {
     const formData = new FormData();
     formData.append('file', file);
 
-    this.loadingMessage.set(`Loading ${file.name}…`);
-    this.http.post<LoadResult>('/api/xtce/load', formData).subscribe({
+    this.loadSubscription = this.http.post<LoadResult>('/api/xtce/load', formData, {
+      reportProgress: true,
+      observe: 'events',
+    }).subscribe({
       // A loaded file becomes the current editable/saveable document immediately. The
       // document object is passed through Save wholesale (and mutated only via spreads),
       // which is what carries the backend's preserved raw-XML fields through untouched —
       // see document-tree.ts.
-      next: (result) => {
-        this.loadingMessage.set(null);
+      next: (event) => {
+        this.trackLoadEvents(event);
+        if (event.type !== HttpEventType.Response) {
+          return;
+        }
+        const result = event.body as LoadResult;
+        this.advanceTo('render');
+        this.closeLoading();
         if (!result?.document) {
           // A 200 whose body isn't our shape (e.g. an intermediary proxy/auth layer
           // answering in the app's place) must never leave the UI silently empty.
@@ -350,7 +478,7 @@ export class App {
         }
       },
       error: (err) => {
-        this.loadingMessage.set(null);
+        this.closeLoading();
         this.loadError.set(err?.error?.error ?? 'Failed to load file.');
         this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
         this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);
@@ -457,17 +585,19 @@ export class App {
       return;
     }
     this.loadError.set(null);
-    this.loadingMessage.set('Formatting…');
-    this.http.post('/api/xtce/format', { xml: text }, { responseType: 'text' }).subscribe({
+    this.startLoading('Formatting', text.length);
+    this.patchStage('read', { state: 'done' });
+    this.advanceTo('analyze');
+    this.loadSubscription = this.http.post('/api/xtce/format', { xml: text }, { responseType: 'text' }).subscribe({
       next: (formatted) => {
-        this.loadingMessage.set(null);
+        this.closeLoading();
         this.sourceText.set(formatted);
         // Explicit text: the editor's signal update races the re-scan otherwise, and the
         // re-scan would read (and then restore) the pre-format text.
         this.rescanSource('stay', formatted);
       },
       error: (err) => {
-        this.loadingMessage.set(null);
+        this.closeLoading();
         this.loadError.set(err?.error?.error ?? 'Failed to format the source text.');
       },
     });
@@ -486,10 +616,20 @@ export class App {
   private rescanSource(behavior: 'stay' | 'switch' | 'switchIfClean', textOverride: string | null = null): void {
     const text = textOverride ?? this.sourceView()?.currentText() ?? this.sourceText();
     this.loadError.set(null);
-    this.loadingMessage.set('Re-scanning source…');
-    this.http.post<LoadResult>('/api/xtce/load-text', { xml: text }).subscribe({
-      next: (result) => {
-        this.loadingMessage.set(null);
+    this.startLoading('Re-scanning source', text.length);
+    this.patchStage('read', { state: 'done' });
+    this.loadSubscription = this.http.post<LoadResult>('/api/xtce/load-text', { xml: text }, {
+      reportProgress: true,
+      observe: 'events',
+    }).subscribe({
+      next: (event) => {
+        this.trackLoadEvents(event);
+        if (event.type !== HttpEventType.Response) {
+          return;
+        }
+        const result = event.body as LoadResult;
+        this.advanceTo('render');
+        this.closeLoading();
         if (!result?.document) {
           this.loadError.set('The server response did not contain a document.');
           return;
@@ -503,7 +643,7 @@ export class App {
         }
       },
       error: (err) => {
-        this.loadingMessage.set(null);
+        this.closeLoading();
         this.loadError.set(err?.error?.error ?? 'The source text could not be parsed.');
         this.loadDiagnostics.set(err?.error?.diagnostics ?? []);
         this.loadSchemaErrors.set(err?.error?.schemaErrors ?? []);

@@ -155,8 +155,9 @@
 
 .loading-modal {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 340px;
   padding: 18px 26px;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -996,4 +997,71 @@
   font-weight: 600;
   color: var(--text);
   margin-bottom: 2px;
+}
+
+.loading-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.loading-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.loading-size {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.loading-hint {
+  margin: 2px 0 0;
+  color: var(--warning);
+  font-size: 0.75rem;
+}
+
+.loading-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+}
+
+.loading-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-faint);
+}
+
+.loading-stage.stage-active {
+  color: var(--text);
+}
+
+.loading-stage.stage-done {
+  color: var(--text-muted);
+}
+
+.loading-stage.stage-done .stage-mark {
+  color: var(--ok);
+}
+
+.loading-stage.stage-active .stage-mark {
+  color: var(--accent);
+}
+
+.stage-detail {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+
+.loading-cancel {
+  align-self: flex-end;
 }
