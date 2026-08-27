@@ -413,7 +413,7 @@ public static class XtceDocumentWriter
             }
             else
             {
-                writer.WriteRaw(rawXml.OuterXml);
+                WriteFragmentXml(writer, rawXml.OuterXml);
             }
             return;
         }
@@ -464,7 +464,7 @@ public static class XtceDocumentWriter
             }
             else if (criteria.Raw is { } raw)
             {
-                writer.WriteRaw(raw.OuterXml);
+                WriteFragmentXml(writer, raw.OuterXml);
             }
 
             if (criteria.NextContainerRef is { } nextContainerRef)
@@ -654,7 +654,7 @@ public static class XtceDocumentWriter
         }
         else if (index.Raw is { } raw)
         {
-            writer.WriteRaw(raw.OuterXml);
+            WriteFragmentXml(writer, raw.OuterXml);
         }
         writer.WriteEndElement();
     }
@@ -690,8 +690,107 @@ public static class XtceDocumentWriter
             }
             else
             {
-                slots.Add((fragment.ElementName, () => writer.WriteRaw(captured.OuterXml)));
+                slots.Add((fragment.ElementName, () => WriteFragmentXml(writer, captured.OuterXml)));
             }
+        }
+    }
+
+
+    /// <summary>
+    /// Emits one preserved element fragment. Fragments that parse alone and carry a real
+    /// namespace go through WriteNode, so declarations already in scope (the document's
+    /// default XTCE namespace above all) are not repeated on every fragment root.
+    /// Fragments with no namespace declaration of their own, or that don't parse alone
+    /// (possible for documents posted as JSON), are written verbatim as before and
+    /// textually inherit the document's namespaces.
+    /// </summary>
+    private static void WriteFragmentXml(XmlWriter writer, string outerXml)
+    {
+        try
+        {
+            var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
+            using var reader = XmlReader.Create(new StringReader(outerXml), settings);
+            reader.MoveToContent();
+            if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI.Length > 0)
+            {
+                // The copy runs through a NON-indenting sub-writer so the fragment's own
+                // layout stays byte-identical; a wrapper element primes the sub-writer's
+                // scope with the document default namespace so a matching declaration on
+                // the fragment root is recognized as redundant and dropped.
+                var buffer = new StringBuilder();
+                using (var sub = XmlWriter.Create(buffer, new XmlWriterSettings { Indent = false, OmitXmlDeclaration = true }))
+                {
+                    sub.WriteStartElement("xtce-fragment-scope", XtceNamespace);
+                    CopyFragment(sub, reader);
+                    sub.WriteEndElement();
+                }
+                var wrapped = buffer.ToString();
+                var inner = wrapped[(wrapped.IndexOf('>') + 1)..wrapped.LastIndexOf("</xtce-fragment-scope>", StringComparison.Ordinal)];
+                writer.WriteRaw(inner);
+                return;
+            }
+        }
+        catch (XmlException)
+        {
+            // Not parseable on its own — emit exactly what was carried.
+        }
+        writer.WriteRaw(outerXml);
+    }
+
+    /// <summary>
+    /// Deep-copies a fragment with namespace-aware writes and NO copied xmlns attributes:
+    /// the writer re-derives declarations, so ones already in scope (the document default)
+    /// are not repeated, while foreign or prefixed ones appear exactly where first needed.
+    /// (Known edge: a declaration used only by a QName inside text content would be
+    /// dropped; XTCE carries no such constructs in preserved content.)
+    /// </summary>
+    private static void CopyFragment(XmlWriter writer, XmlReader reader)
+    {
+        while (!reader.EOF)
+        {
+            switch (reader.NodeType)
+            {
+                case XmlNodeType.Element:
+                    var isEmpty = reader.IsEmptyElement;
+                    writer.WriteStartElement(reader.Prefix, reader.LocalName, reader.NamespaceURI);
+                    if (reader.MoveToFirstAttribute())
+                    {
+                        do
+                        {
+                            if (reader.NamespaceURI != "http://www.w3.org/2000/xmlns/")
+                            {
+                                writer.WriteAttributeString(reader.Prefix, reader.LocalName,
+                                    reader.NamespaceURI.Length == 0 ? null : reader.NamespaceURI, reader.Value);
+                            }
+                        } while (reader.MoveToNextAttribute());
+                        reader.MoveToElement();
+                    }
+                    if (isEmpty)
+                    {
+                        writer.WriteEndElement();
+                    }
+                    break;
+                case XmlNodeType.Text:
+                    writer.WriteString(reader.Value);
+                    break;
+                case XmlNodeType.Whitespace:
+                case XmlNodeType.SignificantWhitespace:
+                    writer.WriteWhitespace(reader.Value);
+                    break;
+                case XmlNodeType.CDATA:
+                    writer.WriteCData(reader.Value);
+                    break;
+                case XmlNodeType.Comment:
+                    writer.WriteComment(reader.Value);
+                    break;
+                case XmlNodeType.ProcessingInstruction:
+                    writer.WriteProcessingInstruction(reader.Name, reader.Value);
+                    break;
+                case XmlNodeType.EndElement:
+                    writer.WriteFullEndElement();
+                    break;
+            }
+            reader.Read();
         }
     }
 
@@ -709,7 +808,7 @@ public static class XtceDocumentWriter
             }
             else
             {
-                writer.WriteRaw(fragment.OuterXml);
+                WriteFragmentXml(writer, fragment.OuterXml);
             }
         }
     }
