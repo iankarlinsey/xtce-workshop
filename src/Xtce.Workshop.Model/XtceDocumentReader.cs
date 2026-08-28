@@ -2916,6 +2916,7 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preservedUnits = null;
         NumericAlarm? defaultAlarm = null;
         List<ContextNumericAlarm>? contextAlarms = null;
+        NonNumericAlarm? nonNumericAlarm = null;
         Description? description = null;
 
         if (reader.IsEmptyElement)
@@ -2968,6 +2969,14 @@ public static class XtceDocumentReader
                 {
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     defaultAlarm = ReadNumericAlarm(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "DefaultAlarm"
+                         && nonNumericAlarm is null
+                         && kind is ParameterTypeKind.Enumerated or ParameterTypeKind.Boolean
+                             or ParameterTypeKind.Binary or ParameterTypeKind.String)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    nonNumericAlarm = ReadNonNumericAlarm(reader, kind);
                 }
                 else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextAlarmList"
                          && contextAlarms is null && HasOnlyAttributes(reader)
@@ -3028,7 +3037,207 @@ public static class XtceDocumentReader
             preservedUnits,
             defaultAlarm,
             description,
-            contextAlarms);
+            contextAlarms,
+            nonNumericAlarm);
+    }
+
+    private static NonNumericAlarm ReadNonNumericAlarm(XmlReader reader, ParameterTypeKind kind)
+    {
+        var minViolations = ParseLong(reader, "minViolations");
+        var defaultAlarmLevel = kind is ParameterTypeKind.Enumerated or ParameterTypeKind.String
+            ? reader.GetAttribute("defaultAlarmLevel")
+            : null;
+        var preservedAttributes = CapturePreservedAttributes(reader,
+            defaultAlarmLevel is null && kind is not (ParameterTypeKind.Enumerated or ParameterTypeKind.String)
+                ? ["minViolations"]
+                : ["minViolations", "defaultAlarmLevel"]);
+
+        List<EnumerationAlarmLevel>? enumerationAlarms = null;
+        List<StringAlarmLevel>? stringAlarms = null;
+        AlarmConditions? conditions = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "EnumerationAlarmList"
+                    && enumerationAlarms is null && kind == ParameterTypeKind.Enumerated
+                    && HasOnlyAttributes(reader))
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseAlarmLevelRows(outerXml, "EnumerationAlarm", "enumerationLabel",
+                            out var rows))
+                    {
+                        enumerationAlarms = rows
+                            .Select(r => new EnumerationAlarmLevel(r.Level, r.Value, r.PreservedAttributes))
+                            .ToList();
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("EnumerationAlarmList", outerXml));
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "StringAlarmList"
+                         && stringAlarms is null && kind == ParameterTypeKind.String
+                         && HasOnlyAttributes(reader))
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseAlarmLevelRows(outerXml, "StringAlarm", "matchPattern", out var rows))
+                    {
+                        stringAlarms = rows
+                            .Select(r => new StringAlarmLevel(r.Level, r.Value, r.PreservedAttributes))
+                            .ToList();
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("StringAlarmList", outerXml));
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "AlarmConditions"
+                         && conditions is null && HasOnlyAttributes(reader))
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    conditions = ReadAlarmConditions(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // CustomAlarm, AncillaryDataSet — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new NonNumericAlarm(minViolations, defaultAlarmLevel, enumerationAlarms, stringAlarms,
+            conditions, preserved, preservedAttributes);
+    }
+
+    /// <summary>
+    /// Strict parse of an alarm-level row list (EnumerationAlarmList / StringAlarmList):
+    /// rows must be empty elements carrying alarmLevel plus the value attribute; extra
+    /// attributes ride along preserved. Comments or foreign elements bail the whole list.
+    /// </summary>
+    private static bool TryParseAlarmLevelRows(
+        string outerXml, string rowElementName, string valueAttribute,
+        out List<(string Level, string Value, IReadOnlyList<RawAttribute>? PreservedAttributes)> rows)
+    {
+        rows = new List<(string, string, IReadOnlyList<RawAttribute>?)>();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (reader.IsEmptyElement)
+            {
+                return true;
+            }
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == rowElementName
+                    && reader.GetAttribute("alarmLevel") is { } level
+                    && reader.GetAttribute(valueAttribute) is { } value
+                    && reader.IsEmptyElement)
+                {
+                    var rowPreserved = CapturePreservedAttributes(reader, ["alarmLevel", valueAttribute]);
+                    rows.Add((level, value, rowPreserved));
+                    reader.Read();
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    private static AlarmConditions ReadAlarmConditions(XmlReader reader)
+    {
+        MatchCriteria? watch = null, warning = null, distress = null, critical = null, severe = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "WatchAlarm" && watch is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    watch = ReadMatchCriteria(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "WarningAlarm" && warning is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    warning = ReadMatchCriteria(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "DistressAlarm" && distress is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    distress = ReadMatchCriteria(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CriticalAlarm" && critical is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    critical = ReadMatchCriteria(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "SevereAlarm" && severe is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    severe = ReadMatchCriteria(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new AlarmConditions(watch, warning, distress, critical, severe, preserved);
     }
 
     private static NumericAlarm ReadNumericAlarm(XmlReader reader) =>

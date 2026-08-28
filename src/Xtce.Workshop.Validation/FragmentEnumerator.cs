@@ -348,6 +348,22 @@ public static class FragmentEnumerator
     /// modeled encoding's preserved children (calibrators, ErrorDetectCorrect, size
     /// shapes — what R03/R13 look inside), member fragments, and raw dimension bounds.
     /// </summary>
+    private static IEnumerable<MatchCriteria> AlarmConditionCriteria(AlarmConditions? conditions)
+    {
+        if (conditions is null)
+        {
+            yield break;
+        }
+        foreach (var criteria in new[]
+                 { conditions.Watch, conditions.Warning, conditions.Distress, conditions.Critical, conditions.Severe })
+        {
+            if (criteria is not null)
+            {
+                yield return criteria;
+            }
+        }
+    }
+
     private static IEnumerable<(RawXmlFragment Fragment, string Location)> EnumerateType(
         ParameterTypeDefinition type, string typePath)
     {
@@ -399,6 +415,21 @@ public static class FragmentEnumerator
             {
                 yield return (fragment, typePath);
             }
+        }
+        foreach (var fragment in type.NonNumericDefaultAlarm?.Preserved ?? [])
+        {
+            yield return (fragment, typePath);
+        }
+        foreach (var criteria in AlarmConditionCriteria(type.NonNumericDefaultAlarm?.Conditions))
+        {
+            foreach (var fragment in criteria.Preserved ?? [])
+            {
+                yield return (fragment, typePath);
+            }
+        }
+        foreach (var fragment in type.NonNumericDefaultAlarm?.Conditions?.Preserved ?? [])
+        {
+            yield return (fragment, typePath);
         }
         foreach (var fragment in type.DefaultAlarm?.Preserved ?? [])
         {

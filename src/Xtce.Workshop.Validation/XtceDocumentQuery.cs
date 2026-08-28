@@ -166,10 +166,14 @@ public static class XtceDocumentQuery
             // previously found by fragment scanning.
             foreach (var (type, typeLocation) in TypeSetsWithLocations(context))
             {
+                var conditions = type.NonNumericDefaultAlarm?.Conditions;
                 var contexts = (type.DataEncoding?.ContextCalibrators ?? [])
                     .Concat(type.TimeEncoding?.DataEncoding?.ContextCalibrators ?? [])
                     .Select(c => c.Context)
-                    .Concat((type.ContextAlarms ?? []).Select(a => a.Context));
+                    .Concat((type.ContextAlarms ?? []).Select(a => a.Context))
+                    .Concat(conditions is null
+                        ? []
+                        : [conditions.Watch, conditions.Warning, conditions.Distress, conditions.Critical, conditions.Severe]);
                 foreach (var match in contexts)
                 {
                     var comparisons = (match?.ComparisonList ?? []).Concat(

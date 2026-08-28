@@ -27,6 +27,7 @@ import {
   MetaCommandStepDoc,
   ContextCalibratorDoc,
   ContextNumericAlarmDoc,
+  NonNumericAlarmDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -1790,6 +1791,42 @@ export class App {
     const ranges = alarm?.hasStaticRanges ? levels.join(', ') : 'ranges preserved as XML';
     const violations = alarm?.minViolations ? ` (min violations ${alarm.minViolations})` : '';
     return `when ${condition} → ${ranges}${violations}`;
+  }
+
+  /** Summary lines for a non-numeric DefaultAlarm (#119): rows, conditions, attributes. */
+  protected nonNumericAlarmSummary(alarm: NonNumericAlarmDoc): string[] {
+    const lines: string[] = [];
+    for (const row of alarm.enumerationAlarms ?? []) {
+      lines.push(`${row.enumerationLabel} → ${row.alarmLevel}`);
+    }
+    for (const row of alarm.stringAlarms ?? []) {
+      lines.push(`/${row.matchPattern}/ → ${row.alarmLevel}`);
+    }
+    const conditions = alarm.conditions;
+    for (const level of ['watch', 'warning', 'distress', 'critical', 'severe'] as const) {
+      const criteria = conditions?.[level];
+      if (!criteria) {
+        continue;
+      }
+      const match = criteria.comparison;
+      const text = match
+        ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
+        : criteria.comparisonList?.length
+          ? `${criteria.comparisonList.length} comparison(s)`
+          : 'condition preserved as XML';
+      lines.push(`${level} when ${text}`);
+    }
+    const attributes: string[] = [];
+    if (alarm.defaultAlarmLevel) {
+      attributes.push(`default level ${alarm.defaultAlarmLevel}`);
+    }
+    if (alarm.minViolations) {
+      attributes.push(`min violations ${alarm.minViolations}`);
+    }
+    if (attributes.length > 0) {
+      lines.push(attributes.join(', '));
+    }
+    return lines.length > 0 ? lines : ['alarm details preserved as XML'];
   }
 
   /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */

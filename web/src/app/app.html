@@ -653,6 +653,14 @@
             </div>
           }
         }
+        @if (type.nonNumericDefaultAlarm; as nonNumericAlarm) {
+          <div class="form-field">
+            <label>Default alarm <span class="hint">(highest matching level wins)</span></label>
+            @for (line of nonNumericAlarmSummary(nonNumericAlarm); track $index) {
+              <p class="meta-text">{{ line }}</p>
+            }
+          </div>
+        }
         @if (type.kind === 'Enumerated') {
           <div class="form-field enum-editor">
             <label>Enumeration list</label>

@@ -1340,6 +1340,10 @@ public static class XtceDocumentWriter
         {
             slots.Add(("DefaultAlarm", () => WriteNumericAlarm(writer, defaultAlarm)));
         }
+        if (parameterType.NonNumericDefaultAlarm is { } nonNumericAlarm)
+        {
+            slots.Add(("DefaultAlarm", () => WriteNonNumericAlarm(writer, nonNumericAlarm)));
+        }
         if (parameterType.Kind == ParameterTypeKind.Array)
         {
             slots.Add(("DimensionList", () =>
@@ -1698,6 +1702,101 @@ public static class XtceDocumentWriter
         }
         AddPreservedSlots(slots, writer, alarm.Preserved);
         EmitInSchemaOrder(NumericAlarmChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    // AlarmType choice first, then the Enumeration/String extensions' lists.
+    private static readonly string[] NonNumericAlarmChildOrder =
+    [
+        "AncillaryDataSet", "AlarmConditions", "CustomAlarm",
+        "EnumerationAlarmList", "StringAlarmList",
+    ];
+
+    private static readonly string[] AlarmConditionsChildOrder =
+    [
+        "WatchAlarm", "WarningAlarm", "DistressAlarm", "CriticalAlarm", "SevereAlarm",
+    ];
+
+    private static void WriteNonNumericAlarm(XmlWriter writer, NonNumericAlarm alarm)
+    {
+        writer.WriteStartElement("DefaultAlarm", XtceNamespace);
+        if (alarm.MinViolations is { } minViolations)
+        {
+            writer.WriteAttributeString("minViolations", XmlConvert.ToString(minViolations));
+        }
+        if (alarm.DefaultAlarmLevel is not null)
+        {
+            writer.WriteAttributeString("defaultAlarmLevel", alarm.DefaultAlarmLevel);
+        }
+        WritePreservedAttributes(writer, alarm.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        if (alarm.Conditions is { } conditions)
+        {
+            slots.Add(("AlarmConditions", () =>
+            {
+                writer.WriteStartElement("AlarmConditions", XtceNamespace);
+                var levelSlots = new List<(string Name, Action Emit)>();
+                if (conditions.Watch is { } watch)
+                {
+                    levelSlots.Add(("WatchAlarm", () => WriteMatchCriteriaElement(writer, "WatchAlarm", watch)));
+                }
+                if (conditions.Warning is { } warning)
+                {
+                    levelSlots.Add(("WarningAlarm", () => WriteMatchCriteriaElement(writer, "WarningAlarm", warning)));
+                }
+                if (conditions.Distress is { } distress)
+                {
+                    levelSlots.Add(("DistressAlarm", () => WriteMatchCriteriaElement(writer, "DistressAlarm", distress)));
+                }
+                if (conditions.Critical is { } critical)
+                {
+                    levelSlots.Add(("CriticalAlarm", () => WriteMatchCriteriaElement(writer, "CriticalAlarm", critical)));
+                }
+                if (conditions.Severe is { } severe)
+                {
+                    levelSlots.Add(("SevereAlarm", () => WriteMatchCriteriaElement(writer, "SevereAlarm", severe)));
+                }
+                AddPreservedSlots(levelSlots, writer, conditions.Preserved);
+                EmitInSchemaOrder(AlarmConditionsChildOrder, levelSlots);
+                writer.WriteEndElement();
+            }));
+        }
+        if (alarm.EnumerationAlarms is { } enumerationAlarms)
+        {
+            slots.Add(("EnumerationAlarmList", () =>
+            {
+                writer.WriteStartElement("EnumerationAlarmList", XtceNamespace);
+                foreach (var row in enumerationAlarms)
+                {
+                    writer.WriteStartElement("EnumerationAlarm", XtceNamespace);
+                    writer.WriteAttributeString("alarmLevel", row.AlarmLevel);
+                    writer.WriteAttributeString("enumerationLabel", row.EnumerationLabel);
+                    WritePreservedAttributes(writer, row.PreservedAttributes);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }));
+        }
+        if (alarm.StringAlarms is { } stringAlarms)
+        {
+            slots.Add(("StringAlarmList", () =>
+            {
+                writer.WriteStartElement("StringAlarmList", XtceNamespace);
+                foreach (var row in stringAlarms)
+                {
+                    writer.WriteStartElement("StringAlarm", XtceNamespace);
+                    writer.WriteAttributeString("alarmLevel", row.AlarmLevel);
+                    writer.WriteAttributeString("matchPattern", row.MatchPattern);
+                    WritePreservedAttributes(writer, row.PreservedAttributes);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }));
+        }
+        AddPreservedSlots(slots, writer, alarm.Preserved);
+        EmitInSchemaOrder(NonNumericAlarmChildOrder, slots);
 
         writer.WriteEndElement();
     }

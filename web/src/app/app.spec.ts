@@ -707,6 +707,36 @@ describe('App', () => {
       expect(compiled.textContent).toContain('when Mode == 1 → warning, critical (min violations 3)');
     });
 
+    it('non-numeric default alarms render as read-only summaries', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'nnalarm.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      flushLoadIntoTree(fixture, {
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [{
+              name: 'Status_Type', kind: 'Enumerated',
+              enumerations: [{ value: 0, label: 'OK' }, { value: 2, label: 'FAILED' }],
+              nonNumericDefaultAlarm: {
+                minViolations: 2,
+                defaultAlarmLevel: 'watch',
+                enumerationAlarms: [{ alarmLevel: 'critical', enumerationLabel: 'FAILED' }],
+              },
+            }],
+            parameterSet: [],
+          },
+        },
+      });
+      clickTreeRowByText(fixture, 'Status_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('FAILED → critical');
+      expect(compiled.textContent).toContain('default level watch, min violations 2');
+    });
+
     it('units render on the type form and edits flow into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

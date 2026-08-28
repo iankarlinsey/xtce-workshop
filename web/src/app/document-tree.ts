@@ -122,6 +122,24 @@ export interface NumericAlarmDoc {
   [key: string]: unknown;
 }
 
+export interface AlarmConditionsDoc {
+  watch?: MatchCriteriaDoc | null;
+  warning?: MatchCriteriaDoc | null;
+  distress?: MatchCriteriaDoc | null;
+  critical?: MatchCriteriaDoc | null;
+  severe?: MatchCriteriaDoc | null;
+  [key: string]: unknown;
+}
+
+export interface NonNumericAlarmDoc {
+  minViolations?: number | null;
+  defaultAlarmLevel?: string | null;
+  enumerationAlarms?: { alarmLevel: string; enumerationLabel: string; [key: string]: unknown }[] | null;
+  stringAlarms?: { alarmLevel: string; matchPattern: string; [key: string]: unknown }[] | null;
+  conditions?: AlarmConditionsDoc | null;
+  [key: string]: unknown;
+}
+
 export interface ContextNumericAlarmDoc {
   alarm?: NumericAlarmDoc | null;
   context?: MatchCriteriaDoc | null;
@@ -153,6 +171,7 @@ export interface ParameterTypeDoc {
   unitSet?: UnitDoc[] | null;
   defaultAlarm?: NumericAlarmDoc | null;
   contextAlarms?: ContextNumericAlarmDoc[] | null;
+  nonNumericDefaultAlarm?: NonNumericAlarmDoc | null;
   description?: DescriptionDoc | null;
   [key: string]: unknown;
 }

@@ -234,6 +234,126 @@ public sealed record ContextNumericAlarm(
     MatchCriteria? Context = null,
     RawXmlFragment? RawXml = null);
 
+/// <summary>One EnumerationAlarm row: an alarm level for an enumeration label.</summary>
+public sealed record EnumerationAlarmLevel(
+    string AlarmLevel,
+    string EnumerationLabel,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(EnumerationAlarmLevel? other) =>
+        other is not null
+        && AlarmLevel == other.AlarmLevel
+        && EnumerationLabel == other.EnumerationLabel
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(AlarmLevel);
+        hash.Add(EnumerationLabel);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>One StringAlarm row: an alarm level triggered by a regex match.</summary>
+public sealed record StringAlarmLevel(
+    string AlarmLevel,
+    string MatchPattern,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(StringAlarmLevel? other) =>
+        other is not null
+        && AlarmLevel == other.AlarmLevel
+        && MatchPattern == other.MatchPattern
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(AlarmLevel);
+        hash.Add(MatchPattern);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
+/// A modeled AlarmConditions block (AlarmConditionsType): up to five per-level
+/// MatchCriteria — the highest level to test true is the alarm state. Foreign children
+/// ride in Preserved.
+/// </summary>
+public sealed record AlarmConditions(
+    MatchCriteria? Watch = null,
+    MatchCriteria? Warning = null,
+    MatchCriteria? Distress = null,
+    MatchCriteria? Critical = null,
+    MatchCriteria? Severe = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null)
+{
+    public bool Equals(AlarmConditions? other) =>
+        other is not null
+        && Equals(Watch, other.Watch)
+        && Equals(Warning, other.Warning)
+        && Equals(Distress, other.Distress)
+        && Equals(Critical, other.Critical)
+        && Equals(Severe, other.Severe)
+        && Structural.ListEquals(Preserved, other.Preserved);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Watch);
+        hash.Add(Warning);
+        hash.Add(Distress);
+        hash.Add(Critical);
+        hash.Add(Severe);
+        Structural.AddList(ref hash, Preserved);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
+/// The DefaultAlarm on the non-numeric types (issue #119): EnumerationAlarmType
+/// (Enumerated — label rows + defaultAlarmLevel), StringAlarmType (String — regex rows +
+/// defaultAlarmLevel), and the bare AlarmType shape of BooleanAlarmType/BinaryAlarmType.
+/// AlarmConditions is modeled as per-level MatchCriteria; CustomAlarm and
+/// AncillaryDataSet ride in Preserved. Absent attributes stay null (XSD defaults
+/// minViolations=1, defaultAlarmLevel=normal applied by consumers, never baked in).
+/// </summary>
+public sealed record NonNumericAlarm(
+    long? MinViolations = null,
+    string? DefaultAlarmLevel = null,
+    IReadOnlyList<EnumerationAlarmLevel>? EnumerationAlarms = null,
+    IReadOnlyList<StringAlarmLevel>? StringAlarms = null,
+    AlarmConditions? Conditions = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(NonNumericAlarm? other) =>
+        other is not null
+        && MinViolations == other.MinViolations
+        && DefaultAlarmLevel == other.DefaultAlarmLevel
+        && Structural.ListEquals(EnumerationAlarms, other.EnumerationAlarms)
+        && Structural.ListEquals(StringAlarms, other.StringAlarms)
+        && Equals(Conditions, other.Conditions)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(MinViolations);
+        hash.Add(DefaultAlarmLevel);
+        Structural.AddList(ref hash, EnumerationAlarms);
+        Structural.AddList(ref hash, StringAlarms);
+        hash.Add(Conditions);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
 /// <summary>The four DataEncoding element kinds of the XSD's BaseDataType choice.</summary>
 public enum DataEncodingKind
 {
@@ -404,7 +524,8 @@ public sealed record ParameterTypeDefinition(
     IReadOnlyList<RawXmlFragment>? PreservedUnits = null,
     NumericAlarm? DefaultAlarm = null,
     Description? Description = null,
-    IReadOnlyList<ContextNumericAlarm>? ContextAlarms = null)
+    IReadOnlyList<ContextNumericAlarm>? ContextAlarms = null,
+    NonNumericAlarm? NonNumericDefaultAlarm = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -427,7 +548,8 @@ public sealed record ParameterTypeDefinition(
         && Structural.ListEquals(PreservedUnits, other.PreservedUnits)
         && Equals(DefaultAlarm, other.DefaultAlarm)
         && Equals(Description, other.Description)
-        && Structural.ListEquals(ContextAlarms, other.ContextAlarms);
+        && Structural.ListEquals(ContextAlarms, other.ContextAlarms)
+        && Equals(NonNumericDefaultAlarm, other.NonNumericDefaultAlarm);
 
     public override int GetHashCode()
     {
@@ -452,6 +574,7 @@ public sealed record ParameterTypeDefinition(
         hash.Add(DefaultAlarm);
         hash.Add(Description);
         Structural.AddList(ref hash, ContextAlarms);
+        hash.Add(NonNumericDefaultAlarm);
         return hash.ToHashCode();
     }
 }
