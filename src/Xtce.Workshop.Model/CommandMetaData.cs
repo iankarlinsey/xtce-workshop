@@ -212,6 +212,59 @@ public sealed record ParameterToSet(
     }
 }
 
+/// <summary>A MetaCommand's DefaultSignificance (issue #112) — attributes verbatim.</summary>
+public sealed record Significance(
+    string? SpaceSystemAtRisk = null,
+    string? ReasonForWarning = null,
+    string? ConsequenceLevel = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(Significance? other) =>
+        other is not null
+        && SpaceSystemAtRisk == other.SpaceSystemAtRisk
+        && ReasonForWarning == other.ReasonForWarning
+        && ConsequenceLevel == other.ConsequenceLevel
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(SpaceSystemAtRisk);
+        hash.Add(ReasonForWarning);
+        hash.Add(ConsequenceLevel);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>A MetaCommand's Interlock (issue #112) — attributes verbatim.</summary>
+public sealed record Interlock(
+    string? ScopeToSpaceSystem = null,
+    string? VerificationToWaitFor = null,
+    string? VerificationProgressPercentage = null,
+    bool? Suspendable = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(Interlock? other) =>
+        other is not null
+        && ScopeToSpaceSystem == other.ScopeToSpaceSystem
+        && VerificationToWaitFor == other.VerificationToWaitFor
+        && VerificationProgressPercentage == other.VerificationProgressPercentage
+        && Suspendable == other.Suspendable
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(ScopeToSpaceSystem);
+        hash.Add(VerificationToWaitFor);
+        hash.Add(VerificationProgressPercentage);
+        hash.Add(Suspendable);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
 public sealed record MetaCommand(
     string Name,
     bool? Abstract = null,
@@ -225,7 +278,9 @@ public sealed record MetaCommand(
     IReadOnlyList<RawXmlFragment>? PreservedArguments = null,
     IReadOnlyList<ArgumentAssignment>? ArgumentAssignments = null,
     IReadOnlyList<TransmissionConstraint>? TransmissionConstraints = null,
-    IReadOnlyList<ParameterToSet>? ParameterToSets = null)
+    IReadOnlyList<ParameterToSet>? ParameterToSets = null,
+    Significance? DefaultSignificance = null,
+    Interlock? Interlock = null)
 {
     public bool Equals(MetaCommand? other) =>
         other is not null
@@ -241,7 +296,9 @@ public sealed record MetaCommand(
         && Structural.ListEquals(PreservedArguments, other.PreservedArguments)
         && Structural.ListEquals(ArgumentAssignments, other.ArgumentAssignments)
         && Structural.ListEquals(TransmissionConstraints, other.TransmissionConstraints)
-        && Structural.ListEquals(ParameterToSets, other.ParameterToSets);
+        && Structural.ListEquals(ParameterToSets, other.ParameterToSets)
+        && Equals(DefaultSignificance, other.DefaultSignificance)
+        && Equals(Interlock, other.Interlock);
 
     public override int GetHashCode()
     {
@@ -259,6 +316,8 @@ public sealed record MetaCommand(
         Structural.AddList(ref hash, ArgumentAssignments);
         Structural.AddList(ref hash, TransmissionConstraints);
         Structural.AddList(ref hash, ParameterToSets);
+        hash.Add(DefaultSignificance);
+        hash.Add(Interlock);
         return hash.ToHashCode();
     }
 }

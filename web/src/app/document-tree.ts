@@ -297,6 +297,8 @@ export interface MetaCommandDoc {
   verifiers?: CommandVerifierDoc[] | null;
   transmissionConstraints?: TransmissionConstraintDoc[] | null;
   parameterToSets?: ParameterToSetDoc[] | null;
+  defaultSignificance?: { spaceSystemAtRisk?: string | null; reasonForWarning?: string | null; consequenceLevel?: string | null; [key: string]: unknown } | null;
+  interlock?: { scopeToSpaceSystem?: string | null; verificationToWaitFor?: string | null; suspendable?: boolean | null; [key: string]: unknown } | null;
   [key: string]: unknown;
 }
 

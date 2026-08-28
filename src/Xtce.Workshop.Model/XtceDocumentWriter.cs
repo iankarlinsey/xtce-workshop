@@ -481,6 +481,54 @@ public static class XtceDocumentWriter
             }));
         }
 
+        if (metaCommand.DefaultSignificance is { } significance)
+        {
+            slots.Add(("DefaultSignificance", () =>
+            {
+                writer.WriteStartElement("DefaultSignificance", XtceNamespace);
+                if (significance.SpaceSystemAtRisk is not null)
+                {
+                    writer.WriteAttributeString("spaceSystemAtRisk", significance.SpaceSystemAtRisk);
+                }
+                if (significance.ReasonForWarning is not null)
+                {
+                    writer.WriteAttributeString("reasonForWarning", significance.ReasonForWarning);
+                }
+                if (significance.ConsequenceLevel is not null)
+                {
+                    writer.WriteAttributeString("consequenceLevel", significance.ConsequenceLevel);
+                }
+                WritePreservedAttributes(writer, significance.PreservedAttributes);
+                writer.WriteEndElement();
+            }));
+        }
+
+        if (metaCommand.Interlock is { } interlock)
+        {
+            slots.Add(("Interlock", () =>
+            {
+                writer.WriteStartElement("Interlock", XtceNamespace);
+                if (interlock.ScopeToSpaceSystem is not null)
+                {
+                    writer.WriteAttributeString("scopeToSpaceSystem", interlock.ScopeToSpaceSystem);
+                }
+                if (interlock.VerificationToWaitFor is not null)
+                {
+                    writer.WriteAttributeString("verificationToWaitFor", interlock.VerificationToWaitFor);
+                }
+                if (interlock.VerificationProgressPercentage is not null)
+                {
+                    writer.WriteAttributeString("verificationProgressPercentage", interlock.VerificationProgressPercentage);
+                }
+                if (interlock.Suspendable is { } suspendable)
+                {
+                    writer.WriteAttributeString("suspendable", XmlConvert.ToString(suspendable));
+                }
+                WritePreservedAttributes(writer, interlock.PreservedAttributes);
+                writer.WriteEndElement();
+            }));
+        }
+
         if (metaCommand.Verifiers is { Count: > 0 } verifiers)
         {
             slots.Add(("VerifierSet", () =>

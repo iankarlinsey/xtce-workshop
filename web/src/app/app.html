@@ -1074,6 +1074,12 @@
             }
           </div>
         }
+        @if (metaCommand.defaultSignificance; as significance) {
+          <p class="meta-text">Significance: {{ significance.consequenceLevel ?? 'normal' }}{{ significance.reasonForWarning ? ' — ' + significance.reasonForWarning : '' }}{{ significance.spaceSystemAtRisk ? ' (at risk: ' + significance.spaceSystemAtRisk + ')' : '' }}</p>
+        }
+        @if (metaCommand.interlock; as interlock) {
+          <p class="meta-text">Interlock: waits for {{ interlock.verificationToWaitFor ?? 'complete' }}{{ interlock.scopeToSpaceSystem ? ' in ' + interlock.scopeToSpaceSystem : '' }}{{ interlock.suspendable ? ', suspendable' : '' }}</p>
+        }
         @if ((metaCommand.transmissionConstraints ?? []).length > 0) {
           <div class="form-field enum-editor">
             <label>Transmission constraints</label>

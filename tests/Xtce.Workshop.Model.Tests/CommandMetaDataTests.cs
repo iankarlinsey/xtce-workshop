@@ -168,4 +168,33 @@ public class CommandMetaDataTests
         var errors = XsdValidation.Validate(written);
         Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
     }
+
+    [Test]
+    public void Load_ModelsSignificanceAndInterlock_AndRoundTripsThem()
+    {
+        var xml = """
+            <SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="S">
+              <CommandMetaData>
+                <MetaCommandSet>
+                  <MetaCommand name="Cmd">
+                    <DefaultSignificance reasonForWarning="thruster fire" consequenceLevel="critical"/>
+                    <Interlock verificationToWaitFor="accepted" suspendable="true"/>
+                  </MetaCommand>
+                </MetaCommandSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """;
+        var loaded = XtceDocumentReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(xml)));
+
+        var metaCommand = loaded.CommandMetaData!.MetaCommands.Single();
+        Assert.Equal(("thruster fire", "critical"),
+            (metaCommand.DefaultSignificance!.ReasonForWarning, metaCommand.DefaultSignificance.ConsequenceLevel));
+        Assert.Equal(("accepted", true), (metaCommand.Interlock!.VerificationToWaitFor, metaCommand.Interlock.Suspendable!.Value));
+        Assert.Null(metaCommand.Preserved);
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, XtceDocumentReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(written))));
+        var errors = XsdValidation.Validate(written);
+        Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
+    }
 }

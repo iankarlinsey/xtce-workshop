@@ -551,6 +551,8 @@ public static class XtceDocumentReader
         List<CommandVerifier>? verifiers = null;
         List<TransmissionConstraint>? transmissionConstraints = null;
         List<ParameterToSet>? parameterToSets = null;
+        Significance? defaultSignificance = null;
+        Interlock? interlock = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
         CommandContainer? commandContainer = null;
@@ -618,6 +620,30 @@ public static class XtceDocumentReader
                     transmissionConstraints = new List<TransmissionConstraint>();
                     ReadTransmissionConstraintList(reader, transmissionConstraints);
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "DefaultSignificance"
+                         && defaultSignificance is null && reader.IsEmptyElement)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    defaultSignificance = new Significance(
+                        reader.GetAttribute("spaceSystemAtRisk"),
+                        reader.GetAttribute("reasonForWarning"),
+                        reader.GetAttribute("consequenceLevel"),
+                        CapturePreservedAttributes(reader, ["spaceSystemAtRisk", "reasonForWarning", "consequenceLevel"]));
+                    reader.Read();
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Interlock"
+                         && interlock is null && reader.IsEmptyElement)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    interlock = new Interlock(
+                        reader.GetAttribute("scopeToSpaceSystem"),
+                        reader.GetAttribute("verificationToWaitFor"),
+                        reader.GetAttribute("verificationProgressPercentage"),
+                        ParseBool(reader, "suspendable"),
+                        CapturePreservedAttributes(reader,
+                            ["scopeToSpaceSystem", "verificationToWaitFor", "verificationProgressPercentage", "suspendable"]));
+                    reader.Read();
+                }
                 else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterToSetList"
                          && parameterToSets is null)
                 {
@@ -654,7 +680,7 @@ public static class XtceDocumentReader
             name, isAbstract, baseMetaCommandRef, basePreserved,
             verifiers, preserved, preservedAttributes,
             commandContainer, arguments, preservedArguments, argumentAssignments,
-            transmissionConstraints, parameterToSets);
+            transmissionConstraints, parameterToSets, defaultSignificance, interlock);
     }
 
     private static void ReadTransmissionConstraintList(XmlReader reader, List<TransmissionConstraint> constraints)
