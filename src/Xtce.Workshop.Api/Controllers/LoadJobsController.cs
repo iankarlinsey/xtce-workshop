@@ -11,10 +11,14 @@ namespace Xtce.Workshop.Api.Controllers;
 public sealed class LoadJobsController : ControllerBase
 {
     private readonly LoadJobService _jobs;
+    private readonly DocumentSessionService _sessions;
+    private readonly long _largeDocumentThresholdBytes;
 
-    public LoadJobsController(LoadJobService jobs)
+    public LoadJobsController(LoadJobService jobs, DocumentSessionService sessions, IConfiguration configuration)
     {
         _jobs = jobs;
+        _sessions = sessions;
+        _largeDocumentThresholdBytes = LargeDocumentOptions.ThresholdBytes(configuration);
     }
 
     [HttpPost]
@@ -68,7 +72,7 @@ public sealed class LoadJobsController : ControllerBase
         var outcome = _jobs.TakeOutcome(id);
         return outcome is null
             ? NotFound(new { error = "The result was already collected." })
-            : LoadPipeline.ToActionResult(outcome);
+            : LoadPipeline.ToActionResult(outcome, _sessions, _largeDocumentThresholdBytes);
     }
 
     [HttpDelete("{id}")]

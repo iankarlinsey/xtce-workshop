@@ -18,6 +18,7 @@ builder.Host.UseSerilog((context, configuration) =>
 // Enums (ParameterTypeKind, ValidationSeverity) serialize as their string name, not the
 // underlying int — self-documenting over the wire, and nothing depends on the numeric form.
 builder.Services.AddSingleton<Xtce.Workshop.Api.LoadJobService>();
+builder.Services.AddSingleton<Xtce.Workshop.Api.DocumentSessionService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 

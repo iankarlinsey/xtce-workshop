@@ -10,9 +10,15 @@ public sealed class XtceDocumentController : ControllerBase
 {
     private readonly ILogger<XtceDocumentController> _logger;
 
-    public XtceDocumentController(ILogger<XtceDocumentController> logger)
+    private readonly DocumentSessionService _sessions;
+    private readonly long _largeDocumentThresholdBytes;
+
+    public XtceDocumentController(
+        ILogger<XtceDocumentController> logger, DocumentSessionService sessions, IConfiguration configuration)
     {
         _logger = logger;
+        _sessions = sessions;
+        _largeDocumentThresholdBytes = LargeDocumentOptions.ThresholdBytes(configuration);
     }
 
     /// <summary>
@@ -116,7 +122,7 @@ public sealed class XtceDocumentController : ControllerBase
                 "Loaded {Document} ({SizeBytes} bytes): {IssueCount} validation issue(s), {DiagnosticCount} load diagnostic(s) in {ElapsedMs} ms",
                 outcome.Load.Document.Name, sizeBytes, outcome.ValidationIssues.Count, outcome.Load.Diagnostics.Count, stopwatch.ElapsedMilliseconds);
         }
-        return Task.FromResult(LoadPipeline.ToActionResult(outcome));
+        return Task.FromResult(LoadPipeline.ToActionResult(outcome, _sessions, _largeDocumentThresholdBytes));
     }
 
     /// <summary>Writes the document back out as XTCE XML.</summary>

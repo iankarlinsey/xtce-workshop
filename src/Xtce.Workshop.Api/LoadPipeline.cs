@@ -12,7 +12,8 @@ public sealed record LoadPipelineOutcome(
     string? DetectedVersion,
     XtceLoadResult Load,
     IReadOnlyList<SchemaError> SchemaErrors,
-    IReadOnlyList<ValidationIssue> ValidationIssues);
+    IReadOnlyList<ValidationIssue> ValidationIssues,
+    long InputByteCount);
 
 /// <summary>A validation issue with its source position resolved at load time (#90 item 2).</summary>
 public sealed record PositionedValidationIssue(
@@ -69,7 +70,7 @@ public static class LoadPipeline
                 cancellationToken);
         }
 
-        return new LoadPipelineOutcome(rootNamespace, detectedVersion, load, schemaErrors, validationIssues);
+        return new LoadPipelineOutcome(rootNamespace, detectedVersion, load, schemaErrors, validationIssues, data.LongLength);
     }
 
     /// <summary>
@@ -79,13 +80,31 @@ public static class LoadPipeline
     /// positions map nor the redundant tree (#90 item 1) — for large files those
     /// dominated a payload the browser could not hold.
     /// </summary>
-    public static IActionResult ToActionResult(LoadPipelineOutcome outcome)
+    public static IActionResult ToActionResult(
+        LoadPipelineOutcome outcome, DocumentSessionService? sessions = null, long largeDocumentThresholdBytes = long.MaxValue)
     {
         if (outcome.Load.Document is null)
         {
             return new BadRequestObjectResult(new
             {
                 error = outcome.Load.Diagnostics.FirstOrDefault()?.Message ?? "The file could not be loaded.",
+                diagnostics = outcome.Load.Diagnostics,
+                schemaErrors = outcome.SchemaErrors,
+                rootNamespace = outcome.RootNamespace,
+                detectedVersion = outcome.DetectedVersion,
+            });
+        }
+        if (sessions is not null && outcome.InputByteCount >= largeDocumentThresholdBytes)
+        {
+            // #129 large mode: the browser cannot hold a document this size as JSON —
+            // the model stays server-side and the client browses/edits it by item.
+            return new OkObjectResult(new
+            {
+                name = outcome.Load.Document.Name,
+                largeDocument = true,
+                documentSessionId = sessions.Store(outcome.Load.Document),
+                inputByteCount = outcome.InputByteCount,
+                validationIssues = PositionIssues(outcome),
                 diagnostics = outcome.Load.Diagnostics,
                 schemaErrors = outcome.SchemaErrors,
                 rootNamespace = outcome.RootNamespace,
