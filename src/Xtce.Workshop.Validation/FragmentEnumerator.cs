@@ -148,6 +148,17 @@ public static class FragmentEnumerator
                 {
                     yield return (fragment, metaCommandPath);
                 }
+                foreach (var contextSignificance in metaCommand.ContextSignificances ?? [])
+                {
+                    if (contextSignificance.RawXml is { } rawSignificance)
+                    {
+                        yield return (rawSignificance, metaCommandPath);
+                    }
+                    foreach (var fragment in contextSignificance.Context?.Preserved ?? [])
+                    {
+                        yield return (fragment, metaCommandPath);
+                    }
+                }
                 foreach (var fragment in metaCommand.BaseMetaCommandPreserved ?? [])
                 {
                     yield return (fragment, metaCommandPath);

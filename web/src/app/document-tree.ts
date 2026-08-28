@@ -349,6 +349,13 @@ export interface ParameterToSetDoc {
   [key: string]: unknown;
 }
 
+export interface ContextSignificanceDoc {
+  context?: MatchCriteriaDoc | null;
+  significance?: { spaceSystemAtRisk?: string | null; reasonForWarning?: string | null; consequenceLevel?: string | null; [key: string]: unknown } | null;
+  rawXml?: { elementName: string; outerXml: string } | null;
+  [key: string]: unknown;
+}
+
 export interface MetaCommandDoc {
   name: string;
   abstract?: boolean | null;
@@ -360,6 +367,7 @@ export interface MetaCommandDoc {
   transmissionConstraints?: TransmissionConstraintDoc[] | null;
   parameterToSets?: ParameterToSetDoc[] | null;
   defaultSignificance?: { spaceSystemAtRisk?: string | null; reasonForWarning?: string | null; consequenceLevel?: string | null; [key: string]: unknown } | null;
+  contextSignificances?: ContextSignificanceDoc[] | null;
   interlock?: { scopeToSpaceSystem?: string | null; verificationToWaitFor?: string | null; suspendable?: boolean | null; [key: string]: unknown } | null;
   description?: DescriptionDoc | null;
   [key: string]: unknown;

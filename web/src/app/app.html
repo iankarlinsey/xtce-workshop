@@ -1203,6 +1203,14 @@
         @if (metaCommand.defaultSignificance; as significance) {
           <p class="meta-text">Significance: {{ significance.consequenceLevel ?? 'normal' }}{{ significance.reasonForWarning ? ' — ' + significance.reasonForWarning : '' }}{{ significance.spaceSystemAtRisk ? ' (at risk: ' + significance.spaceSystemAtRisk + ')' : '' }}</p>
         }
+        @if ((metaCommand.contextSignificances ?? []).length > 0) {
+          <div class="form-field">
+            <label>Context significances <span class="hint">(first matching context overrides the default)</span></label>
+            @for (contextSig of metaCommand.contextSignificances ?? []; track $index) {
+              <p class="meta-text">{{ contextSignificanceSummary(contextSig) }}</p>
+            }
+          </div>
+        }
         @if (metaCommand.interlock; as interlock) {
           <p class="meta-text">Interlock: waits for {{ interlock.verificationToWaitFor ?? 'complete' }}{{ interlock.scopeToSpaceSystem ? ' in ' + interlock.scopeToSpaceSystem : '' }}{{ interlock.suspendable ? ', suspendable' : '' }}</p>
         }

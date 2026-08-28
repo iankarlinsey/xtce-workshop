@@ -590,6 +590,7 @@ public static class XtceDocumentReader
         List<TransmissionConstraint>? transmissionConstraints = null;
         List<ParameterToSet>? parameterToSets = null;
         Significance? defaultSignificance = null;
+        List<ContextSignificance>? contextSignificances = null;
         Interlock? interlock = null;
         Description? description = null;
         var preserved = leadingComments;
@@ -670,6 +671,21 @@ public static class XtceDocumentReader
                         CapturePreservedAttributes(reader, ["spaceSystemAtRisk", "reasonForWarning", "consequenceLevel"]));
                     reader.Read();
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextSignificanceList"
+                         && contextSignificances is null && HasOnlyAttributes(reader))
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseContextSignificanceList(outerXml, out var parsedSignificances))
+                    {
+                        contextSignificances = parsedSignificances;
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("ContextSignificanceList", outerXml));
+                    }
+                }
                 else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Interlock"
                          && interlock is null && reader.IsEmptyElement)
                 {
@@ -724,7 +740,8 @@ public static class XtceDocumentReader
             name, isAbstract, baseMetaCommandRef, basePreserved,
             verifiers, preserved, preservedAttributes,
             commandContainer, arguments, preservedArguments, argumentAssignments,
-            transmissionConstraints, parameterToSets, defaultSignificance, interlock, description);
+            transmissionConstraints, parameterToSets, defaultSignificance, interlock, description,
+            contextSignificances);
     }
 
     private static BlockMetaCommand ReadBlockMetaCommand(XmlReader reader)
@@ -903,6 +920,110 @@ public static class XtceDocumentReader
         }
         reader.ReadEndElement();
         return true;
+    }
+
+    /// <summary>
+    /// Strict parse of a ContextSignificanceList; false preserves the whole list.
+    /// An entry models only as required ContextMatch + attributes-only Significance
+    /// (matching the DefaultSignificance shape) — anything else rides raw in position
+    /// (first matching context wins, so order is meaning).
+    /// </summary>
+    private static bool TryParseContextSignificanceList(string outerXml, out List<ContextSignificance> entries)
+    {
+        entries = new List<ContextSignificance>();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (reader.IsEmptyElement)
+            {
+                return true;
+            }
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextSignificance")
+                {
+                    var entryXml = reader.ReadOuterXml();
+                    entries.Add(TryParseContextSignificance(entryXml, out var entry)
+                        ? entry
+                        : new ContextSignificance(RawXml: new RawXmlFragment("ContextSignificance", entryXml)));
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryParseContextSignificance(string outerXml, out ContextSignificance entry)
+    {
+        entry = new ContextSignificance();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (!HasOnlyAttributes(reader) || reader.IsEmptyElement)
+            {
+                return false;
+            }
+            reader.ReadStartElement();
+
+            MatchCriteria? context = null;
+            Significance? significance = null;
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextMatch"
+                    && context is null)
+                {
+                    context = ReadMatchCriteria(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Significance"
+                         && significance is null && reader.IsEmptyElement)
+                {
+                    significance = new Significance(
+                        reader.GetAttribute("spaceSystemAtRisk"),
+                        reader.GetAttribute("reasonForWarning"),
+                        reader.GetAttribute("consequenceLevel"),
+                        CapturePreservedAttributes(reader, ["spaceSystemAtRisk", "reasonForWarning", "consequenceLevel"]));
+                    reader.Read();
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            if (context is null || significance is null)
+            {
+                return false; // the XSD requires both halves
+            }
+            entry = new ContextSignificance(context, significance);
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
     }
 
     private static void ReadTransmissionConstraintList(XmlReader reader, List<TransmissionConstraint> constraints)

@@ -102,6 +102,17 @@ public static class ArgumentScanner
         {
             yield return fragment;
         }
+        foreach (var contextSignificance in metaCommand.ContextSignificances ?? [])
+        {
+            if (contextSignificance.RawXml is { } rawSignificance)
+            {
+                yield return rawSignificance;
+            }
+            foreach (var fragment in contextSignificance.Context?.Preserved ?? [])
+            {
+                yield return fragment;
+            }
+        }
         foreach (var constraint in metaCommand.TransmissionConstraints ?? [])
         {
             if (constraint.RawXml is { } rawConstraint)

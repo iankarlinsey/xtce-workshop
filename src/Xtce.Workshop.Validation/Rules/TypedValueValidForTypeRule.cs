@@ -211,7 +211,9 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
             // #88 — modeled verifier and constraint comparisons (the plain parameterRef form).
             var modeledComparisonSources =
                 (metaCommand.Verifiers ?? []).Select(v => ((IReadOnlyList<Comparison>?)v.ComparisonList, v.Comparison))
-                .Concat((metaCommand.TransmissionConstraints ?? []).Select(c => ((IReadOnlyList<Comparison>?)c.ComparisonList, c.Comparison)));
+                .Concat((metaCommand.TransmissionConstraints ?? []).Select(c => ((IReadOnlyList<Comparison>?)c.ComparisonList, c.Comparison)))
+                .Concat((metaCommand.ContextSignificances ?? []).Select(s =>
+                    ((IReadOnlyList<Comparison>?)s.Context?.ComparisonList, s.Context?.Comparison)));
             foreach (var (list, singleComparison) in modeledComparisonSources)
             {
                 var modeledComparisons = (list ?? []).Concat(

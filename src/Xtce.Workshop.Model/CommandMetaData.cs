@@ -272,6 +272,16 @@ public sealed record ParameterToSet(
     }
 }
 
+/// <summary>
+/// One ContextSignificanceList entry (issue #121): a ContextMatch plus the Significance
+/// it puts in effect. First matching context overrides DefaultSignificance, so entries
+/// stay IN POSITION; an entry the model can't represent rides whole as RawXml.
+/// </summary>
+public sealed record ContextSignificance(
+    MatchCriteria? Context = null,
+    Significance? Significance = null,
+    RawXmlFragment? RawXml = null);
+
 /// <summary>A MetaCommand's DefaultSignificance (issue #112) — attributes verbatim.</summary>
 public sealed record Significance(
     string? SpaceSystemAtRisk = null,
@@ -341,7 +351,8 @@ public sealed record MetaCommand(
     IReadOnlyList<ParameterToSet>? ParameterToSets = null,
     Significance? DefaultSignificance = null,
     Interlock? Interlock = null,
-    Description? Description = null)
+    Description? Description = null,
+    IReadOnlyList<ContextSignificance>? ContextSignificances = null)
 {
     public bool Equals(MetaCommand? other) =>
         other is not null
@@ -360,7 +371,8 @@ public sealed record MetaCommand(
         && Structural.ListEquals(ParameterToSets, other.ParameterToSets)
         && Equals(DefaultSignificance, other.DefaultSignificance)
         && Equals(Interlock, other.Interlock)
-        && Equals(Description, other.Description);
+        && Equals(Description, other.Description)
+        && Structural.ListEquals(ContextSignificances, other.ContextSignificances);
 
     public override int GetHashCode()
     {
@@ -381,6 +393,7 @@ public sealed record MetaCommand(
         hash.Add(DefaultSignificance);
         hash.Add(Interlock);
         hash.Add(Description);
+        Structural.AddList(ref hash, ContextSignificances);
         return hash.ToHashCode();
     }
 }

@@ -148,10 +148,14 @@ public static class XtceDocumentQuery
             foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
             {
                 var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}";
-                foreach (var verifier in metaCommand.Verifiers ?? [])
+                var comparisonSources = (metaCommand.Verifiers ?? [])
+                    .Select(v => (v.ComparisonList, v.Comparison))
+                    .Concat((metaCommand.ContextSignificances ?? [])
+                        .Select(s => (s.Context?.ComparisonList, s.Context?.Comparison)));
+                foreach (var (list, singleComparison) in comparisonSources)
                 {
-                    var comparisons = (verifier.ComparisonList ?? []).Concat(
-                        verifier.Comparison is { } single ? [single] : []);
+                    var comparisons = (list ?? []).Concat(
+                        singleComparison is { } single ? [single] : []);
                     foreach (var comparison in comparisons)
                     {
                         if (ResolvesToTarget(context, comparison.ParameterRef, systemPath, parameterName))

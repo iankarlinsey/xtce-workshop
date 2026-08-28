@@ -29,6 +29,7 @@ import {
   ContextNumericAlarmDoc,
   NonNumericAlarmDoc,
   ContextNonNumericAlarmDoc,
+  ContextSignificanceDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -1843,6 +1844,23 @@ export class App {
         : 'match preserved as XML';
     const body = entry.alarm ? this.nonNumericAlarmSummary(entry.alarm).join('; ') : '';
     return `when ${condition}: ${body}`;
+  }
+
+  /** "when Mode == 1 → critical — thruster fire" for one context-significance entry. */
+  protected contextSignificanceSummary(entry: ContextSignificanceDoc): string {
+    if (entry.rawXml) {
+      return 'entry preserved as XML';
+    }
+    const match = entry.context?.comparison;
+    const condition = match
+      ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
+      : entry.context?.comparisonList?.length
+        ? `${entry.context.comparisonList.length} comparison(s)`
+        : 'match preserved as XML';
+    const significance = entry.significance;
+    const level = significance?.consequenceLevel ?? 'normal';
+    const reason = significance?.reasonForWarning ? ` — ${significance.reasonForWarning}` : '';
+    return `when ${condition} → ${level}${reason}`;
   }
 
   /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */

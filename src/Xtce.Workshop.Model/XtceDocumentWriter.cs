@@ -617,21 +617,32 @@ public static class XtceDocumentWriter
         if (metaCommand.DefaultSignificance is { } significance)
         {
             slots.Add(("DefaultSignificance", () =>
+                WriteSignificanceElement(writer, "DefaultSignificance", significance)));
+        }
+
+        if (metaCommand.ContextSignificances is { } contextSignificances)
+        {
+            slots.Add(("ContextSignificanceList", () =>
             {
-                writer.WriteStartElement("DefaultSignificance", XtceNamespace);
-                if (significance.SpaceSystemAtRisk is not null)
+                writer.WriteStartElement("ContextSignificanceList", XtceNamespace);
+                foreach (var entry in contextSignificances)
                 {
-                    writer.WriteAttributeString("spaceSystemAtRisk", significance.SpaceSystemAtRisk);
+                    if (entry.RawXml is { } raw)
+                    {
+                        WriteFragmentXml(writer, raw.OuterXml);
+                        continue;
+                    }
+                    writer.WriteStartElement("ContextSignificance", XtceNamespace);
+                    if (entry.Context is { } match)
+                    {
+                        WriteMatchCriteriaElement(writer, "ContextMatch", match);
+                    }
+                    if (entry.Significance is { } entrySignificance)
+                    {
+                        WriteSignificanceElement(writer, "Significance", entrySignificance);
+                    }
+                    writer.WriteEndElement();
                 }
-                if (significance.ReasonForWarning is not null)
-                {
-                    writer.WriteAttributeString("reasonForWarning", significance.ReasonForWarning);
-                }
-                if (significance.ConsequenceLevel is not null)
-                {
-                    writer.WriteAttributeString("consequenceLevel", significance.ConsequenceLevel);
-                }
-                WritePreservedAttributes(writer, significance.PreservedAttributes);
                 writer.WriteEndElement();
             }));
         }
@@ -1074,6 +1085,25 @@ public static class XtceDocumentWriter
                 writer.WriteEndElement();
             }));
         }
+    }
+
+    private static void WriteSignificanceElement(XmlWriter writer, string elementName, Significance significance)
+    {
+        writer.WriteStartElement(elementName, XtceNamespace);
+        if (significance.SpaceSystemAtRisk is not null)
+        {
+            writer.WriteAttributeString("spaceSystemAtRisk", significance.SpaceSystemAtRisk);
+        }
+        if (significance.ReasonForWarning is not null)
+        {
+            writer.WriteAttributeString("reasonForWarning", significance.ReasonForWarning);
+        }
+        if (significance.ConsequenceLevel is not null)
+        {
+            writer.WriteAttributeString("consequenceLevel", significance.ConsequenceLevel);
+        }
+        WritePreservedAttributes(writer, significance.PreservedAttributes);
+        writer.WriteEndElement();
     }
 
     private static void WriteMatchCriteriaElement(XmlWriter writer, string elementName, MatchCriteria criteria)

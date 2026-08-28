@@ -1383,6 +1383,11 @@ describe('App', () => {
                 verifiers: [{ kind: 'CompleteVerifier', comparison: { parameterRef: 'Ack', value: '1' }, hasCheckWindow: true, timeToStopChecking: 'PT5S' }],
                 transmissionConstraints: [{ timeOut: 'PT10S', comparison: { parameterRef: 'Mode', value: '1' } }],
                 defaultSignificance: { consequenceLevel: 'critical', reasonForWarning: 'thruster fire' },
+                contextSignificances: [
+                  { context: { comparison: { parameterRef: 'Mode', value: '1' } }, significance: { consequenceLevel: 'forbidden' } },
+                  { context: { comparisonList: [{ parameterRef: 'Mode', value: '2' }, { parameterRef: 'Mode', value: '3' }] }, significance: {} },
+                  { rawXml: { elementName: 'ContextSignificance', outerXml: '<ContextSignificance/>' } },
+                ],
                 interlock: { verificationToWaitFor: 'accepted', suspendable: true },
                 parameterToSets: [{ parameterRef: 'CmdCount', newValue: '0' }],
               },
@@ -1418,6 +1423,9 @@ describe('App', () => {
       expect(compiled.textContent).toContain('Ack == 1');
       expect(compiled.textContent).toContain('Mode == 1 — timeout PT10S');
       expect(compiled.textContent).toContain('Significance: critical — thruster fire');
+      expect(compiled.textContent).toContain('when Mode == 1 → forbidden');
+      expect(compiled.textContent).toContain('when 2 comparison(s) → normal');
+      expect(compiled.textContent).toContain('entry preserved as XML');
       expect(compiled.textContent).toContain('Interlock: waits for accepted, suspendable');
       expect(compiled.textContent).toContain('CmdCount = 0');
       expect((compiled.querySelector('input[aria-label="Argument 0 type ref"]') as HTMLInputElement).value).toBe('CmdU8');
