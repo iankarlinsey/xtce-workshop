@@ -1111,10 +1111,7 @@ export class App {
     this.addToSelectedSystem('message', {
       name,
       containerRef: containerRefInput.value.trim(),
-      preserved: [{
-        elementName: 'MatchCriteria',
-        outerXml: `<MatchCriteria xmlns="http://www.omg.org/spec/XTCE/20180204"><Comparison parameterRef="${matchParameter}" value="${matchValue}"/></MatchCriteria>`,
-      }],
+      matchCriteria: { comparison: { parameterRef: matchParameter, value: matchValue } },
     });
     this.creating.set(null);
   }
@@ -1155,6 +1152,23 @@ export class App {
       const metaCommand = item as MetaCommandDoc;
       const args = (metaCommand.arguments ?? []).filter((_, i) => i !== index);
       return { ...metaCommand, arguments: args.length > 0 ? args : null };
+    });
+  }
+
+  onMessageMatchInput(field: 'parameterRef' | 'value', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const message = item as MessageDoc;
+      if (!message.matchCriteria?.comparison) {
+        return message;
+      }
+      return {
+        ...message,
+        matchCriteria: {
+          ...message.matchCriteria,
+          comparison: { ...message.matchCriteria.comparison, [field]: value },
+        },
+      };
     });
   }
 

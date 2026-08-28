@@ -836,7 +836,18 @@
           <label for="message-containerref">Container ref <span class="hint">(must be a root-level container)</span></label>
           <input id="message-containerref" list="known-container-names" [value]="message.containerRef" (input)="onItemFieldInput('containerRef', $event)" />
         </div>
-        <p class="meta-text">Match criteria are preserved as XML (editing them is future work).</p>
+        @if (message.matchCriteria?.comparison; as match) {
+          <div class="form-field">
+            <label for="message-matchparam">Match parameter</label>
+            <input id="message-matchparam" list="known-parameter-names" [value]="match.parameterRef" (input)="onMessageMatchInput('parameterRef', $event)" />
+          </div>
+          <div class="form-field">
+            <label for="message-matchvalue">Match value</label>
+            <input id="message-matchvalue" [value]="match.value" (input)="onMessageMatchInput('value', $event)" />
+          </div>
+        } @else if (message.matchCriteria) {
+          <p class="meta-text">Match criteria uses a form beyond a single comparison (preserved as XML).</p>
+        }
 
         <app-preserved-xml [item]="message" />
 

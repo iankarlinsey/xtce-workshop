@@ -1176,7 +1176,7 @@ describe('App', () => {
             parameterSet: [],
             containerSet: [{ name: 'Packet', entryList: [] }],
             messageSet: {
-              messages: [{ name: 'OpsMsg', containerRef: 'Packet', preserved: [{ elementName: 'MatchCriteria', outerXml: '<MatchCriteria/>' }] }],
+              messages: [{ name: 'OpsMsg', containerRef: 'Packet', matchCriteria: { comparison: { parameterRef: 'MsgId', value: '7' } } }],
             },
           },
           commandMetaData: {
@@ -1338,6 +1338,29 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('editing the message match comparison flows into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      clickTreeRowByText(fixture, 'OpsMsg');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const matchValue = compiled.querySelector('#message-matchvalue') as HTMLInputElement;
+      expect(matchValue.value).toBe('7');
+      matchValue.value = '9';
+      matchValue.dispatchEvent(new Event('input'));
+      const matchParam = compiled.querySelector('#message-matchparam') as HTMLInputElement;
+      matchParam.value = 'PktId';
+      matchParam.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.messageSet.messages[0].matchCriteria)
+        .toEqual({ comparison: { parameterRef: 'PktId', value: '9' } });
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('editing a message containerRef flows into Save with MatchCriteria preserved', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadMessagingDocument(fixture);
@@ -1354,7 +1377,7 @@ describe('App', () => {
       const req = httpMock.expectOne('/api/xtce/save');
       const message = req.request.body.telemetryMetaData.messageSet.messages[0];
       expect(message.containerRef).toBe('OtherPacket');
-      expect(message.preserved).toEqual([{ elementName: 'MatchCriteria', outerXml: '<MatchCriteria/>' }]);
+      expect(message.matchCriteria).toEqual({ comparison: { parameterRef: 'MsgId', value: '7' } });
       req.flush('<SpaceSystem/>');
     }));
 

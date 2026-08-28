@@ -27,8 +27,9 @@ public class MessageSetTests
 
         var eps = messageSet.Messages[0];
         Assert.Equal("EpsPacket", eps.ContainerRef);
-        Assert.Equal(["MatchCriteria"], eps.Preserved!.Select(f => f.ElementName).ToList());
-        Assert.Contains("value=\"101\"", eps.Preserved[0].OuterXml);
+        // MatchCriteria is modeled since #108 — the comparison is inspectable.
+        Assert.Null(eps.Preserved);
+        Assert.Equal("101", eps.MatchCriteria!.Comparison!.Value);
 
         // The set-level name/shortDescription (OptionalNameDescriptionType) are preserved.
         var setAttributes = messageSet.PreservedAttributes!.ToDictionary(a => a.Name, a => a.Value);

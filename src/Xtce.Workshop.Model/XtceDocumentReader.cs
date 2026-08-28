@@ -1449,6 +1449,7 @@ public static class XtceDocumentReader
         var preservedAttributes = CapturePreservedAttributes(reader, "name");
 
         string? containerRef = null;
+        MatchCriteria? matchCriteria = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
 
@@ -1472,10 +1473,14 @@ public static class XtceDocumentReader
                     containerRef = RequireAttribute(reader, "containerRef", "a Message's ContainerRef");
                     reader.Skip();
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MatchCriteria"
+                         && matchCriteria is null)
+                {
+                    matchCriteria = ReadMatchCriteria(reader);
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // MatchCriteria (required by the XSD, a whole expression language) and
-                    // description children — preserved verbatim.
+                    // Description children — preserved verbatim.
                     Preserve(ref preserved, reader);
                 }
                 else if (!TryCaptureComment(reader, ref pendingComments))
@@ -1493,7 +1498,58 @@ public static class XtceDocumentReader
             throw new XtceParseException($"Message '{name}' is missing its required ContainerRef element.");
         }
 
-        return new Message(name, containerRef, preserved, preservedAttributes);
+        return new Message(name, containerRef, preserved, preservedAttributes, matchCriteria);
+    }
+
+    private static MatchCriteria ReadMatchCriteria(XmlReader reader)
+    {
+        var preservedAttributes = CapturePreservedAttributes(reader);
+
+        Comparison? comparison = null;
+        List<Comparison>? comparisonList = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Comparison"
+                    && comparison is null && reader.GetAttribute("parameterRef") is not null
+                    && reader.GetAttribute("value") is not null && reader.IsEmptyElement)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    comparison = ReadComparison(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ComparisonList"
+                         && comparisonList is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    comparisonList = ReadComparisonList(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // BooleanExpression, CustomAlgorithm — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new MatchCriteria(comparison, comparisonList, preserved, preservedAttributes);
     }
 
     private static List<SequenceContainer> ReadContainerSet(

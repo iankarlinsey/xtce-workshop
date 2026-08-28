@@ -180,9 +180,16 @@ export interface SequenceContainerDoc {
   [key: string]: unknown;
 }
 
+export interface MatchCriteriaDoc {
+  comparison?: ComparisonDoc | null;
+  comparisonList?: ComparisonDoc[] | null;
+  [key: string]: unknown;
+}
+
 export interface MessageDoc {
   name: string;
   containerRef: string;
+  matchCriteria?: MatchCriteriaDoc | null;
   [key: string]: unknown;
 }
 

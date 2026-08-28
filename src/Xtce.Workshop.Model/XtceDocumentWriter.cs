@@ -229,6 +229,34 @@ public static class XtceDocumentWriter
                 WritePreservedAttributes(writer, captured.PreservedAttributes);
 
                 var messageSlots = new List<(string Name, Action Emit)>();
+                if (captured.MatchCriteria is { } matchCriteria)
+                {
+                    messageSlots.Add(("MatchCriteria", () =>
+                    {
+                        writer.WriteStartElement("MatchCriteria", XtceNamespace);
+                        WritePreservedAttributes(writer, matchCriteria.PreservedAttributes);
+                        var criteriaSlots = new List<(string Name, Action Emit)>();
+                        if (matchCriteria.Comparison is { } single)
+                        {
+                            criteriaSlots.Add(("Comparison", () => WriteComparison(writer, single)));
+                        }
+                        if (matchCriteria.ComparisonList is { } comparisonList)
+                        {
+                            criteriaSlots.Add(("ComparisonList", () =>
+                            {
+                                writer.WriteStartElement("ComparisonList", XtceNamespace);
+                                foreach (var entry in comparisonList)
+                                {
+                                    WriteComparison(writer, entry);
+                                }
+                                writer.WriteEndElement();
+                            }));
+                        }
+                        AddPreservedSlots(criteriaSlots, writer, matchCriteria.Preserved);
+                        EmitInSchemaOrder(MatchCriteriaChildOrder, criteriaSlots);
+                        writer.WriteEndElement();
+                    }));
+                }
                 AddPreservedSlots(messageSlots, writer, captured.Preserved);
                 messageSlots.Add(("ContainerRef", () =>
                 {

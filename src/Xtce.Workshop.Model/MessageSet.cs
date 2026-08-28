@@ -6,18 +6,50 @@ namespace Xtce.Workshop.Model;
 /// stay lossless without modeling it; ContainerRef is the containerRef attribute of the
 /// ContainerRef child element — the target of validation rule R09.
 /// </summary>
+/// <summary>
+/// A Message's MatchCriteria (issue #108): the Comparison/ComparisonList forms modeled
+/// with the shared Comparison record; BooleanExpression and CustomAlgorithm ride in
+/// Preserved — same policy as RestrictionCriteria (an expression tree is not worth
+/// decomposing until something needs to edit it).
+/// </summary>
+public sealed record MatchCriteria(
+    Comparison? Comparison = null,
+    IReadOnlyList<Comparison>? ComparisonList = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(MatchCriteria? other) =>
+        other is not null
+        && Equals(Comparison, other.Comparison)
+        && Structural.ListEquals(ComparisonList, other.ComparisonList)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Comparison);
+        Structural.AddList(ref hash, ComparisonList);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
 public sealed record Message(
     string Name,
     string ContainerRef,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    MatchCriteria? MatchCriteria = null)
 {
     public bool Equals(Message? other) =>
         other is not null
         && Name == other.Name
         && ContainerRef == other.ContainerRef
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(MatchCriteria, other.MatchCriteria);
 
     public override int GetHashCode()
     {
@@ -26,6 +58,7 @@ public sealed record Message(
         hash.Add(ContainerRef);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(MatchCriteria);
         return hash.ToHashCode();
     }
 }
