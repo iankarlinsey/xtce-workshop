@@ -46,4 +46,58 @@ public class ServiceSetTests
         var errors = XsdValidation.Validate(written);
         Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
     }
+
+    [Test]
+    public void ServiceOddShapes_FallBackLosslessly()
+    {
+        var loaded = Load($"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <ServiceSet>
+                <Service name="Empty">
+                  <MessageRefSet/>
+                </Service>
+                <NotAService/>
+              </ServiceSet>
+            </SpaceSystem>
+            """);
+
+        Assert.Empty(loaded.ServiceSet![0].MessageRefs!);
+        Assert.Null(loaded.ServiceSet[0].ContainerRefs);
+        Assert.Equal("NotAService", loaded.ServiceSet[1].RawXml!.ElementName);
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, Load(written));
+    }
+
+    [Test]
+    public void ServiceDescriptions_AndRefusedRefRows_AreHandled()
+    {
+        var loaded = Load($"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <ServiceSet>
+                <Service name="Ops">
+                  <LongDescription>Operational service.</LongDescription>
+                  <AliasSet><Alias nameSpace="gnd" alias="OPS_SVC"/></AliasSet>
+                  <MessageRefSet>
+                    <MessageRef messageRef="Good"/>
+                    <MessageRef/>
+                  </MessageRefSet>
+                </Service>
+              </ServiceSet>
+            </SpaceSystem>
+            """);
+
+        var service = loaded.ServiceSet!.Single();
+        Assert.Equal("Operational service.", service.Description!.LongDescription);
+        Assert.Equal(["OPS_SVC"], service.Description.Aliases!.Select(a => a.Alias));
+        Assert.Equal(["Good"], service.MessageRefs!);
+        // The attribute-less MessageRef is refused by the row reader and preserved.
+        Assert.Equal(["MessageRef"], service.Preserved!.Select(f => f.ElementName).ToList());
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, Load(written));
+
+        var match = Assert.Single(Xtce.Workshop.Validation.XtceDocumentQuery.Search(loaded, "OPS_SVC"));
+        Assert.Equal(("Service", "Ops", "OPS_SVC"), (match.Kind, match.Name, match.MatchedAlias));
+    }
 }

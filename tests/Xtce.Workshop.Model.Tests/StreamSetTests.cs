@@ -47,4 +47,45 @@ public class StreamSetTests
         Assert.True(written.IndexOf("<ContainerRef", StringComparison.Ordinal)
                     < written.IndexOf("<SyncStrategy", StringComparison.Ordinal));
     }
+
+    [Test]
+    public void StreamOddShapes_FallBackLosslessly()
+    {
+        var loaded = Load($"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <TelemetryMetaData>
+                <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
+                <ParameterSet/>
+                <StreamSet>
+                  <VariableFrameStream name="VarLink">
+                    <ServiceRef serviceRef="Svc"/>
+                    <SyncStrategy><Flag flagSizeInBits="8" flagBitType="01"/></SyncStrategy>
+                  </VariableFrameStream>
+                  <SomethingNew/>
+                </StreamSet>
+              </TelemetryMetaData>
+              <CommandMetaData>
+                <StreamSet>
+                  <CustomStream name="Uplink" bitRateInBPS="1200"><EncodingAlgorithm name="A"><AlgorithmText>x</AlgorithmText></EncodingAlgorithm><DecodingAlgorithm name="B"><AlgorithmText>y</AlgorithmText></DecodingAlgorithm></CustomStream>
+                </StreamSet>
+                <MetaCommandSet><MetaCommand name="Cmd"/></MetaCommandSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """);
+
+        var telemetryStreams = loaded.TelemetryMetaData!.StreamSet!;
+        // ServiceRef content stays preserved (only ContainerRef is modeled).
+        Assert.Null(telemetryStreams[0].ContainerRef);
+        Assert.Equal(["ServiceRef", "SyncStrategy"], telemetryStreams[0].Preserved!.Select(f => f.ElementName).ToList());
+        Assert.Equal(StreamKind.VariableFrame, telemetryStreams[0].Kind);
+        // A foreign set entry rides whole.
+        Assert.Equal("SomethingNew", telemetryStreams[1].RawXml!.ElementName);
+
+        var commandStream = loaded.CommandMetaData!.StreamSet!.Single();
+        Assert.Equal((StreamKind.Custom, "Uplink", "1200"),
+            (commandStream.Kind, commandStream.Name, commandStream.BitRateInBps));
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, Load(written));
+    }
 }
