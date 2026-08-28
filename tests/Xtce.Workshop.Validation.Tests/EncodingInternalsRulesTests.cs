@@ -108,6 +108,51 @@ public class EncodingInternalsRulesTests
     }
 
     [Test]
+    public void UnderfilledSplineInModeledContextCalibrator_IsFlagged()
+    {
+        // #117 moved context calibrators out of the fragment path — the modeled route
+        // must keep catching what the fragment scan used to.
+        var document = new SpaceSystem("S", [], new TelemetryMetaData(
+            [
+                new ParameterTypeDefinition("T", ParameterTypeKind.Integer,
+                    DataEncoding: new DataEncoding(DataEncodingKind.Integer, ContextCalibrators:
+                    [
+                        new ContextCalibrator(
+                            new MatchCriteria(new Comparison("Mode", "1")),
+                            new Calibrator(CalibratorKind.Spline,
+                                Points: [new SplinePointEntry("0", "0"), new SplinePointEntry("1", "1")],
+                                SplineOrder: 2)),
+                    ])),
+            ],
+            []));
+
+        var issues = XtceValidator.Validate(document);
+
+        var issue = Assert.Single(issues, i => i.RuleId == R13);
+        Assert.Contains("order 2", issue.Message);
+    }
+
+    [Test]
+    public void UnderfilledSplineInRawContextEntry_IsStillReachable()
+    {
+        var document = new SpaceSystem("S", [], new TelemetryMetaData(
+            [
+                new ParameterTypeDefinition("T", ParameterTypeKind.Integer,
+                    DataEncoding: new DataEncoding(DataEncodingKind.Integer, ContextCalibrators:
+                    [
+                        new ContextCalibrator(RawXml: new RawXmlFragment("ContextCalibrator",
+                            $"""<ContextCalibrator xmlns="{Ns}"><ContextMatch><Comparison parameterRef="M" value="1"/></ContextMatch><Calibrator><SplineCalibrator order="3"><SplinePoint raw="0" calibrated="0"/><SplinePoint raw="1" calibrated="1"/></SplineCalibrator></Calibrator></ContextCalibrator>""")),
+                    ])),
+            ],
+            []));
+
+        var issues = XtceValidator.Validate(document);
+
+        var issue = Assert.Single(issues, i => i.RuleId == R13);
+        Assert.Contains("order 3", issue.Message);
+    }
+
+    [Test]
     public void SplineInsideModeledArgumentTypeEncoding_IsStillReachable()
     {
         // Regression: after #95 modeled ArgumentTypeSet (and #96 modeled encodings), the

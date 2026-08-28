@@ -593,6 +593,14 @@
                   </div>
                 }
               </div>
+              @if ((encoding.contextCalibrators ?? []).length > 0) {
+                <div class="form-field">
+                  <label>Context calibrators <span class="hint">(evaluated in order; override the default)</span></label>
+                  @for (contextCal of encoding.contextCalibrators ?? []; track $index) {
+                    <p class="meta-text">{{ contextCalibratorSummary(contextCal) }}</p>
+                  }
+                </div>
+              }
               <app-preserved-xml [item]="encoding" />
             } @else {
               <div class="creator-row">

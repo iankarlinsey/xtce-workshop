@@ -645,6 +645,38 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('context calibrators render as read-only summaries on the encoding form', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'ctx.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      flushLoadIntoTree(fixture, {
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [{
+              name: 'Temp_Type', kind: 'Integer',
+              dataEncoding: {
+                kind: 'Integer', sizeInBits: 12,
+                contextCalibrators: [
+                  { context: { comparison: { parameterRef: 'Mode', value: '1' } }, calibrator: { kind: 'Polynomial', terms: [{ coefficient: '2.5', exponent: '1' }] } },
+                  { rawXml: { elementName: 'ContextCalibrator', outerXml: '<ContextCalibrator/>' } },
+                ],
+              },
+            }],
+            parameterSet: [],
+          },
+        },
+      });
+      clickTreeRowByText(fixture, 'Temp_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('Context calibrators');
+      expect(compiled.textContent).toContain('when Mode == 1 → PolynomialCalibrator (1 term(s))');
+      expect(compiled.textContent).toContain('entry preserved as XML');
+    });
+
     it('units render on the type form and edits flow into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

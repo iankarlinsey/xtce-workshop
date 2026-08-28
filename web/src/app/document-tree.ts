@@ -83,6 +83,13 @@ export interface CalibratorDoc {
   [key: string]: unknown;
 }
 
+export interface ContextCalibratorDoc {
+  context?: MatchCriteriaDoc | null;
+  calibrator?: CalibratorDoc | null;
+  rawXml?: { elementName: string; outerXml: string } | null;
+  [key: string]: unknown;
+}
+
 export interface DataEncodingDoc {
   kind: 'Integer' | 'Float' | 'String' | 'Binary';
   encoding?: string | null;
@@ -91,6 +98,7 @@ export interface DataEncodingDoc {
   bitOrder?: string | null;
   byteOrder?: string | null;
   defaultCalibrator?: CalibratorDoc | null;
+  contextCalibrators?: ContextCalibratorDoc[] | null;
   [key: string]: unknown;
 }
 

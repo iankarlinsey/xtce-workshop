@@ -367,6 +367,24 @@ public static class FragmentEnumerator
         {
             yield return (fragment, typePath);
         }
+        foreach (var encoding in new[] { type.DataEncoding, type.TimeEncoding?.DataEncoding })
+        {
+            foreach (var contextCalibrator in encoding?.ContextCalibrators ?? [])
+            {
+                if (contextCalibrator.RawXml is { } raw)
+                {
+                    yield return (raw, typePath);
+                }
+                foreach (var fragment in contextCalibrator.Context?.Preserved ?? [])
+                {
+                    yield return (fragment, typePath);
+                }
+                foreach (var fragment in contextCalibrator.Calibrator?.Preserved ?? [])
+                {
+                    yield return (fragment, typePath);
+                }
+            }
+        }
         foreach (var fragment in type.DefaultAlarm?.Preserved ?? [])
         {
             yield return (fragment, typePath);

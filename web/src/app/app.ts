@@ -25,6 +25,7 @@ import {
   MetaCommandDoc,
   BlockMetaCommandDoc,
   MetaCommandStepDoc,
+  ContextCalibratorDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -1745,7 +1746,6 @@ export class App {
     return parts.length > 0 ? parts.join(' — ') : 'check preserved as XML';
   }
 
-  /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */
   /** "Channel=3, Mode=SAFE" for a block step's argument assignments; '' when none. */
   protected stepAssignmentSummary(step: MetaCommandStepDoc): string {
     return (step.argumentAssignments ?? [])
@@ -1753,6 +1753,26 @@ export class App {
       .join(', ');
   }
 
+  /** "when Mode == 1 → PolynomialCalibrator (2 terms)" for one context-calibrator entry. */
+  protected contextCalibratorSummary(entry: ContextCalibratorDoc): string {
+    if (entry.rawXml) {
+      return 'entry preserved as XML';
+    }
+    const match = entry.context?.comparison;
+    const condition = match
+      ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
+      : entry.context?.comparisonList?.length
+        ? `${entry.context.comparisonList.length} comparison(s)`
+        : 'match preserved as XML';
+    const calibrator = entry.calibrator
+      ? entry.calibrator.kind === 'Polynomial'
+        ? `PolynomialCalibrator (${(entry.calibrator.terms ?? []).length} term(s))`
+        : `SplineCalibrator (${(entry.calibrator.points ?? []).length} point(s))`
+      : '';
+    return `when ${condition} → ${calibrator}`;
+  }
+
+  /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */
   protected entryMechanics(entry: SequenceEntryDoc): string {
     const parts: string[] = [];
     if (entry.location) {

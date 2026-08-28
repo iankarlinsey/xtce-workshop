@@ -23,17 +23,23 @@ public sealed class SplineOrderRequiresMinPointsRule : IValidationRule
         {
             foreach (var encoding in new[] { type.DataEncoding, type.TimeEncoding?.DataEncoding })
             {
-                if (encoding?.DefaultCalibrator is not { Kind: CalibratorKind.Spline } spline)
+                var calibrators = (encoding?.ContextCalibrators ?? [])
+                    .Select(c => c.Calibrator)
+                    .Prepend(encoding?.DefaultCalibrator);
+                foreach (var candidate in calibrators)
                 {
-                    continue;
-                }
-                var order = spline.SplineOrder ?? 1; // XSD default
-                var pointCount = spline.Points?.Count ?? 0;
-                if (pointCount < order + 1)
-                {
-                    yield return new ValidationIssue(RuleId, Severity, location,
-                        $"SplineCalibrator of order {order} has {pointCount} point(s) — order {order} requires at least {order + 1}.",
-                        CandidateNumber: 55);
+                    if (candidate is not { Kind: CalibratorKind.Spline } spline)
+                    {
+                        continue;
+                    }
+                    var order = spline.SplineOrder ?? 1; // XSD default
+                    var pointCount = spline.Points?.Count ?? 0;
+                    if (pointCount < order + 1)
+                    {
+                        yield return new ValidationIssue(RuleId, Severity, location,
+                            $"SplineCalibrator of order {order} has {pointCount} point(s) — order {order} requires at least {order + 1}.",
+                            CandidateNumber: 55);
+                    }
                 }
             }
         }

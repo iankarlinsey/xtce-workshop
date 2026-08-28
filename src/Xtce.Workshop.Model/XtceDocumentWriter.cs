@@ -1589,7 +1589,33 @@ public static class XtceDocumentWriter
         var slots = new List<(string Name, Action Emit)>();
         if (encoding.DefaultCalibrator is { } calibrator)
         {
-            slots.Add(("DefaultCalibrator", () => WriteDefaultCalibrator(writer, calibrator)));
+            slots.Add(("DefaultCalibrator", () => WriteCalibratorElement(writer, "DefaultCalibrator", calibrator)));
+        }
+        if (encoding.ContextCalibrators is { } contextCalibrators)
+        {
+            slots.Add(("ContextCalibratorList", () =>
+            {
+                writer.WriteStartElement("ContextCalibratorList", XtceNamespace);
+                foreach (var entry in contextCalibrators)
+                {
+                    if (entry.RawXml is { } raw)
+                    {
+                        WriteFragmentXml(writer, raw.OuterXml);
+                        continue;
+                    }
+                    writer.WriteStartElement("ContextCalibrator", XtceNamespace);
+                    if (entry.Context is { } match)
+                    {
+                        WriteMatchCriteriaElement(writer, "ContextMatch", match);
+                    }
+                    if (entry.Calibrator is { } entryCalibrator)
+                    {
+                        WriteCalibratorElement(writer, "Calibrator", entryCalibrator);
+                    }
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }));
         }
         AddPreservedSlots(slots, writer, encoding.Preserved);
         EmitInSchemaOrder(DataEncodingChildOrder, slots);
@@ -1671,9 +1697,9 @@ public static class XtceDocumentWriter
         writer.WriteEndElement();
     }
 
-    private static void WriteDefaultCalibrator(XmlWriter writer, Calibrator calibrator)
+    private static void WriteCalibratorElement(XmlWriter writer, string elementName, Calibrator calibrator)
     {
-        writer.WriteStartElement("DefaultCalibrator", XtceNamespace);
+        writer.WriteStartElement(elementName, XtceNamespace);
         writer.WriteStartElement(
             calibrator.Kind == CalibratorKind.Polynomial ? "PolynomialCalibrator" : "SplineCalibrator", XtceNamespace);
         if (calibrator.SplineOrder is { } order)

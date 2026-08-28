@@ -3235,6 +3235,7 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
         Calibrator? defaultCalibrator = null;
+        List<ContextCalibrator>? contextCalibrators = null;
 
         if (reader.IsEmptyElement)
         {
@@ -3262,10 +3263,25 @@ public static class XtceDocumentReader
                         (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("DefaultCalibrator", outerXml));
                     }
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextCalibratorList"
+                         && contextCalibrators is null && HasOnlyAttributes(reader))
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseContextCalibratorList(outerXml, out var parsedEntries))
+                    {
+                        contextCalibrators = parsedEntries;
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("ContextCalibratorList", outerXml));
+                    }
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // ContextCalibratorList, ErrorDetectCorrect, the SizeInBits/Variable
-                    // size shapes, transform algorithms — preserved verbatim.
+                    // ErrorDetectCorrect, the SizeInBits/Variable size shapes, transform
+                    // algorithms — preserved verbatim.
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
                 }
@@ -3280,7 +3296,111 @@ public static class XtceDocumentReader
         }
 
         return new DataEncoding(kind, encoding, sizeInBits, changeThreshold, bitOrder, byteOrder, preserved,
-            preservedAttributes, defaultCalibrator);
+            preservedAttributes, defaultCalibrator, contextCalibrators);
+    }
+
+    /// <summary>
+    /// Strict parse of a ContextCalibratorList; false means the caller preserves the
+    /// whole list verbatim (comments or foreign elements between entries). An entry whose
+    /// own content can't be modeled stays a RawXml entry in position — context
+    /// calibrators are evaluated in list order.
+    /// </summary>
+    private static bool TryParseContextCalibratorList(string outerXml, out List<ContextCalibrator> entries)
+    {
+        entries = new List<ContextCalibrator>();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (reader.IsEmptyElement)
+            {
+                return true;
+            }
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextCalibrator")
+                {
+                    var entryXml = reader.ReadOuterXml();
+                    entries.Add(TryParseContextCalibrator(entryXml, out var entry)
+                        ? entry
+                        : new ContextCalibrator(RawXml: new RawXmlFragment("ContextCalibrator", entryXml)));
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryParseContextCalibrator(string outerXml, out ContextCalibrator entry)
+    {
+        entry = new ContextCalibrator();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (!HasOnlyAttributes(reader) || reader.IsEmptyElement)
+            {
+                return false;
+            }
+            reader.ReadStartElement();
+
+            MatchCriteria? context = null;
+            Calibrator? calibrator = null;
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextMatch"
+                    && context is null)
+                {
+                    // The same MatchCriteriaType shape as everywhere else — unmodelable
+                    // match forms stay preserved INSIDE the criteria, so this never fails.
+                    context = ReadMatchCriteria(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Calibrator"
+                         && calibrator is null)
+                {
+                    if (!TryParseDefaultCalibrator(reader.ReadOuterXml(), out calibrator))
+                    {
+                        return false; // MathOperationCalibrator etc. — whole entry rides raw
+                    }
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            if (context is null || calibrator is null)
+            {
+                return false; // the XSD requires both halves
+            }
+            entry = new ContextCalibrator(context, calibrator);
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
     }
 
     private static bool TryParseDefaultCalibrator(string outerXml, out Calibrator? calibrator)

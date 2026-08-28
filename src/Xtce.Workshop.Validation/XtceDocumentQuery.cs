@@ -162,6 +162,26 @@ public static class XtceDocumentQuery
                 }
             }
 
+            // Modeled context-calibrator matches (#117) — previously found by fragment scanning.
+            foreach (var (type, typeLocation) in TypeSetsWithLocations(context))
+            {
+                foreach (var encoding in new[] { type.DataEncoding, type.TimeEncoding?.DataEncoding })
+                {
+                    foreach (var contextCalibrator in encoding?.ContextCalibrators ?? [])
+                    {
+                        var comparisons = (contextCalibrator.Context?.ComparisonList ?? []).Concat(
+                            contextCalibrator.Context?.Comparison is { } single ? [single] : []);
+                        foreach (var comparison in comparisons)
+                        {
+                            if (ResolvesToTarget(context, comparison.ParameterRef, systemPath, parameterName))
+                            {
+                                usages.Add(new UsageMatch("Comparison", typeLocation, comparison.ParameterRef));
+                            }
+                        }
+                    }
+                }
+            }
+
             foreach (var (fragment, location) in FragmentEnumerator.EnumerateNode(context))
             {
                 if (fragment.ElementName != CommentAnchor.ElementName)
@@ -175,6 +195,23 @@ public static class XtceDocumentQuery
     }
 
     // ---- internals ------------------------------------------------------------------------
+
+    private static IEnumerable<(ParameterTypeDefinition Type, string Location)> TypeSetsWithLocations(
+        SpaceSystemContext context)
+    {
+        foreach (var type in context.Node.TelemetryMetaData?.ParameterTypeSet ?? [])
+        {
+            yield return (type, $"{context.Path}/ParameterTypeSet/{type.Name}");
+        }
+        foreach (var type in context.Node.CommandMetaData?.ParameterTypeSet ?? [])
+        {
+            yield return (type, $"{context.Path}/CommandMetaData/ParameterTypeSet/{type.Name}");
+        }
+        foreach (var type in context.Node.CommandMetaData?.ArgumentTypeSet ?? [])
+        {
+            yield return (type, $"{context.Path}/CommandMetaData/ArgumentTypeSet/{type.Name}");
+        }
+    }
 
     private static IEnumerable<Comparison> CriteriaComparisons(SequenceContainer container)
     {

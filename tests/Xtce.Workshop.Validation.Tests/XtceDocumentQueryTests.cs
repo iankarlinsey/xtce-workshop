@@ -90,6 +90,30 @@ public class XtceDocumentQueryTests
     }
 
     [Test]
+    public void FindParameterUsages_SeesModeledContextCalibratorMatches()
+    {
+        var tree = new SpaceSystem("Root", [], new TelemetryMetaData(
+            [
+                new ParameterTypeDefinition("ModeType", ParameterTypeKind.Integer),
+                new ParameterTypeDefinition("TempType", ParameterTypeKind.Integer,
+                    DataEncoding: new DataEncoding(DataEncodingKind.Integer, ContextCalibrators:
+                    [
+                        new ContextCalibrator(
+                            new MatchCriteria(new Comparison("Mode", "1")),
+                            new Calibrator(CalibratorKind.Polynomial,
+                                Terms: [new PolynomialTerm("1", "1")])),
+                    ])),
+            ],
+            [new Parameter("Mode", "ModeType")]));
+
+        var usages = XtceDocumentQuery.FindParameterUsages(tree, "Root", "Mode");
+
+        var usage = Assert.Single(usages);
+        Assert.Equal("Comparison", usage.Kind);
+        Assert.Contains("TempType", usage.Location);
+    }
+
+    [Test]
     public void FindParameterUsages_DoesNotMatchASameNamedParameterElsewhere()
     {
         var tree = new SpaceSystem("Root",

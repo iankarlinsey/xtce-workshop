@@ -130,6 +130,18 @@ public sealed record Calibrator(
     }
 }
 
+/// <summary>
+/// One ContextCalibratorList entry (issue #117): a ContextMatch (the same MatchCriteria
+/// shape used everywhere) plus a Calibrator, applied instead of the DefaultCalibrator
+/// when the context matches. An entry whose Calibrator can't be modeled
+/// (MathOperationCalibrator, embedded comments) rides whole as RawXml IN POSITION —
+/// context calibrators are processed in list order, so order is meaning.
+/// </summary>
+public sealed record ContextCalibrator(
+    MatchCriteria? Context = null,
+    Calibrator? Calibrator = null,
+    RawXmlFragment? RawXml = null);
+
 /// <summary>One alarm severity range (FloatRangeType): bounds stay verbatim strings.</summary>
 public sealed record AlarmRange(
     string? MinInclusive = null,
@@ -239,7 +251,8 @@ public sealed record DataEncoding(
     string? ByteOrder = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
-    Calibrator? DefaultCalibrator = null)
+    Calibrator? DefaultCalibrator = null,
+    IReadOnlyList<ContextCalibrator>? ContextCalibrators = null)
 {
     public bool Equals(DataEncoding? other) =>
         other is not null
@@ -251,7 +264,8 @@ public sealed record DataEncoding(
         && ByteOrder == other.ByteOrder
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
-        && Equals(DefaultCalibrator, other.DefaultCalibrator);
+        && Equals(DefaultCalibrator, other.DefaultCalibrator)
+        && Structural.ListEquals(ContextCalibrators, other.ContextCalibrators);
 
     public override int GetHashCode()
     {
@@ -265,6 +279,7 @@ public sealed record DataEncoding(
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
         hash.Add(DefaultCalibrator);
+        Structural.AddList(ref hash, ContextCalibrators);
         return hash.ToHashCode();
     }
 }
