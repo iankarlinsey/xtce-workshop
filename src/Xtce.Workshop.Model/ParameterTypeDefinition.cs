@@ -36,6 +36,100 @@ public sealed record EnumerationEntry(
     long? MaxValue = null,
     string? ShortDescription = null);
 
+/// <summary>Which calibrator element a modeled Calibrator represents.</summary>
+public enum CalibratorKind
+{
+    Polynomial,
+    Spline,
+}
+
+/// <summary>One PolynomialCalibrator Term. Values stay verbatim strings (doubles round-trip untouched).</summary>
+public sealed record PolynomialTerm(
+    string Coefficient,
+    string Exponent,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(PolynomialTerm? other) =>
+        other is not null
+        && Coefficient == other.Coefficient
+        && Exponent == other.Exponent
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Coefficient);
+        hash.Add(Exponent);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>One SplineCalibrator SplinePoint. Values stay verbatim strings.</summary>
+public sealed record SplinePointEntry(
+    string Raw,
+    string Calibrated,
+    string? Order = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(SplinePointEntry? other) =>
+        other is not null
+        && Raw == other.Raw
+        && Calibrated == other.Calibrated
+        && Order == other.Order
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Raw);
+        hash.Add(Calibrated);
+        hash.Add(Order);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
+/// A modeled DefaultCalibrator: PolynomialCalibrator terms or SplineCalibrator points
+/// (order/extrapolate stay null when absent — XSD defaults 1/false applied by consumers).
+/// name/shortDescription ride in PreservedAttributes, AncillaryDataSet in Preserved. A
+/// DefaultCalibrator wrapping MathOperationCalibrator (or anything unrecognizable) is
+/// NOT modeled — the whole element stays a preserved fragment on the encoding.
+/// </summary>
+public sealed record Calibrator(
+    CalibratorKind Kind,
+    IReadOnlyList<PolynomialTerm>? Terms = null,
+    IReadOnlyList<SplinePointEntry>? Points = null,
+    long? SplineOrder = null,
+    bool? Extrapolate = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(Calibrator? other) =>
+        other is not null
+        && Kind == other.Kind
+        && Structural.ListEquals(Terms, other.Terms)
+        && Structural.ListEquals(Points, other.Points)
+        && SplineOrder == other.SplineOrder
+        && Extrapolate == other.Extrapolate
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Kind);
+        Structural.AddList(ref hash, Terms);
+        Structural.AddList(ref hash, Points);
+        hash.Add(SplineOrder);
+        hash.Add(Extrapolate);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
 /// <summary>The four DataEncoding element kinds of the XSD's BaseDataType choice.</summary>
 public enum DataEncodingKind
 {
@@ -63,7 +157,8 @@ public sealed record DataEncoding(
     string? BitOrder = null,
     string? ByteOrder = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    Calibrator? DefaultCalibrator = null)
 {
     public bool Equals(DataEncoding? other) =>
         other is not null
@@ -74,7 +169,8 @@ public sealed record DataEncoding(
         && BitOrder == other.BitOrder
         && ByteOrder == other.ByteOrder
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(DefaultCalibrator, other.DefaultCalibrator);
 
     public override int GetHashCode()
     {
@@ -87,6 +183,7 @@ public sealed record DataEncoding(
         hash.Add(ByteOrder);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(DefaultCalibrator);
         return hash.ToHashCode();
     }
 }

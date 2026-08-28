@@ -8,6 +8,7 @@ import {
   SpaceSystemDocument,
   ParameterTypeDoc,
   DataEncodingDoc,
+  CalibratorDoc,
   ParameterDoc,
   SequenceContainerDoc,
   ParameterTypeKind,
@@ -1213,6 +1214,75 @@ export class App {
         ...type,
         dataEncoding: { ...type.dataEncoding, [field]: parsed !== null && Number.isFinite(parsed) ? parsed : null },
       };
+    });
+  }
+
+  private mutateCalibrator(update: (calibrator: CalibratorDoc) => CalibratorDoc | null): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      if (!type.dataEncoding?.defaultCalibrator) {
+        return type;
+      }
+      return {
+        ...type,
+        dataEncoding: { ...type.dataEncoding, defaultCalibrator: update(type.dataEncoding.defaultCalibrator) },
+      };
+    });
+  }
+
+  onAddCalibrator(kindSelect: HTMLSelectElement): void {
+    const kind = kindSelect.value as CalibratorDoc['kind'];
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      if (!type.dataEncoding || type.dataEncoding.defaultCalibrator) {
+        return type;
+      }
+      const calibrator: CalibratorDoc = kind === 'Polynomial'
+        ? { kind, terms: [{ coefficient: '1', exponent: '1' }] }
+        : { kind, points: [{ raw: '0', calibrated: '0' }, { raw: '1', calibrated: '1' }] };
+      return { ...type, dataEncoding: { ...type.dataEncoding, defaultCalibrator: calibrator } };
+    });
+  }
+
+  onRemoveCalibrator(): void {
+    this.mutateCalibrator(() => null);
+  }
+
+  onCalibratorRowInput(list: 'terms' | 'points', index: number, field: string, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateCalibrator((calibrator) => ({
+      ...calibrator,
+      [list]: ((calibrator[list] ?? []) as Record<string, unknown>[]).map((row, i) =>
+        i === index ? { ...row, [field]: value } : row),
+    }));
+  }
+
+  onAddCalibratorRow(list: 'terms' | 'points'): void {
+    this.mutateCalibrator((calibrator) => ({
+      ...calibrator,
+      [list]: [
+        ...((calibrator[list] ?? []) as Record<string, unknown>[]),
+        list === 'terms' ? { coefficient: '0', exponent: '0' } : { raw: '0', calibrated: '0' },
+      ],
+    }));
+  }
+
+  onRemoveCalibratorRow(list: 'terms' | 'points', index: number): void {
+    this.mutateCalibrator((calibrator) => ({
+      ...calibrator,
+      [list]: ((calibrator[list] ?? []) as Record<string, unknown>[]).filter((_, i) => i !== index),
+    }));
+  }
+
+  onCalibratorFieldInput(field: 'splineOrder' | 'extrapolate', event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.mutateCalibrator((calibrator) => {
+      if (field === 'extrapolate') {
+        return { ...calibrator, extrapolate: target.checked };
+      }
+      const raw = target.value.trim();
+      const parsed = raw === '' ? null : Number(raw);
+      return { ...calibrator, splineOrder: parsed !== null && Number.isFinite(parsed) ? parsed : null };
     });
   }
 

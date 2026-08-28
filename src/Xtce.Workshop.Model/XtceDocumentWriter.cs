@@ -982,9 +982,59 @@ public static class XtceDocumentWriter
             writer.WriteAttributeString("byteOrder", encoding.ByteOrder);
         }
         WritePreservedAttributes(writer, encoding.PreservedAttributes);
-        // Children ride in original order — the XSD sequences inside each encoding kind
-        // are exactly the order the reader preserved them in.
-        WriteFragments(writer, encoding.Preserved);
+        var slots = new List<(string Name, Action Emit)>();
+        if (encoding.DefaultCalibrator is { } calibrator)
+        {
+            slots.Add(("DefaultCalibrator", () => WriteDefaultCalibrator(writer, calibrator)));
+        }
+        AddPreservedSlots(slots, writer, encoding.Preserved);
+        EmitInSchemaOrder(DataEncodingChildOrder, slots);
+        writer.WriteEndElement();
+    }
+
+    // Superset of the four encoding kinds' child sequences (base ErrorDetectCorrect first).
+    private static readonly string[] DataEncodingChildOrder =
+    [
+        "ErrorDetectCorrect", "DefaultCalibrator", "ContextCalibratorList",
+        "SizeInBits", "Variable", "FromBinaryTransformAlgorithm", "ToBinaryTransformAlgorithm",
+    ];
+
+    private static void WriteDefaultCalibrator(XmlWriter writer, Calibrator calibrator)
+    {
+        writer.WriteStartElement("DefaultCalibrator", XtceNamespace);
+        writer.WriteStartElement(
+            calibrator.Kind == CalibratorKind.Polynomial ? "PolynomialCalibrator" : "SplineCalibrator", XtceNamespace);
+        if (calibrator.SplineOrder is { } order)
+        {
+            writer.WriteAttributeString("order", XmlConvert.ToString(order));
+        }
+        if (calibrator.Extrapolate is { } extrapolate)
+        {
+            writer.WriteAttributeString("extrapolate", XmlConvert.ToString(extrapolate));
+        }
+        WritePreservedAttributes(writer, calibrator.PreservedAttributes);
+        WriteFragments(writer, calibrator.Preserved); // AncillaryDataSet precedes the value rows
+        foreach (var term in calibrator.Terms ?? [])
+        {
+            writer.WriteStartElement("Term", XtceNamespace);
+            writer.WriteAttributeString("coefficient", term.Coefficient);
+            writer.WriteAttributeString("exponent", term.Exponent);
+            WritePreservedAttributes(writer, term.PreservedAttributes);
+            writer.WriteEndElement();
+        }
+        foreach (var point in calibrator.Points ?? [])
+        {
+            writer.WriteStartElement("SplinePoint", XtceNamespace);
+            if (point.Order is not null)
+            {
+                writer.WriteAttributeString("order", point.Order);
+            }
+            writer.WriteAttributeString("raw", point.Raw);
+            writer.WriteAttributeString("calibrated", point.Calibrated);
+            WritePreservedAttributes(writer, point.PreservedAttributes);
+            writer.WriteEndElement();
+        }
+        writer.WriteEndElement();
         writer.WriteEndElement();
     }
 

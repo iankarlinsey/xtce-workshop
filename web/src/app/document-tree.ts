@@ -61,6 +61,28 @@ export interface ParameterPropertiesDoc {
   [key: string]: unknown;
 }
 
+export interface PolynomialTermDoc {
+  coefficient: string;
+  exponent: string;
+  [key: string]: unknown;
+}
+
+export interface SplinePointDoc {
+  raw: string;
+  calibrated: string;
+  order?: string | null;
+  [key: string]: unknown;
+}
+
+export interface CalibratorDoc {
+  kind: 'Polynomial' | 'Spline';
+  terms?: PolynomialTermDoc[] | null;
+  points?: SplinePointDoc[] | null;
+  splineOrder?: number | null;
+  extrapolate?: boolean | null;
+  [key: string]: unknown;
+}
+
 export interface DataEncodingDoc {
   kind: 'Integer' | 'Float' | 'String' | 'Binary';
   encoding?: string | null;
@@ -68,6 +90,7 @@ export interface DataEncodingDoc {
   changeThreshold?: string | null;
   bitOrder?: string | null;
   byteOrder?: string | null;
+  defaultCalibrator?: CalibratorDoc | null;
   [key: string]: unknown;
 }
 

@@ -704,6 +704,32 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('the calibrator editor adds a polynomial and edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Volt_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const kindSelect = compiled.querySelector('select[aria-label="New calibrator kind"]') as HTMLSelectElement;
+      kindSelect.value = 'Polynomial';
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
+        (b) => b.textContent?.trim() === '+ Add calibrator'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const coefficient = compiled.querySelector('input[aria-label="Term 0 coefficient"]') as HTMLInputElement;
+      coefficient.value = '2.5';
+      coefficient.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[0].dataEncoding.defaultCalibrator)
+        .toEqual({ kind: 'Polynomial', terms: [{ coefficient: '2.5', exponent: '1' }] });
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('algorithms render in the tree and text edits flow into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

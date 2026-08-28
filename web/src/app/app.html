@@ -513,6 +513,52 @@
                 <label for="enc-byteorder">Byte order <span class="hint">(default: mostSignificantByteFirst)</span></label>
                 <input id="enc-byteorder" [value]="encoding.byteOrder ?? ''" (input)="onEncodingFieldInput('byteOrder', $event)" />
               </div>
+              <div class="form-field enum-editor">
+                <label>Default calibrator</label>
+                @if (encoding.defaultCalibrator; as calibrator) {
+                  <div class="enum-row">
+                    <span class="type-badge">{{ calibrator.kind }}Calibrator</span>
+                    <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveCalibrator()" aria-label="Remove calibrator">&times;</button>
+                  </div>
+                  @if (calibrator.kind === 'Polynomial') {
+                    @for (term of calibrator.terms ?? []; track $index; let i = $index) {
+                      <div class="enum-row">
+                        <input class="enum-value" [value]="term.coefficient" (input)="onCalibratorRowInput('terms', i, 'coefficient', $event)" placeholder="coefficient" [attr.aria-label]="'Term ' + i + ' coefficient'" />
+                        <input class="enum-value" [value]="term.exponent" (input)="onCalibratorRowInput('terms', i, 'exponent', $event)" placeholder="exponent" [attr.aria-label]="'Term ' + i + ' exponent'" />
+                        <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveCalibratorRow('terms', i)" [disabled]="(calibrator.terms ?? []).length <= 1" aria-label="Remove term">&times;</button>
+                      </div>
+                    }
+                    <rux-button secondary (click)="onAddCalibratorRow('terms')">+ Add term</rux-button>
+                  } @else {
+                    <div class="form-field">
+                      <label for="cal-order">Order <span class="hint">(XTCE default: 1)</span></label>
+                      <input id="cal-order" type="number" [value]="calibrator.splineOrder ?? ''" (input)="onCalibratorFieldInput('splineOrder', $event)" />
+                    </div>
+                    <div class="form-field checkbox-field">
+                      <label>
+                        <input type="checkbox" [checked]="calibrator.extrapolate ?? false" (change)="onCalibratorFieldInput('extrapolate', $event)" />
+                        Extrapolate <span class="hint">(XTCE default: false)</span>
+                      </label>
+                    </div>
+                    @for (point of calibrator.points ?? []; track $index; let i = $index) {
+                      <div class="enum-row">
+                        <input class="enum-value" [value]="point.raw" (input)="onCalibratorRowInput('points', i, 'raw', $event)" placeholder="raw" [attr.aria-label]="'Spline point ' + i + ' raw'" />
+                        <input class="enum-value" [value]="point.calibrated" (input)="onCalibratorRowInput('points', i, 'calibrated', $event)" placeholder="calibrated" [attr.aria-label]="'Spline point ' + i + ' calibrated'" />
+                        <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveCalibratorRow('points', i)" [disabled]="(calibrator.points ?? []).length <= 2" aria-label="Remove spline point">&times;</button>
+                      </div>
+                    }
+                    <rux-button secondary (click)="onAddCalibratorRow('points')">+ Add point</rux-button>
+                  }
+                } @else {
+                  <div class="creator-row">
+                    <select #calibratorKind class="kind-select" aria-label="New calibrator kind">
+                      <option value="Polynomial">Polynomial</option>
+                      <option value="Spline">Spline</option>
+                    </select>
+                    <rux-button secondary (click)="onAddCalibrator(calibratorKind)">+ Add calibrator</rux-button>
+                  </div>
+                }
+              </div>
               <app-preserved-xml [item]="encoding" />
             } @else {
               <div class="creator-row">

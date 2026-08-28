@@ -1883,6 +1883,7 @@ public static class XtceDocumentReader
 
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
+        Calibrator? defaultCalibrator = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1894,10 +1895,26 @@ public static class XtceDocumentReader
 
             while (reader.NodeType != XmlNodeType.EndElement)
             {
-                if (reader.NodeType == XmlNodeType.Element)
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "DefaultCalibrator"
+                    && defaultCalibrator is null)
                 {
-                    // Calibrators, ErrorDetectCorrect, the SizeInBits/Variable size shapes,
-                    // transform algorithms — preserved verbatim in original order.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    // A MathOperationCalibrator, embedded comments, or anything else
+                    // unrecognizable keeps the whole element as a preserved fragment.
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseDefaultCalibrator(outerXml, out var calibrator))
+                    {
+                        defaultCalibrator = calibrator;
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("DefaultCalibrator", outerXml));
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // ContextCalibratorList, ErrorDetectCorrect, the SizeInBits/Variable
+                    // size shapes, transform algorithms — preserved verbatim.
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
                 }
@@ -1911,7 +1928,141 @@ public static class XtceDocumentReader
             reader.ReadEndElement();
         }
 
-        return new DataEncoding(kind, encoding, sizeInBits, changeThreshold, bitOrder, byteOrder, preserved, preservedAttributes);
+        return new DataEncoding(kind, encoding, sizeInBits, changeThreshold, bitOrder, byteOrder, preserved,
+            preservedAttributes, defaultCalibrator);
+    }
+
+    private static bool TryParseDefaultCalibrator(string outerXml, out Calibrator? calibrator)
+    {
+        calibrator = null;
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (reader.NodeType != XmlNodeType.Element || reader.IsEmptyElement)
+            {
+                return false;
+            }
+            reader.ReadStartElement();
+
+            CalibratorKind? kind = null;
+            long? splineOrder = null;
+            bool? extrapolate = null;
+            IReadOnlyList<RawAttribute>? preservedAttributes = null;
+            List<PolynomialTerm>? terms = null;
+            List<SplinePointEntry>? points = null;
+            List<RawXmlFragment>? preservedChildren = null;
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && kind is null
+                    && reader.LocalName is "PolynomialCalibrator" or "SplineCalibrator")
+                {
+                    kind = reader.LocalName == "PolynomialCalibrator" ? CalibratorKind.Polynomial : CalibratorKind.Spline;
+                    string[] modeledAttributes = [];
+                    if (kind == CalibratorKind.Spline)
+                    {
+                        splineOrder = ParseLong(reader, "order");
+                        extrapolate = ParseBool(reader, "extrapolate");
+                        modeledAttributes = ["order", "extrapolate"];
+                    }
+                    preservedAttributes = CapturePreservedAttributes(reader, modeledAttributes);
+
+                    if (reader.IsEmptyElement)
+                    {
+                        reader.Read();
+                        continue;
+                    }
+                    reader.ReadStartElement();
+                    while (reader.NodeType != XmlNodeType.EndElement)
+                    {
+                        if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Term"
+                            && kind == CalibratorKind.Polynomial)
+                        {
+                            var coefficient = reader.GetAttribute("coefficient");
+                            var exponent = reader.GetAttribute("exponent");
+                            var termPreserved = CapturePreservedAttributes(reader, ["coefficient", "exponent"]);
+                            if (coefficient is null || exponent is null || !SkipEmptyShapedElement(reader))
+                            {
+                                return false;
+                            }
+                            (terms ??= new List<PolynomialTerm>()).Add(
+                                new PolynomialTerm(coefficient, exponent, termPreserved));
+                        }
+                        else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "SplinePoint"
+                                 && kind == CalibratorKind.Spline)
+                        {
+                            var raw = reader.GetAttribute("raw");
+                            var calibrated = reader.GetAttribute("calibrated");
+                            var pointOrder = reader.GetAttribute("order");
+                            var pointPreserved = CapturePreservedAttributes(reader, ["raw", "calibrated", "order"]);
+                            if (raw is null || calibrated is null || !SkipEmptyShapedElement(reader))
+                            {
+                                return false;
+                            }
+                            (points ??= new List<SplinePointEntry>()).Add(
+                                new SplinePointEntry(raw, calibrated, pointOrder, pointPreserved));
+                        }
+                        else if (reader.NodeType == XmlNodeType.Element)
+                        {
+                            // AncillaryDataSet (or foreign content) — preserved on the record.
+                            Preserve(ref preservedChildren, reader);
+                        }
+                        else if (reader.NodeType is XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                        {
+                            return false; // comment placement can't be modeled — bail to the fragment
+                        }
+                        else
+                        {
+                            reader.Read();
+                        }
+                    }
+                    reader.ReadEndElement();
+                }
+                else if (reader.NodeType is XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+                {
+                    reader.Read();
+                }
+                else
+                {
+                    return false; // MathOperationCalibrator, a second calibrator, comments...
+                }
+            }
+
+            if (kind is null)
+            {
+                return false;
+            }
+            calibrator = new Calibrator(kind.Value, terms, points, splineOrder, extrapolate,
+                preservedChildren, preservedAttributes);
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Advances past an element that must have no content; false when it has any.</summary>
+    private static bool SkipEmptyShapedElement(XmlReader reader)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return true;
+        }
+        reader.ReadStartElement();
+        while (reader.NodeType is XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+        {
+            reader.Read();
+        }
+        if (reader.NodeType != XmlNodeType.EndElement)
+        {
+            return false;
+        }
+        reader.ReadEndElement();
+        return true;
     }
 
     private static List<Dimension> ReadDimensionList(XmlReader reader)

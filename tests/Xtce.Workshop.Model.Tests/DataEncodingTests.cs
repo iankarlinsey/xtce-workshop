@@ -60,7 +60,10 @@ public class DataEncodingTests
         Assert.Equal(DataEncodingKind.Integer, integer.Kind);
         Assert.Equal(("twosComplement", 12L, "2", "leastSignificantBitFirst", null),
             (integer.Encoding, integer.SizeInBits, integer.ChangeThreshold, integer.BitOrder, integer.ByteOrder));
-        Assert.Equal(["DefaultCalibrator"], integer.Preserved!.Select(f => f.ElementName).ToList());
+        // The polynomial DefaultCalibrator is modeled since #104 — no fragment left.
+        Assert.Null(integer.Preserved);
+        var term = Assert.Single(integer.DefaultCalibrator!.Terms!);
+        Assert.Equal(("1", "1"), (term.Coefficient, term.Exponent));
 
         // Neither the encoding nor the UnitSet rides in the type's preserved list anymore.
         Assert.Null(types.Single(t => t.Name == "I").Preserved);
@@ -130,5 +133,83 @@ public class DataEncodingTests
 
         var written = XtceDocumentWriter.Write(loaded);
         Assert.Equal(loaded, Load(written));
+    }
+
+    [Test]
+    public void Load_ModelsSplineCalibrators_AndBailsOutOnMathOperation()
+    {
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <TelemetryMetaData>
+                <ParameterTypeSet>
+                  <IntegerParameterType name="A">
+                    <IntegerDataEncoding>
+                      <DefaultCalibrator>
+                        <SplineCalibrator order="2" extrapolate="true">
+                          <SplinePoint raw="0" calibrated="0"/>
+                          <SplinePoint raw="1" calibrated="10"/>
+                          <SplinePoint raw="2" calibrated="40"/>
+                        </SplineCalibrator>
+                      </DefaultCalibrator>
+                    </IntegerDataEncoding>
+                  </IntegerParameterType>
+                  <IntegerParameterType name="B">
+                    <IntegerDataEncoding>
+                      <DefaultCalibrator>
+                        <MathOperationCalibrator><ValueOperand>1</ValueOperand></MathOperationCalibrator>
+                      </DefaultCalibrator>
+                    </IntegerDataEncoding>
+                  </IntegerParameterType>
+                </ParameterTypeSet>
+                <ParameterSet/>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
+        var loaded = Load(xml);
+        var types = loaded.TelemetryMetaData!.ParameterTypeSet;
+
+        var spline = types.Single(t => t.Name == "A").DataEncoding!.DefaultCalibrator!;
+        Assert.Equal((CalibratorKind.Spline, 2L, true), (spline.Kind, spline.SplineOrder!.Value, spline.Extrapolate!.Value));
+        Assert.Equal(["0", "1", "2"], spline.Points!.Select(p => p.Raw));
+
+        // MathOperationCalibrator is NOT modeled — the whole element stays a fragment.
+        var mathEncoding = types.Single(t => t.Name == "B").DataEncoding!;
+        Assert.Null(mathEncoding.DefaultCalibrator);
+        Assert.Equal(["DefaultCalibrator"], mathEncoding.Preserved!.Select(f => f.ElementName).ToList());
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, Load(written));
+        var errors = XsdValidation.Validate(written);
+        Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
+    }
+
+    [Test]
+    public void RoundTrip_CalibratorAfterErrorDetectCorrect_KeepsSchemaOrder()
+    {
+        // The modeled DefaultCalibrator must slot AFTER a preserved ErrorDetectCorrect
+        // (base-type child comes first in the XSD sequence).
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <TelemetryMetaData>
+                <ParameterTypeSet>
+                  <IntegerParameterType name="A">
+                    <IntegerDataEncoding>
+                      <ErrorDetectCorrect><Checksum name="sum16" bitsFromReference="0"/></ErrorDetectCorrect>
+                      <DefaultCalibrator><PolynomialCalibrator><Term coefficient="2" exponent="1"/></PolynomialCalibrator></DefaultCalibrator>
+                    </IntegerDataEncoding>
+                  </IntegerParameterType>
+                </ParameterTypeSet>
+                <ParameterSet/>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
+        var loaded = Load(xml);
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, Load(written));
+        var errors = XsdValidation.Validate(written);
+        Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
+        Assert.True(written.IndexOf("<ErrorDetectCorrect", StringComparison.Ordinal)
+                    < written.IndexOf("<DefaultCalibrator", StringComparison.Ordinal));
     }
 }

@@ -1,3 +1,5 @@
+using Xtce.Workshop.Model;
+
 namespace Xtce.Workshop.Validation;
 
 /// <summary>
@@ -15,6 +17,28 @@ public sealed class SplineOrderRequiresMinPointsRule : IValidationRule
 
     public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
+        // Modeled DefaultCalibrators on every encoding (parameter, command-parameter,
+        // and argument types — time wrappers included).
+        foreach (var (type, location) in ModeledTypeSets.All(context))
+        {
+            foreach (var encoding in new[] { type.DataEncoding, type.TimeEncoding?.DataEncoding })
+            {
+                if (encoding?.DefaultCalibrator is not { Kind: CalibratorKind.Spline } spline)
+                {
+                    continue;
+                }
+                var order = spline.SplineOrder ?? 1; // XSD default
+                var pointCount = spline.Points?.Count ?? 0;
+                if (pointCount < order + 1)
+                {
+                    yield return new ValidationIssue(RuleId, Severity, location,
+                        $"SplineCalibrator of order {order} has {pointCount} point(s) — order {order} requires at least {order + 1}.",
+                        CandidateNumber: 55);
+                }
+            }
+        }
+
+        // Splines still inside preserved fragments (context calibrators, preserved sets).
         foreach (var (fragment, location) in FragmentEnumerator.EnumerateNode(context))
         {
             foreach (var spline in XmlFragmentInspector.FindSplineCalibrators(fragment.OuterXml))
@@ -26,6 +50,26 @@ public sealed class SplineOrderRequiresMinPointsRule : IValidationRule
                         CandidateNumber: 55);
                 }
             }
+        }
+    }
+}
+
+/// <summary>Every modeled type definition in a node, paired with its rule-location string.</summary>
+internal static class ModeledTypeSets
+{
+    public static IEnumerable<(Xtce.Workshop.Model.ParameterTypeDefinition Type, string Location)> All(SpaceSystemContext context)
+    {
+        foreach (var type in context.Node.TelemetryMetaData?.ParameterTypeSet ?? [])
+        {
+            yield return (type, $"{context.Path}/ParameterTypeSet/{type.Name}");
+        }
+        foreach (var type in context.Node.CommandMetaData?.ParameterTypeSet ?? [])
+        {
+            yield return (type, $"{context.Path}/CommandMetaData/ParameterTypeSet/{type.Name}");
+        }
+        foreach (var type in context.Node.CommandMetaData?.ArgumentTypeSet ?? [])
+        {
+            yield return (type, $"{context.Path}/CommandMetaData/ArgumentTypeSet/{type.Name}");
         }
     }
 }
