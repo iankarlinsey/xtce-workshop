@@ -553,6 +553,7 @@ public static class XtceDocumentReader
         List<ParameterToSet>? parameterToSets = null;
         Significance? defaultSignificance = null;
         Interlock? interlock = null;
+        Description? description = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
         CommandContainer? commandContainer = null;
@@ -661,6 +662,11 @@ public static class XtceDocumentReader
                     }
                     commandContainer = ReadCommandContainer(reader);
                 }
+                else if (reader.NodeType == XmlNodeType.Element
+                         && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
@@ -680,7 +686,7 @@ public static class XtceDocumentReader
             name, isAbstract, baseMetaCommandRef, basePreserved,
             verifiers, preserved, preservedAttributes,
             commandContainer, arguments, preservedArguments, argumentAssignments,
-            transmissionConstraints, parameterToSets, defaultSignificance, interlock);
+            transmissionConstraints, parameterToSets, defaultSignificance, interlock, description);
     }
 
     private static void ReadTransmissionConstraintList(XmlReader reader, List<TransmissionConstraint> constraints)
@@ -981,6 +987,7 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preserved = null;
         List<SequenceEntry>? entryList = null;
         List<string>? pendingComments = null;
+        Description? description = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1026,10 +1033,14 @@ public static class XtceDocumentReader
                     entryList = new List<SequenceEntry>();
                     ReadEntryList(reader, entryList, commandEntries: true);
                 }
+                else if (reader.NodeType == XmlNodeType.Element
+                         && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // Description children, BinaryEncoding, DefaultRateInStream —
-                    // preserved verbatim.
+                    // BinaryEncoding, DefaultRateInStream — preserved verbatim.
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
                 }
@@ -1043,7 +1054,7 @@ public static class XtceDocumentReader
             reader.ReadEndElement();
         }
 
-        return new CommandContainer(name, baseContainerRef, basePreserved, preserved, preservedAttributes, entryList);
+        return new CommandContainer(name, baseContainerRef, basePreserved, preserved, preservedAttributes, entryList, description);
     }
 
     private static readonly string[] VerifierElementNames =
@@ -1336,6 +1347,7 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preservedOutputs = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
+        Description? description = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1378,11 +1390,16 @@ public static class XtceDocumentReader
                     outputs = new List<AlgorithmParameterRef>();
                     ReadAlgorithmRefSet(reader, "OutputParameterRef", "outputName", outputs, ref preservedOutputs);
                 }
+                else if (reader.NodeType == XmlNodeType.Element
+                         && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // ExternalAlgorithmSet, TriggerSet, MathOperation, description
-                    // children — preserved verbatim. (An AlgorithmText with unexpected
-                    // attributes also lands here so nothing is dropped.)
+                    // ExternalAlgorithmSet, TriggerSet, MathOperation — preserved verbatim.
+                    // (An AlgorithmText with unexpected attributes also lands here so
+                    // nothing is dropped.)
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
                 }
@@ -1397,7 +1414,151 @@ public static class XtceDocumentReader
         }
 
         return new Algorithm(name, kind, algorithmText, language, inputs, preservedInputs, outputs, preservedOutputs,
-            thread, triggerContainer, priority, preserved, preservedAttributes);
+            thread, triggerContainer, priority, preserved, preservedAttributes, description);
+    }
+
+    /// <summary>
+    /// Handles one NameDescription-trio child (issue #113): LongDescription (text-only,
+    /// otherwise the fragment is preserved on the construct), AliasSet, and
+    /// AncillaryDataSet. Returns false when the current element is none of the three.
+    /// </summary>
+    private static bool TryReadDescriptionChild(
+        XmlReader reader,
+        ref Description? description,
+        ref List<RawXmlFragment>? preserved,
+        ref List<string>? pendingComments)
+    {
+        if (reader.LocalName == "LongDescription" && description?.LongDescription is null)
+        {
+            DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+            var outerXml = reader.ReadOuterXml();
+            if (TryReadTextOnlyElement(outerXml, out var text))
+            {
+                description = (description ?? new Description()) with { LongDescription = text };
+            }
+            else
+            {
+                (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("LongDescription", outerXml));
+            }
+            return true;
+        }
+        if (reader.LocalName == "AliasSet" && description?.Aliases is null && description?.PreservedAliases is null)
+        {
+            DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+            var aliases = new List<AliasEntry>();
+            List<RawXmlFragment>? preservedAliases = null;
+            ReadSetOfRows(reader, "Alias", element =>
+            {
+                var nameSpace = element.GetAttribute("nameSpace");
+                var alias = element.GetAttribute("alias");
+                if (nameSpace is null || alias is null)
+                {
+                    return false;
+                }
+                aliases.Add(new AliasEntry(nameSpace, alias,
+                    CapturePreservedAttributes(element, ["nameSpace", "alias"])));
+                return true;
+            }, ref preservedAliases);
+            description = (description ?? new Description()) with
+            {
+                Aliases = aliases,
+                PreservedAliases = preservedAliases,
+            };
+            return true;
+        }
+        if (reader.LocalName == "AncillaryDataSet" && description?.AncillaryData is null
+            && description?.PreservedAncillaryData is null)
+        {
+            DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+            var rows = new List<AncillaryDataEntry>();
+            List<RawXmlFragment>? preservedRows = null;
+            ReadAncillaryDataSet(reader, rows, ref preservedRows);
+            description = (description ?? new Description()) with
+            {
+                AncillaryData = rows,
+                PreservedAncillaryData = preservedRows,
+            };
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Reads a set of empty-shaped rows; a row the callback refuses is preserved.</summary>
+    private static void ReadSetOfRows(
+        XmlReader reader,
+        string rowElementName,
+        Func<XmlReader, bool> tryReadRow,
+        ref List<RawXmlFragment>? preservedRows)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == rowElementName
+                && reader.IsEmptyElement && tryReadRow(reader))
+            {
+                reader.Read();
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                Preserve(ref preservedRows, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static void ReadAncillaryDataSet(
+        XmlReader reader, List<AncillaryDataEntry> rows, ref List<RawXmlFragment>? preservedRows)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "AncillaryData"
+                && reader.GetAttribute("name") is { } name)
+            {
+                var mimeType = reader.GetAttribute("mimeType");
+                var href = reader.GetAttribute("href");
+                var preservedAttributes = CapturePreservedAttributes(reader, ["name", "mimeType", "href"]);
+                var outerXml = reader.ReadOuterXml();
+                if (TryReadTextOnlyElement(outerXml, out var value))
+                {
+                    rows.Add(new AncillaryDataEntry(name, value, mimeType, href, preservedAttributes));
+                }
+                else
+                {
+                    // Element content (e.g. a foreign-namespace payload) — preserved whole.
+                    (preservedRows ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("AncillaryData", outerXml));
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                Preserve(ref preservedRows, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
     }
 
     /// <summary>Extracts an element's pure text content; false when it holds elements or comments.</summary>
@@ -1565,6 +1726,7 @@ public static class XtceDocumentReader
 
         string? containerRef = null;
         MatchCriteria? matchCriteria = null;
+        Description? description = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
 
@@ -1593,9 +1755,13 @@ public static class XtceDocumentReader
                 {
                     matchCriteria = ReadMatchCriteria(reader);
                 }
+                else if (reader.NodeType == XmlNodeType.Element
+                         && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // Description children — preserved verbatim.
                     Preserve(ref preserved, reader);
                 }
                 else if (!TryCaptureComment(reader, ref pendingComments))
@@ -1613,7 +1779,7 @@ public static class XtceDocumentReader
             throw new XtceParseException($"Message '{name}' is missing its required ContainerRef element.");
         }
 
-        return new Message(name, containerRef, preserved, preservedAttributes, matchCriteria);
+        return new Message(name, containerRef, preserved, preservedAttributes, matchCriteria, description);
     }
 
     private static MatchCriteria ReadMatchCriteria(XmlReader reader)
@@ -1735,6 +1901,7 @@ public static class XtceDocumentReader
         BaseContainer? baseContainer = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
+        Description? description = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1759,10 +1926,14 @@ public static class XtceDocumentReader
                 {
                     baseContainer = ReadBaseContainer(reader);
                 }
+                else if (reader.NodeType == XmlNodeType.Element
+                         && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // DefaultRateInStream, RateInStreamSet, BinaryEncoding, LongDescription,
-                    // AliasSet, AncillaryDataSet — preserved verbatim.
+                    // DefaultRateInStream, RateInStreamSet, BinaryEncoding — preserved verbatim.
                     Preserve(ref preserved, reader);
                 }
                 else if (!TryCaptureComment(reader, ref pendingComments))
@@ -1775,7 +1946,7 @@ public static class XtceDocumentReader
             reader.ReadEndElement();
         }
 
-        return new SequenceContainer(name, entries, baseContainer, isAbstract, preserved, preservedAttributes);
+        return new SequenceContainer(name, entries, baseContainer, isAbstract, preserved, preservedAttributes, description);
     }
 
     private static void ReadEntryList(XmlReader reader, List<SequenceEntry> entries, bool commandEntries = false)
@@ -2323,6 +2494,7 @@ public static class XtceDocumentReader
         List<Unit>? unitSet = null;
         List<RawXmlFragment>? preservedUnits = null;
         NumericAlarm? defaultAlarm = null;
+        Description? description = null;
 
         if (reader.IsEmptyElement)
         {
@@ -2375,6 +2547,11 @@ public static class XtceDocumentReader
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     defaultAlarm = ReadNumericAlarm(reader);
                 }
+                else if (reader.NodeType == XmlNodeType.Element
+                         && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled (modeled or preserved by the helper)
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
                     // UnitSet, alarms, ToString, ValidRange, SizeRangeInCharacters,
@@ -2411,7 +2588,8 @@ public static class XtceDocumentReader
             timeEncoding,
             unitSet,
             preservedUnits,
-            defaultAlarm);
+            defaultAlarm,
+            description);
     }
 
     private static NumericAlarm ReadNumericAlarm(XmlReader reader)
@@ -3097,6 +3275,7 @@ public static class XtceDocumentReader
         var preserved = leadingComments;
         List<string>? pendingComments = null;
         ParameterProperties? properties = null;
+        Description? description = null;
 
         if (reader.IsEmptyElement)
         {
@@ -3112,6 +3291,11 @@ public static class XtceDocumentReader
                 {
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     properties = ReadParameterProperties(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element
+                         && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled (modeled or preserved by the helper)
                 }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
@@ -3129,7 +3313,7 @@ public static class XtceDocumentReader
             reader.ReadEndElement();
         }
 
-        return new Parameter(name, parameterTypeRef, initialValue, preserved, preservedAttributes, properties);
+        return new Parameter(name, parameterTypeRef, initialValue, preserved, preservedAttributes, properties, description);
     }
 
     private static ParameterProperties ReadParameterProperties(XmlReader reader)

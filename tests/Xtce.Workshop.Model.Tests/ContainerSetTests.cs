@@ -34,7 +34,9 @@ public class ContainerSetTests
         var header = loaded.TelemetryMetaData!.ContainerSet!.Single(c => c.Name == "CcsdsHeader");
 
         Assert.Equal(true, header.Abstract);
-        Assert.Equal(["LongDescription"], header.Preserved!.Select(f => f.ElementName).ToList());
+        // LongDescription is modeled since #113.
+        Assert.Null(header.Preserved);
+        Assert.NotNull(header.Description!.LongDescription);
         Assert.Equal("Primary header layout",
             header.PreservedAttributes!.Single(a => a.Name == "shortDescription").Value);
 

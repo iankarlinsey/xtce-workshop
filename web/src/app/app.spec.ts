@@ -414,7 +414,10 @@ describe('App', () => {
                 dataEncoding: { kind: 'Float', sizeInBits: 32, encoding: 'IEEE754_1985' },
                 unitSet: [{ value: 'V', description: 'volts' }],
               },
-              { name: 'Mode_Type', kind: 'Enumerated', enumerations: [{ value: 0, label: 'IDLE' }] },
+              {
+                name: 'Mode_Type', kind: 'Enumerated', enumerations: [{ value: 0, label: 'IDLE' }],
+                description: { longDescription: 'Operating mode.', aliases: [{ nameSpace: 'ops', alias: 'MODE' }] },
+              },
               { name: 'Uptime_Type', kind: 'RelativeTime', timeEncoding: { units: 'seconds', dataEncoding: { kind: 'Integer', sizeInBits: 32 } } },
             ],
             parameterSet: [{
@@ -881,6 +884,27 @@ describe('App', () => {
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body.header).toEqual(
         { validationStatus: 'Working', classification: 'Unrestricted', date: '2026-08-28' });
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('long descriptions edit and aliases display on the type form', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Mode_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('Aliases: ops: MODE');
+      const textArea = compiled.querySelector('#type-longdesc') as HTMLTextAreaElement;
+      expect(textArea.value).toBe('Operating mode.');
+      textArea.value = 'Spacecraft operating mode.';
+      textArea.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[1].description.longDescription)
+        .toBe('Spacecraft operating mode.');
       req.flush('<SpaceSystem/>');
     }));
 

@@ -260,6 +260,7 @@ public static class XtceDocumentWriter
                 WritePreservedAttributes(writer, captured.PreservedAttributes);
 
                 var messageSlots = new List<(string Name, Action Emit)>();
+                AddDescriptionSlots(writer, captured.Description, messageSlots);
                 if (captured.MatchCriteria is { } matchCriteria)
                 {
                     messageSlots.Add(("MatchCriteria", () =>
@@ -402,6 +403,7 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, metaCommand.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        AddDescriptionSlots(writer, metaCommand.Description, slots);
         AddPreservedSlots(slots, writer, metaCommand.Preserved);
 
         if (metaCommand.BaseMetaCommandRef is { } baseRef)
@@ -714,6 +716,7 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, commandContainer.PreservedAttributes);
 
         var containerSlots = new List<(string Name, Action Emit)>();
+        AddDescriptionSlots(writer, commandContainer.Description, containerSlots);
         AddPreservedSlots(containerSlots, writer, commandContainer.Preserved);
         if (commandContainer.EntryList is { } entryList)
         {
@@ -754,6 +757,7 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, container.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        AddDescriptionSlots(writer, container.Description, slots);
         AddPreservedSlots(slots, writer, container.Preserved);
 
         // EntryList is required by the XSD (minOccurs defaults to 1) — always written,
@@ -881,6 +885,66 @@ public static class XtceDocumentWriter
         }
     }
 
+    /// <summary>Emits a construct's modeled description trio into its slot list (#113).</summary>
+    private static void AddDescriptionSlots(XmlWriter writer, Description? description, List<(string Name, Action Emit)> slots)
+    {
+        if (description is null || description.IsEmpty)
+        {
+            return;
+        }
+        if (description.LongDescription is { } longDescription)
+        {
+            slots.Add(("LongDescription", () =>
+            {
+                writer.WriteStartElement("LongDescription", XtceNamespace);
+                writer.WriteString(longDescription);
+                writer.WriteEndElement();
+            }));
+        }
+        if (description.Aliases is not null || description.PreservedAliases is { Count: > 0 })
+        {
+            slots.Add(("AliasSet", () =>
+            {
+                writer.WriteStartElement("AliasSet", XtceNamespace);
+                foreach (var alias in description.Aliases ?? [])
+                {
+                    writer.WriteStartElement("Alias", XtceNamespace);
+                    writer.WriteAttributeString("nameSpace", alias.NameSpace);
+                    writer.WriteAttributeString("alias", alias.Alias);
+                    WritePreservedAttributes(writer, alias.PreservedAttributes);
+                    writer.WriteEndElement();
+                }
+                WriteFragments(writer, description.PreservedAliases);
+                writer.WriteEndElement();
+            }));
+        }
+        if (description.AncillaryData is not null || description.PreservedAncillaryData is { Count: > 0 })
+        {
+            slots.Add(("AncillaryDataSet", () =>
+            {
+                writer.WriteStartElement("AncillaryDataSet", XtceNamespace);
+                foreach (var row in description.AncillaryData ?? [])
+                {
+                    writer.WriteStartElement("AncillaryData", XtceNamespace);
+                    writer.WriteAttributeString("name", row.Name);
+                    if (row.MimeType is not null)
+                    {
+                        writer.WriteAttributeString("mimeType", row.MimeType);
+                    }
+                    if (row.Href is not null)
+                    {
+                        writer.WriteAttributeString("href", row.Href);
+                    }
+                    WritePreservedAttributes(writer, row.PreservedAttributes);
+                    writer.WriteString(row.Value);
+                    writer.WriteEndElement();
+                }
+                WriteFragments(writer, description.PreservedAncillaryData);
+                writer.WriteEndElement();
+            }));
+        }
+    }
+
     private static void WriteMatchCriteriaElement(XmlWriter writer, string elementName, MatchCriteria criteria)
     {
         writer.WriteStartElement(elementName, XtceNamespace);
@@ -984,6 +1048,7 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, parameter.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        AddDescriptionSlots(writer, parameter.Description, slots);
         if (parameter.Properties is { } properties)
         {
             slots.Add(("ParameterProperties", () =>
@@ -1073,6 +1138,7 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, parameterType.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        AddDescriptionSlots(writer, parameterType.Description, slots);
         if (parameterType.UnitSet is not null || parameterType.PreservedUnits is { Count: > 0 })
         {
             slots.Add(("UnitSet", () =>
@@ -1232,6 +1298,7 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, algorithm.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        AddDescriptionSlots(writer, algorithm.Description, slots);
         if (algorithm.AlgorithmText is { } text)
         {
             slots.Add(("AlgorithmText", () =>

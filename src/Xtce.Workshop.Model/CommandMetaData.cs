@@ -14,7 +14,8 @@ public sealed record CommandContainer(
     IReadOnlyList<RawXmlFragment>? BaseContainerPreserved = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
-    IReadOnlyList<SequenceEntry>? EntryList = null)
+    IReadOnlyList<SequenceEntry>? EntryList = null,
+    Description? Description = null)
 {
     public bool Equals(CommandContainer? other) =>
         other is not null
@@ -23,7 +24,8 @@ public sealed record CommandContainer(
         && Structural.ListEquals(BaseContainerPreserved, other.BaseContainerPreserved)
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
-        && Structural.ListEquals(EntryList, other.EntryList);
+        && Structural.ListEquals(EntryList, other.EntryList)
+        && Equals(Description, other.Description);
 
     public override int GetHashCode()
     {
@@ -34,6 +36,7 @@ public sealed record CommandContainer(
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
         Structural.AddList(ref hash, EntryList);
+        hash.Add(Description);
         return hash.ToHashCode();
     }
 }
@@ -280,7 +283,8 @@ public sealed record MetaCommand(
     IReadOnlyList<TransmissionConstraint>? TransmissionConstraints = null,
     IReadOnlyList<ParameterToSet>? ParameterToSets = null,
     Significance? DefaultSignificance = null,
-    Interlock? Interlock = null)
+    Interlock? Interlock = null,
+    Description? Description = null)
 {
     public bool Equals(MetaCommand? other) =>
         other is not null
@@ -298,7 +302,8 @@ public sealed record MetaCommand(
         && Structural.ListEquals(TransmissionConstraints, other.TransmissionConstraints)
         && Structural.ListEquals(ParameterToSets, other.ParameterToSets)
         && Equals(DefaultSignificance, other.DefaultSignificance)
-        && Equals(Interlock, other.Interlock);
+        && Equals(Interlock, other.Interlock)
+        && Equals(Description, other.Description);
 
     public override int GetHashCode()
     {
@@ -318,6 +323,7 @@ public sealed record MetaCommand(
         Structural.AddList(ref hash, ParameterToSets);
         hash.Add(DefaultSignificance);
         hash.Add(Interlock);
+        hash.Add(Description);
         return hash.ToHashCode();
     }
 }

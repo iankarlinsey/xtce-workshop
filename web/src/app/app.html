@@ -410,6 +410,15 @@
           <label for="type-initial">Initial value</label>
           <input id="type-initial" [value]="type.initialValue ?? ''" (input)="onItemFieldInput('initialValue', $event)" />
         </div>
+        <div class="form-field">
+          <label for="type-longdesc">Long description</label>
+          <textarea id="type-longdesc" class="algorithm-text" rows="3" [value]="type.description?.longDescription ?? ''" (input)="onLongDescriptionInput($event)"></textarea>
+        </div>
+        @if (aliasSummary(type.description); as aliases) {
+          @if (aliases) {
+            <p class="meta-text">Aliases: {{ aliases }}</p>
+          }
+        }
 
         @if (type.kind === 'Integer') {
           <div class="form-field checkbox-field">
@@ -665,6 +674,15 @@
           <label for="param-initial">Initial value <span class="hint">(overrides the type's)</span></label>
           <input id="param-initial" [value]="parameter.initialValue ?? ''" (input)="onItemFieldInput('initialValue', $event)" />
         </div>
+        <div class="form-field">
+          <label for="param-longdesc">Long description</label>
+          <textarea id="param-longdesc" class="algorithm-text" rows="3" [value]="parameter.description?.longDescription ?? ''" (input)="onLongDescriptionInput($event)"></textarea>
+        </div>
+        @if (aliasSummary(parameter.description); as aliases) {
+          @if (aliases) {
+            <p class="meta-text">Aliases: {{ aliases }}</p>
+          }
+        }
         <div class="form-field">
           <label for="param-datasource">Data source</label>
           <select id="param-datasource" class="kind-select" [value]="parameter.properties?.dataSource ?? ''" (change)="onParameterPropertyChange('dataSource', $event)">
@@ -1003,6 +1021,15 @@
           <label for="command-baseref">Base command ref <span class="hint">(inheritance, optional)</span></label>
           <input id="command-baseref" list="known-metacommand-names" [value]="metaCommand.baseMetaCommandRef ?? ''" (input)="onItemFieldInput('baseMetaCommandRef', $event)" />
         </div>
+        <div class="form-field">
+          <label for="command-longdesc">Long description</label>
+          <textarea id="command-longdesc" class="algorithm-text" rows="3" [value]="metaCommand.description?.longDescription ?? ''" (input)="onLongDescriptionInput($event)"></textarea>
+        </div>
+        @if (aliasSummary(metaCommand.description); as aliases) {
+          @if (aliases) {
+            <p class="meta-text">Aliases: {{ aliases }}</p>
+          }
+        }
         <div class="form-field enum-editor">
           <label>Arguments</label>
           @for (argument of metaCommand.arguments ?? []; track $index; let i = $index) {

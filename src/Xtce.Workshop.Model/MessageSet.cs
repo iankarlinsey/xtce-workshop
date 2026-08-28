@@ -41,7 +41,8 @@ public sealed record Message(
     string ContainerRef,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
-    MatchCriteria? MatchCriteria = null)
+    MatchCriteria? MatchCriteria = null,
+    Description? Description = null)
 {
     public bool Equals(Message? other) =>
         other is not null
@@ -49,7 +50,8 @@ public sealed record Message(
         && ContainerRef == other.ContainerRef
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
-        && Equals(MatchCriteria, other.MatchCriteria);
+        && Equals(MatchCriteria, other.MatchCriteria)
+        && Equals(Description, other.Description);
 
     public override int GetHashCode()
     {
@@ -59,6 +61,7 @@ public sealed record Message(
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
         hash.Add(MatchCriteria);
+        hash.Add(Description);
         return hash.ToHashCode();
     }
 }

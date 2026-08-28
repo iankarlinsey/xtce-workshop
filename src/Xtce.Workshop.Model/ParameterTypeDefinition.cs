@@ -376,7 +376,8 @@ public sealed record ParameterTypeDefinition(
     TimeEncoding? TimeEncoding = null,
     IReadOnlyList<Unit>? UnitSet = null,
     IReadOnlyList<RawXmlFragment>? PreservedUnits = null,
-    NumericAlarm? DefaultAlarm = null)
+    NumericAlarm? DefaultAlarm = null,
+    Description? Description = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -397,7 +398,8 @@ public sealed record ParameterTypeDefinition(
         && Equals(TimeEncoding, other.TimeEncoding)
         && Structural.ListEquals(UnitSet, other.UnitSet)
         && Structural.ListEquals(PreservedUnits, other.PreservedUnits)
-        && Equals(DefaultAlarm, other.DefaultAlarm);
+        && Equals(DefaultAlarm, other.DefaultAlarm)
+        && Equals(Description, other.Description);
 
     public override int GetHashCode()
     {
@@ -420,6 +422,7 @@ public sealed record ParameterTypeDefinition(
         Structural.AddList(ref hash, UnitSet);
         Structural.AddList(ref hash, PreservedUnits);
         hash.Add(DefaultAlarm);
+        hash.Add(Description);
         return hash.ToHashCode();
     }
 }
@@ -468,7 +471,8 @@ public sealed record Parameter(
     string? InitialValue = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
-    ParameterProperties? Properties = null)
+    ParameterProperties? Properties = null,
+    Description? Description = null)
 {
     public bool Equals(Parameter? other) =>
         other is not null
@@ -477,7 +481,8 @@ public sealed record Parameter(
         && InitialValue == other.InitialValue
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
-        && Equals(Properties, other.Properties);
+        && Equals(Properties, other.Properties)
+        && Equals(Description, other.Description);
 
     public override int GetHashCode()
     {
@@ -488,6 +493,7 @@ public sealed record Parameter(
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
         hash.Add(Properties);
+        hash.Add(Description);
         return hash.ToHashCode();
     }
 }

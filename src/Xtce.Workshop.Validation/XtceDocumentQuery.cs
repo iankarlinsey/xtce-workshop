@@ -36,47 +36,47 @@ public static class XtceDocumentQuery
             var telemetry = context.Node.TelemetryMetaData;
             foreach (var parameter in telemetry?.ParameterSet ?? [])
             {
-                AddIfMatched(matches, matcher, "Parameter", context.Path, parameter.Name, parameter.Preserved);
+                AddIfMatched(matches, matcher, "Parameter", context.Path, parameter.Name, parameter.Preserved, parameter.Description);
             }
             foreach (var type in telemetry?.ParameterTypeSet ?? [])
             {
-                AddIfMatched(matches, matcher, "ParameterType", context.Path, type.Name, type.Preserved);
+                AddIfMatched(matches, matcher, "ParameterType", context.Path, type.Name, type.Preserved, type.Description);
             }
             foreach (var container in telemetry?.ContainerSet ?? [])
             {
-                AddIfMatched(matches, matcher, "Container", context.Path, container.Name, container.Preserved);
+                AddIfMatched(matches, matcher, "Container", context.Path, container.Name, container.Preserved, container.Description);
             }
             foreach (var message in telemetry?.MessageSet?.Messages ?? [])
             {
-                AddIfMatched(matches, matcher, "Message", context.Path, message.Name, message.Preserved);
+                AddIfMatched(matches, matcher, "Message", context.Path, message.Name, message.Preserved, message.Description);
             }
             foreach (var argumentType in context.Node.CommandMetaData?.ArgumentTypeSet ?? [])
             {
-                AddIfMatched(matches, matcher, "ArgumentType", context.Path, argumentType.Name, argumentType.Preserved);
+                AddIfMatched(matches, matcher, "ArgumentType", context.Path, argumentType.Name, argumentType.Preserved, argumentType.Description);
             }
             foreach (var type in context.Node.CommandMetaData?.ParameterTypeSet ?? [])
             {
-                AddIfMatched(matches, matcher, "CommandParameterType", context.Path, type.Name, type.Preserved);
+                AddIfMatched(matches, matcher, "CommandParameterType", context.Path, type.Name, type.Preserved, type.Description);
             }
             foreach (var parameter in context.Node.CommandMetaData?.ParameterSet ?? [])
             {
-                AddIfMatched(matches, matcher, "CommandParameter", context.Path, parameter.Name, parameter.Preserved);
+                AddIfMatched(matches, matcher, "CommandParameter", context.Path, parameter.Name, parameter.Preserved, parameter.Description);
             }
             foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
             {
-                AddIfMatched(matches, matcher, "MetaCommand", context.Path, metaCommand.Name, metaCommand.Preserved);
+                AddIfMatched(matches, matcher, "MetaCommand", context.Path, metaCommand.Name, metaCommand.Preserved, metaCommand.Description);
             }
             foreach (var algorithm in telemetry?.AlgorithmSet ?? [])
             {
-                AddIfMatched(matches, matcher, "Algorithm", context.Path, algorithm.Name, algorithm.Preserved);
+                AddIfMatched(matches, matcher, "Algorithm", context.Path, algorithm.Name, algorithm.Preserved, algorithm.Description);
             }
             foreach (var algorithm in context.Node.CommandMetaData?.AlgorithmSet ?? [])
             {
-                AddIfMatched(matches, matcher, "CommandAlgorithm", context.Path, algorithm.Name, algorithm.Preserved);
+                AddIfMatched(matches, matcher, "CommandAlgorithm", context.Path, algorithm.Name, algorithm.Preserved, algorithm.Description);
             }
             foreach (var container in context.Node.CommandMetaData?.CommandContainerSet ?? [])
             {
-                AddIfMatched(matches, matcher, "CommandContainer", context.Path, container.Name, container.Preserved);
+                AddIfMatched(matches, matcher, "CommandContainer", context.Path, container.Name, container.Preserved, container.Description);
             }
         }
 
@@ -229,14 +229,15 @@ public static class XtceDocumentQuery
         string kind,
         string systemPath,
         string name,
-        IReadOnlyList<RawXmlFragment>? preserved)
+        IReadOnlyList<RawXmlFragment>? preserved,
+        Description? description = null)
     {
         if (matcher(name))
         {
             matches.Add(new SearchMatch(kind, systemPath, name, null));
             return;
         }
-        foreach (var alias in FindAliases(preserved))
+        foreach (var alias in (description?.Aliases ?? []).Select(a => a.Alias).Concat(FindAliases(preserved)))
         {
             if (matcher(alias))
             {

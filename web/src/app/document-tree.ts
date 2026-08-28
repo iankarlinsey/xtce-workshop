@@ -114,6 +114,13 @@ export interface NumericAlarmDoc {
   [key: string]: unknown;
 }
 
+export interface DescriptionDoc {
+  longDescription?: string | null;
+  aliases?: { nameSpace: string; alias: string; [key: string]: unknown }[] | null;
+  ancillaryData?: { name: string; value: string; [key: string]: unknown }[] | null;
+  [key: string]: unknown;
+}
+
 export interface ParameterTypeDoc {
   name: string;
   kind: ParameterTypeKind;
@@ -130,6 +137,7 @@ export interface ParameterTypeDoc {
   timeEncoding?: TimeEncodingDoc | null;
   unitSet?: UnitDoc[] | null;
   defaultAlarm?: NumericAlarmDoc | null;
+  description?: DescriptionDoc | null;
   [key: string]: unknown;
 }
 
@@ -138,6 +146,7 @@ export interface ParameterDoc {
   parameterTypeRef: string;
   initialValue?: string | null;
   properties?: ParameterPropertiesDoc | null;
+  description?: DescriptionDoc | null;
   [key: string]: unknown;
 }
 
@@ -299,6 +308,7 @@ export interface MetaCommandDoc {
   parameterToSets?: ParameterToSetDoc[] | null;
   defaultSignificance?: { spaceSystemAtRisk?: string | null; reasonForWarning?: string | null; consequenceLevel?: string | null; [key: string]: unknown } | null;
   interlock?: { scopeToSpaceSystem?: string | null; verificationToWaitFor?: string | null; suspendable?: boolean | null; [key: string]: unknown } | null;
+  description?: DescriptionDoc | null;
   [key: string]: unknown;
 }
 

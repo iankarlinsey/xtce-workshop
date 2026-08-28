@@ -8,6 +8,7 @@ import {
   SpaceSystemDocument,
   ParameterTypeDoc,
   DataEncodingDoc,
+  DescriptionDoc,
   CalibratorDoc,
   NumericAlarmDoc,
   AlarmRangeDoc,
@@ -1165,6 +1166,21 @@ export class App {
       const args = (metaCommand.arguments ?? []).filter((_, i) => i !== index);
       return { ...metaCommand, arguments: args.length > 0 ? args : null };
     });
+  }
+
+  onLongDescriptionInput(event: Event): void {
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.mutateSelectedItem((item) => {
+      const current = item as { description?: DescriptionDoc | null };
+      return {
+        ...current,
+        description: { ...(current.description ?? {}), longDescription: value === '' ? null : value },
+      };
+    });
+  }
+
+  protected aliasSummary(description: DescriptionDoc | null | undefined): string {
+    return (description?.aliases ?? []).map((a) => `${a.nameSpace}: ${a.alias}`).join(', ');
   }
 
   // --- Header editing --------------------------------------------------------------------
