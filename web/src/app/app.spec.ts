@@ -405,7 +405,8 @@ describe('App', () => {
         document: {
           name: 'Sat',
           children: [],
-          preserved: [{ elementName: 'Header', outerXml: '<Header/>' }],
+          header: { validationStatus: 'Test', version: '1.0' },
+          preserved: [{ elementName: 'ServiceSet', outerXml: '<ServiceSet/>' }],
           telemetryMetaData: {
             parameterTypeSet: [
               {
@@ -854,6 +855,50 @@ describe('App', () => {
       fixture.componentInstance.onSaveDocument();
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body.telemetryMetaData.parameterTypeSet[1].dataEncoding).toEqual({ kind: 'Integer' });
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('add-header seeds a Working validation status on a headerless root', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadNestedDocument(fixture); // no header
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
+        (b) => b.textContent?.trim() === '+ Add header'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const classificationInput = compiled.querySelector('#header-classification') as HTMLInputElement;
+      classificationInput.value = 'Unrestricted';
+      classificationInput.dispatchEvent(new Event('input'));
+      const dateInput = compiled.querySelector('#header-date') as HTMLInputElement;
+      dateInput.value = '2026-08-28';
+      dateInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.header).toEqual(
+        { validationStatus: 'Working', classification: 'Unrestricted', date: '2026-08-28' });
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('the header panel edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture); // root selected
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const versionInput = compiled.querySelector('#header-version') as HTMLInputElement;
+      expect(versionInput.value).toBe('1.0');
+      versionInput.value = '2.0';
+      versionInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.header).toEqual({ validationStatus: 'Test', version: '2.0' });
       req.flush('<SpaceSystem/>');
     }));
 
@@ -1607,7 +1652,7 @@ describe('App', () => {
       fixture.componentInstance.onSaveDocument();
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body.name).toBe('RenamedSat');
-      expect(req.request.body.preserved).toEqual([{ elementName: 'Header', outerXml: '<Header/>' }]);
+      expect(req.request.body.preserved).toEqual([{ elementName: 'ServiceSet', outerXml: '<ServiceSet/>' }]);
       req.flush('<SpaceSystem/>');
     }));
   });

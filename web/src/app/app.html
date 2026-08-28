@@ -220,6 +220,31 @@
           <input id="node-name" [value]="system.name" (input)="onSelectedNameInput($event)" />
         </div>
 
+        @if (system.header; as header) {
+          <div class="form-field enum-editor">
+            <label>Header</label>
+            <div class="form-field">
+              <label for="header-version">Version</label>
+              <input id="header-version" [value]="header.version ?? ''" (input)="onHeaderFieldInput('version', $event)" />
+            </div>
+            <div class="form-field">
+              <label for="header-date">Date</label>
+              <input id="header-date" [value]="header.date ?? ''" (input)="onHeaderFieldInput('date', $event)" />
+            </div>
+            <div class="form-field">
+              <label for="header-classification">Classification <span class="hint">(XTCE default: NotClassified)</span></label>
+              <input id="header-classification" [value]="header.classification ?? ''" (input)="onHeaderFieldInput('classification', $event)" />
+            </div>
+            <div class="form-field">
+              <label for="header-validation">Validation status <span class="hint">(required by the XSD)</span></label>
+              <input id="header-validation" [value]="header.validationStatus ?? ''" (input)="onHeaderFieldInput('validationStatus', $event)" />
+            </div>
+            <app-preserved-xml [item]="header" />
+          </div>
+        } @else if (isRootSelected()) {
+          <rux-button secondary (click)="onAddHeader()">+ Add header</rux-button>
+        }
+
         <div class="node-actions">
           <rux-button secondary (click)="onOpenCreator('child')">+ Add child</rux-button>
           <rux-button secondary (click)="onOpenCreator('parameterType')">+ Add parameter type</rux-button>

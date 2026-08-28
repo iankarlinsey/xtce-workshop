@@ -1155,6 +1155,31 @@ export class App {
     });
   }
 
+  // --- Header editing --------------------------------------------------------------------
+
+  onHeaderFieldInput(field: string, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection) {
+      return;
+    }
+    this.setDocument(updateNodeAtPath(doc, selection.systemPath, (system) => ({
+      ...system,
+      header: { ...(system.header ?? {}), [field]: value === '' ? null : value },
+    })));
+  }
+
+  onAddHeader(): void {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection) {
+      return;
+    }
+    this.setDocument(updateNodeAtPath(doc, selection.systemPath, (system) =>
+      system.header ? system : { ...system, header: { validationStatus: 'Working' } }));
+  }
+
   onMessageMatchInput(field: 'parameterRef' | 'value', event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.mutateSelectedItem((item) => {

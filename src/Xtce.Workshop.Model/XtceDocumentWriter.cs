@@ -114,6 +114,37 @@ public static class XtceDocumentWriter
             var telemetryMetaData = spaceSystem.TelemetryMetaData;
             slots.Add(("TelemetryMetaData", () => WriteTelemetryMetaData(writer, telemetryMetaData)));
         }
+
+        if (spaceSystem.Header is { } header)
+        {
+            slots.Add(("Header", () =>
+            {
+                writer.WriteStartElement("Header", XtceNamespace);
+                if (header.Version is not null)
+                {
+                    writer.WriteAttributeString("version", header.Version);
+                }
+                if (header.Date is not null)
+                {
+                    writer.WriteAttributeString("date", header.Date);
+                }
+                if (header.Classification is not null)
+                {
+                    writer.WriteAttributeString("classification", header.Classification);
+                }
+                if (header.ClassificationInstructions is not null)
+                {
+                    writer.WriteAttributeString("classificationInstructions", header.ClassificationInstructions);
+                }
+                if (header.ValidationStatus is not null)
+                {
+                    writer.WriteAttributeString("validationStatus", header.ValidationStatus);
+                }
+                WritePreservedAttributes(writer, header.PreservedAttributes);
+                WriteFragments(writer, header.Preserved);
+                writer.WriteEndElement();
+            }));
+        }
         if (spaceSystem.CommandMetaData is not null)
         {
             var commandMetaData = spaceSystem.CommandMetaData;

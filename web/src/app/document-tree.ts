@@ -309,11 +309,21 @@ export interface CommandMetaDataDoc {
   [key: string]: unknown;
 }
 
+export interface HeaderDoc {
+  version?: string | null;
+  date?: string | null;
+  classification?: string | null;
+  classificationInstructions?: string | null;
+  validationStatus?: string | null;
+  [key: string]: unknown;
+}
+
 export interface SpaceSystemDocument {
   name: string;
   children: SpaceSystemDocument[];
   telemetryMetaData?: TelemetryMetaDataDoc | null;
   commandMetaData?: CommandMetaDataDoc | null;
+  header?: HeaderDoc | null;
   [key: string]: unknown;
 }
 

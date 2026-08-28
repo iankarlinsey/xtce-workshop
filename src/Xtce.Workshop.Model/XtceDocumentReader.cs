@@ -280,13 +280,14 @@ public static class XtceDocumentReader
         var children = new List<SpaceSystem>();
         TelemetryMetaData? telemetryMetaData = null;
         CommandMetaData? commandMetaData = null;
+        Header? header = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
 
         if (reader.IsEmptyElement)
         {
             reader.Read();
-            return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData);
+            return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData, header);
         }
 
         reader.ReadStartElement();
@@ -305,6 +306,11 @@ public static class XtceDocumentReader
                     ReadItemWithRecovery(reader, recovery, path,
                         r => children.Add(ReadSpaceSystem(r, depth + 1, leading, recovery, path)), ref preserved);
                 }
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Header" && header is null)
+            {
+                DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                header = ReadHeader(reader);
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "TelemetryMetaData")
             {
@@ -334,7 +340,7 @@ public static class XtceDocumentReader
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // Unmodeled child (LongDescription, AliasSet, AncillaryDataSet, Header,
+                // Unmodeled child (LongDescription, AliasSet, AncillaryDataSet,
                 // ServiceSet) — preserved verbatim, re-emitted on save.
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                 Preserve(ref preserved, reader);
@@ -348,7 +354,7 @@ public static class XtceDocumentReader
         DrainComments(ref preserved, ref pendingComments, null);
         reader.ReadEndElement();
 
-        return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData);
+        return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData, header);
     }
 
     private static CommandMetaData ReadCommandMetaData(XmlReader reader, RecoveryContext? recovery = null, string path = "")
@@ -1091,6 +1097,49 @@ public static class XtceDocumentReader
 
         return new CommandVerifier(kind, comparison, comparisonList, containerRef, hasCheckWindow,
             timeToStartChecking, timeToStopChecking, timeWindowIsRelativeTo, checkWindowPreserved,
+            preserved, preservedAttributes);
+    }
+
+    private static Header ReadHeader(XmlReader reader)
+    {
+        var version = reader.GetAttribute("version");
+        var date = reader.GetAttribute("date");
+        var classification = reader.GetAttribute("classification");
+        var classificationInstructions = reader.GetAttribute("classificationInstructions");
+        var validationStatus = reader.GetAttribute("validationStatus");
+        var preservedAttributes = CapturePreservedAttributes(reader,
+            ["version", "date", "classification", "classificationInstructions", "validationStatus"]);
+
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // AuthorSet, NoteSet, HistorySet — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new Header(version, date, classification, classificationInstructions, validationStatus,
             preserved, preservedAttributes);
     }
 

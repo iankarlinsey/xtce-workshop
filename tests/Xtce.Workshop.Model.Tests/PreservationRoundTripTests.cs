@@ -32,10 +32,12 @@ public class PreservationRoundTripTests
 
         Assert.NotNull(loaded.Preserved);
         var names = loaded.Preserved!.Select(f => f.ElementName).ToList();
-        // CommandMetaData is modeled (an empty record here), not preserved.
-        Assert.Equal(["LongDescription", "AliasSet", "Header"], names);
+        // CommandMetaData and Header are modeled, not preserved.
+        Assert.Equal(["LongDescription", "AliasSet"], names);
         Assert.NotNull(loaded.CommandMetaData);
-        Assert.Contains("must survive load/save untouched", loaded.Preserved.Single(f => f.ElementName == "Header").OuterXml);
+        // The Header's note content survives on the modeled record's preserved children.
+        Assert.Contains("must survive load/save untouched",
+            loaded.Header!.Preserved!.Single(f => f.ElementName == "NoteSet").OuterXml);
     }
 
     [Test]
