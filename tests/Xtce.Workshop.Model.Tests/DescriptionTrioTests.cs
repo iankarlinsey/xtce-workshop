@@ -70,4 +70,55 @@ public class DescriptionTrioTests
         Assert.True(xml.IndexOf("<AncillaryDataSet", StringComparison.Ordinal)
                     < xml.IndexOf("<IntegerDataEncoding", StringComparison.Ordinal));
     }
+
+    [Test]
+    public void UnmodelableTrioShapes_BailOutLosslessly()
+    {
+        var loaded = Load($"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <TelemetryMetaData>
+                <ParameterTypeSet>
+                  <IntegerParameterType name="T">
+                    <LongDescription>Has <b xmlns="http://www.w3.org/1999/xhtml">real markup</b> children.</LongDescription>
+                    <AliasSet>
+                      <Alias nameSpace="ops" alias="A1"/>
+                      <Alias nameSpace="broken"/>
+                      <Foreign/>
+                    </AliasSet>
+                    <AncillaryDataSet>
+                      <AncillaryData name="blob"><payload xmlns="http://example.com">x</payload></AncillaryData>
+                      <AncillaryData name="plain">ok</AncillaryData>
+                    </AncillaryDataSet>
+                  </IntegerParameterType>
+                </ParameterTypeSet>
+                <ParameterSet>
+                  <Parameter name="P" parameterTypeRef="T">
+                    <AliasSet/>
+                    <AncillaryDataSet/>
+                  </Parameter>
+                </ParameterSet>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """);
+        var type = loaded.TelemetryMetaData!.ParameterTypeSet.Single();
+
+        // Element-content LongDescription stays a fragment on the construct.
+        Assert.Null(type.Description!.LongDescription);
+        Assert.Equal(["LongDescription"], type.Preserved!.Select(f => f.ElementName).ToList());
+        // The broken alias and the foreign row ride preserved inside the set.
+        Assert.Equal(["A1"], type.Description.Aliases!.Select(a => a.Alias));
+        Assert.Equal(["Alias", "Foreign"], type.Description.PreservedAliases!.Select(f => f.ElementName).ToList());
+        // Element-content ancillary payloads stay preserved inside their set.
+        Assert.Equal(["plain"], type.Description.AncillaryData!.Select(r => r.Name));
+        Assert.Equal(["AncillaryData"], type.Description.PreservedAncillaryData!.Select(f => f.ElementName).ToList());
+
+        // Empty sets stay empty, non-null (element fidelity).
+        var parameter = loaded.TelemetryMetaData.ParameterSet.Single();
+        Assert.Empty(parameter.Description!.Aliases!);
+        Assert.Empty(parameter.Description.AncillaryData!);
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, Load(written));
+        Assert.Contains("<AliasSet />", written.Replace("></AliasSet>", " />")); // empty set survives
+    }
 }
