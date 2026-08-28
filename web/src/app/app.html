@@ -767,6 +767,71 @@
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
+      } @else if (selectedAlgorithm(); as algorithm) {
+        <div class="node-title">
+          <span>{{ algorithm.name }}</span>
+          <span class="type-badge">{{ algorithm.kind === 'Math' ? 'MathAlgorithm' : 'CustomAlgorithm' }}</span>
+        </div>
+
+        <div class="form-field">
+          <label for="algo-name">Name</label>
+          <input id="algo-name" [value]="algorithm.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        @if (algorithm.kind === 'Custom') {
+          <div class="form-field">
+            <label for="algo-language">Language <span class="hint">(XTCE default: pseudo)</span></label>
+            <input id="algo-language" [value]="algorithm.language ?? ''" (input)="onItemFieldInput('language', $event)" />
+          </div>
+          <div class="form-field">
+            <label for="algo-text">Algorithm text</label>
+            <textarea id="algo-text" class="algorithm-text" rows="8" spellcheck="false"
+                      [value]="algorithm.algorithmText ?? ''" (input)="onItemFieldInput('algorithmText', $event)"></textarea>
+          </div>
+          <div class="form-field enum-editor">
+            <label>Inputs <span class="hint">(parameterRef → inputName)</span></label>
+            @for (input of algorithm.inputs ?? []; track $index; let i = $index) {
+              <div class="enum-row">
+                <input class="member-typeref" list="known-parameter-names" [value]="input.parameterRef" (input)="onAlgorithmRefInput('inputs', i, 'parameterRef', $event)" [attr.aria-label]="'Algorithm input ' + i + ' parameter ref'" />
+                <input class="member-name" [value]="input.name ?? ''" (input)="onAlgorithmRefInput('inputs', i, 'name', $event)" placeholder="inputName" [attr.aria-label]="'Algorithm input ' + i + ' name'" />
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveAlgorithmRef('inputs', i)" aria-label="Remove algorithm input">&times;</button>
+              </div>
+            }
+            <rux-button secondary (click)="onAddAlgorithmRef('inputs')">+ Add input</rux-button>
+          </div>
+          <div class="form-field enum-editor">
+            <label>Outputs <span class="hint">(parameterRef → outputName)</span></label>
+            @for (output of algorithm.outputs ?? []; track $index; let i = $index) {
+              <div class="enum-row">
+                <input class="member-typeref" list="known-parameter-names" [value]="output.parameterRef" (input)="onAlgorithmRefInput('outputs', i, 'parameterRef', $event)" [attr.aria-label]="'Algorithm output ' + i + ' parameter ref'" />
+                <input class="member-name" [value]="output.name ?? ''" (input)="onAlgorithmRefInput('outputs', i, 'name', $event)" placeholder="outputName" [attr.aria-label]="'Algorithm output ' + i + ' name'" />
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveAlgorithmRef('outputs', i)" aria-label="Remove algorithm output">&times;</button>
+              </div>
+            }
+            <rux-button secondary (click)="onAddAlgorithmRef('outputs')">+ Add output</rux-button>
+          </div>
+          <div class="form-field">
+            <label for="algo-trigger">Trigger container <span class="hint">(optional)</span></label>
+            <input id="algo-trigger" list="known-container-names" [value]="algorithm.triggerContainer ?? ''" (input)="onItemFieldInput('triggerContainer', $event)" />
+          </div>
+          <div class="form-field">
+            <label for="algo-priority">Priority</label>
+            <input id="algo-priority" type="number" [value]="algorithm.priority ?? ''" (input)="onItemNumberFieldInput('priority', $event)" />
+          </div>
+          <div class="form-field checkbox-field">
+            <label>
+              <input type="checkbox" [checked]="algorithm.thread ?? false" (change)="onItemFieldInput('thread', $event)" />
+              Runs as thread <span class="hint">(XTCE default: false)</span>
+            </label>
+          </div>
+        } @else {
+          <p class="meta-text">MathOperation is preserved as XML (postfix expression editing is future work).</p>
+        }
+
+        <app-preserved-xml [item]="algorithm" />
+
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
       } @else if (selectedMetaCommand(); as metaCommand) {
         <div class="node-title">
           <span>{{ metaCommand.name }}</span>

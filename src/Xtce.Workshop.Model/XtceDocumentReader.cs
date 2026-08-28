@@ -1,3 +1,4 @@
+using System.Text;
 using System.Xml;
 
 namespace Xtce.Workshop.Model;
@@ -359,6 +360,8 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preservedParameterTypes = null;
         List<Parameter>? parameters = null;
         List<RawXmlFragment>? preservedParameters = null;
+        List<Algorithm>? algorithms = null;
+        List<RawXmlFragment>? preservedAlgorithms = null;
         List<RawXmlFragment>? preservedEntries = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
@@ -399,11 +402,16 @@ public static class XtceDocumentReader
                 parameters ??= new List<Parameter>();
                 ReadParameterSet(reader, parameters, ref preservedParameters, recovery, $"{path}/CommandMetaData");
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "AlgorithmSet" && algorithms is null)
+            {
+                DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                algorithms = new List<Algorithm>();
+                ReadAlgorithmSet(reader, algorithms, ref preservedAlgorithms);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // CommandContainerSet, StreamSet, AlgorithmSet — whole fragments; their
-                // definitions still feed the reference namespaces via
-                // SpaceSystemContext's scanning.
+                // CommandContainerSet, StreamSet — whole fragments; their definitions
+                // still feed the reference namespaces via SpaceSystemContext's scanning.
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                 Preserve(ref preserved, reader);
             }
@@ -417,7 +425,7 @@ public static class XtceDocumentReader
         reader.ReadEndElement();
 
         return new CommandMetaData(metaCommands, preservedEntries, preserved, argumentTypes, preservedArgumentTypes,
-            parameterTypes, preservedParameterTypes, parameters, preservedParameters);
+            parameterTypes, preservedParameterTypes, parameters, preservedParameters, algorithms, preservedAlgorithms);
     }
 
     private static void ReadArgumentTypeSet(
@@ -836,6 +844,8 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preservedParameters = null;
         List<RawXmlFragment>? preservedContainers = null;
         List<RawXmlFragment>? preserved = null;
+        List<Algorithm>? algorithms = null;
+        List<RawXmlFragment>? preservedAlgorithms = null;
 
         if (reader.IsEmptyElement)
         {
@@ -869,10 +879,15 @@ public static class XtceDocumentReader
             {
                 messageSet = ReadMessageSet(reader, recovery, path);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "AlgorithmSet" && algorithms is null)
+            {
+                algorithms = new List<Algorithm>();
+                ReadAlgorithmSet(reader, algorithms, ref preservedAlgorithms);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // Unmodeled sibling (StreamSet, AlgorithmSet) — preserved verbatim,
-                // re-emitted in XSD sequence order on save.
+                // Unmodeled sibling (StreamSet) — preserved verbatim, re-emitted in XSD
+                // sequence order on save.
                 Preserve(ref preserved, reader);
             }
             else if (!TryCaptureComment(reader, ref pendingComments))
@@ -886,7 +901,237 @@ public static class XtceDocumentReader
 
         return new TelemetryMetaData(
             parameterTypes, parameters, preservedTypes, preservedParameters, preserved, containers, messageSet,
-            preservedContainers);
+            preservedContainers, algorithms, preservedAlgorithms);
+    }
+
+    private static void ReadAlgorithmSet(XmlReader reader, List<Algorithm> algorithms, ref List<RawXmlFragment>? preservedAlgorithms)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CustomAlgorithm")
+            {
+                algorithms.Add(ReadAlgorithm(reader, AlgorithmKind.Custom));
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MathAlgorithm")
+            {
+                algorithms.Add(ReadAlgorithm(reader, AlgorithmKind.Math));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                Preserve(ref preservedAlgorithms, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static Algorithm ReadAlgorithm(XmlReader reader, AlgorithmKind kind)
+    {
+        var name = RequireAttribute(reader, "name", "an algorithm");
+        bool? thread = null;
+        string? triggerContainer = null;
+        long? priority = null;
+        string[] modeledAttributes = ["name"];
+        if (kind == AlgorithmKind.Custom)
+        {
+            thread = ParseBool(reader, "thread");
+            triggerContainer = reader.GetAttribute("triggerContainer");
+            priority = ParseLong(reader, "priority");
+            modeledAttributes = ["name", "thread", "triggerContainer", "priority"];
+        }
+        var preservedAttributes = CapturePreservedAttributes(reader, modeledAttributes);
+
+        string? algorithmText = null;
+        string? language = null;
+        List<AlgorithmParameterRef>? inputs = null;
+        List<RawXmlFragment>? preservedInputs = null;
+        List<AlgorithmParameterRef>? outputs = null;
+        List<RawXmlFragment>? preservedOutputs = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "AlgorithmText"
+                    && algorithmText is null && HasOnlyAttributes(reader, "language"))
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    // Schema-invalid element children (or embedded comments) make the
+                    // text unmodelable — the whole element then stays a preserved
+                    // fragment instead, so nothing is dropped.
+                    var textLanguage = reader.GetAttribute("language");
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryReadTextOnlyElement(outerXml, out var text))
+                    {
+                        language = textLanguage;
+                        algorithmText = text;
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("AlgorithmText", outerXml));
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "InputSet" && inputs is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    inputs = new List<AlgorithmParameterRef>();
+                    ReadAlgorithmRefSet(reader, "InputParameterInstanceRef", "inputName", inputs, ref preservedInputs);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "OutputSet" && outputs is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    outputs = new List<AlgorithmParameterRef>();
+                    ReadAlgorithmRefSet(reader, "OutputParameterRef", "outputName", outputs, ref preservedOutputs);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // ExternalAlgorithmSet, TriggerSet, MathOperation, description
+                    // children — preserved verbatim. (An AlgorithmText with unexpected
+                    // attributes also lands here so nothing is dropped.)
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new Algorithm(name, kind, algorithmText, language, inputs, preservedInputs, outputs, preservedOutputs,
+            thread, triggerContainer, priority, preserved, preservedAttributes);
+    }
+
+    /// <summary>Extracts an element's pure text content; false when it holds elements or comments.</summary>
+    private static bool TryReadTextOnlyElement(string outerXml, out string text)
+    {
+        text = "";
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            var builder = new StringBuilder();
+            var depth = 0;
+            while (reader.Read())
+            {
+                switch (reader.NodeType)
+                {
+                    case XmlNodeType.Element:
+                        depth++;
+                        if (depth > 1)
+                        {
+                            return false;
+                        }
+                        if (reader.IsEmptyElement)
+                        {
+                            depth--;
+                        }
+                        break;
+                    case XmlNodeType.EndElement:
+                        depth--;
+                        break;
+                    case XmlNodeType.Text:
+                    case XmlNodeType.CDATA:
+                    case XmlNodeType.Whitespace:
+                    case XmlNodeType.SignificantWhitespace:
+                        builder.Append(reader.Value);
+                        break;
+                    case XmlNodeType.Comment:
+                    case XmlNodeType.ProcessingInstruction:
+                        return false;
+                }
+            }
+            text = builder.ToString();
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Whether the current element carries no attributes beyond the allowed ones.</summary>
+    private static bool HasOnlyAttributes(XmlReader reader, params string[] allowed)
+    {
+        var clean = true;
+        if (reader.MoveToFirstAttribute())
+        {
+            do
+            {
+                if (!allowed.Contains(reader.LocalName) && reader.Prefix != "xmlns" && reader.LocalName != "xmlns")
+                {
+                    clean = false;
+                    break;
+                }
+            }
+            while (reader.MoveToNextAttribute());
+            reader.MoveToElement();
+        }
+        return clean;
+    }
+
+    private static void ReadAlgorithmRefSet(
+        XmlReader reader,
+        string entryElementName,
+        string nameAttribute,
+        List<AlgorithmParameterRef> entries,
+        ref List<RawXmlFragment>? preservedEntries)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == entryElementName
+                && reader.IsEmptyElement)
+            {
+                var parameterRef = RequireAttribute(reader, "parameterRef", $"a {entryElementName}");
+                var localName = reader.GetAttribute(nameAttribute);
+                var preservedAttributes = CapturePreservedAttributes(reader, ["parameterRef", nameAttribute]);
+                entries.Add(new AlgorithmParameterRef(parameterRef, localName, preservedAttributes));
+                reader.Read();
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // Constants, entries with children, foreign content — preserved and
+                // re-emitted inside the set.
+                Preserve(ref preservedEntries, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
     }
 
     private static MessageSet ReadMessageSet(XmlReader reader, RecoveryContext? recovery = null, string path = "")

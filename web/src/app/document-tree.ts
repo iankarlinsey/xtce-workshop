@@ -147,11 +147,31 @@ export interface MessageSetDoc {
   [key: string]: unknown;
 }
 
+export interface AlgorithmParameterRefDoc {
+  parameterRef: string;
+  name?: string | null;
+  [key: string]: unknown;
+}
+
+export interface AlgorithmDoc {
+  name: string;
+  kind: 'Custom' | 'Math';
+  algorithmText?: string | null;
+  language?: string | null;
+  inputs?: AlgorithmParameterRefDoc[] | null;
+  outputs?: AlgorithmParameterRefDoc[] | null;
+  thread?: boolean | null;
+  triggerContainer?: string | null;
+  priority?: number | null;
+  [key: string]: unknown;
+}
+
 export interface TelemetryMetaDataDoc {
   parameterTypeSet: ParameterTypeDoc[];
   parameterSet: ParameterDoc[];
   containerSet?: SequenceContainerDoc[] | null;
   messageSet?: MessageSetDoc | null;
+  algorithmSet?: AlgorithmDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -192,6 +212,7 @@ export interface CommandMetaDataDoc {
   argumentTypeSet?: ParameterTypeDoc[] | null;
   parameterTypeSet?: ParameterTypeDoc[] | null;
   parameterSet?: ParameterDoc[] | null;
+  algorithmSet?: AlgorithmDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -208,7 +229,8 @@ export type NodePath = number[];
 
 export type ItemKind =
   | 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand'
-  | 'argumentType' | 'commandParameterType' | 'commandParameter';
+  | 'argumentType' | 'commandParameterType' | 'commandParameter'
+  | 'algorithm' | 'commandAlgorithm';
 
 /**
  * What the user has selected: a SpaceSystem (item undefined), or one telemetry item
@@ -299,6 +321,10 @@ function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly Telemetr
       return system.commandMetaData?.parameterTypeSet ?? [];
     case 'commandParameter':
       return system.commandMetaData?.parameterSet ?? [];
+    case 'algorithm':
+      return system.telemetryMetaData?.algorithmSet ?? [];
+    case 'commandAlgorithm':
+      return system.commandMetaData?.algorithmSet ?? [];
   }
 }
 
@@ -346,6 +372,12 @@ function withUpdatedList(
     case 'commandParameter': {
       const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
       return { ...system, commandMetaData: { ...commandMetaData, parameterSet: update(commandMetaData.parameterSet ?? []) as ParameterDoc[] } };
+    }
+    case 'algorithm':
+      return { ...system, telemetryMetaData: { ...telemetry, algorithmSet: update(telemetry.algorithmSet ?? []) as AlgorithmDoc[] } };
+    case 'commandAlgorithm': {
+      const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
+      return { ...system, commandMetaData: { ...commandMetaData, algorithmSet: update(commandMetaData.algorithmSet ?? []) as AlgorithmDoc[] } };
     }
   }
 }
@@ -464,6 +496,7 @@ export function selectionForLocation(doc: SpaceSystemDocument, location: string)
       ParameterSet: { kind: 'parameter', items: node.telemetryMetaData?.parameterSet ?? [] },
       ContainerSet: { kind: 'container', items: node.telemetryMetaData?.containerSet ?? [] },
       MessageSet: { kind: 'message', items: node.telemetryMetaData?.messageSet?.messages ?? [] },
+      AlgorithmSet: { kind: 'algorithm', items: node.telemetryMetaData?.algorithmSet ?? [] },
     };
     let kind: ItemKind | null = null;
     let items: { name: string }[] = [];
@@ -487,6 +520,10 @@ export function selectionForLocation(doc: SpaceSystemDocument, location: string)
     } else if (segment === 'CommandMetaData' && segments[i + 1] === 'ParameterSet') {
       kind = 'commandParameter';
       items = node.commandMetaData?.parameterSet ?? [];
+      nameIndex = i + 2;
+    } else if (segment === 'CommandMetaData' && segments[i + 1] === 'AlgorithmSet') {
+      kind = 'commandAlgorithm';
+      items = node.commandMetaData?.algorithmSet ?? [];
       nameIndex = i + 2;
     }
     if (kind !== null) {

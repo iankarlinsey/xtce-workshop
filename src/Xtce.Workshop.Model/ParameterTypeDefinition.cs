@@ -331,7 +331,9 @@ public sealed record TelemetryMetaData(
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<SequenceContainer>? ContainerSet = null,
     MessageSet? MessageSet = null,
-    IReadOnlyList<RawXmlFragment>? PreservedContainerEntries = null)
+    IReadOnlyList<RawXmlFragment>? PreservedContainerEntries = null,
+    IReadOnlyList<Algorithm>? AlgorithmSet = null,
+    IReadOnlyList<RawXmlFragment>? PreservedAlgorithms = null)
 {
     public bool Equals(TelemetryMetaData? other) =>
         other is not null
@@ -342,7 +344,9 @@ public sealed record TelemetryMetaData(
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(ContainerSet, other.ContainerSet)
         && Equals(MessageSet, other.MessageSet)
-        && Structural.ListEquals(PreservedContainerEntries, other.PreservedContainerEntries);
+        && Structural.ListEquals(PreservedContainerEntries, other.PreservedContainerEntries)
+        && Structural.ListEquals(AlgorithmSet, other.AlgorithmSet)
+        && Structural.ListEquals(PreservedAlgorithms, other.PreservedAlgorithms);
 
     public override int GetHashCode()
     {
@@ -361,6 +365,8 @@ public sealed record TelemetryMetaData(
         Structural.AddList(ref hash, ContainerSet);
         hash.Add(MessageSet);
         Structural.AddList(ref hash, PreservedContainerEntries);
+        Structural.AddList(ref hash, AlgorithmSet);
+        Structural.AddList(ref hash, PreservedAlgorithms);
         return hash.ToHashCode();
     }
 }

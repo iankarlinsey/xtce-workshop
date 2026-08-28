@@ -71,16 +71,29 @@ public class AlgorithmParsingTests
         """;
 
     [Test]
-    public void AlgorithmSet_LoadsAndIsPreservedVerbatim()
+    public void AlgorithmSet_LoadsIntoTheModel()
     {
         XtceLoadResult result = null!;
         MustCompleteWithin(TimeSpan.FromSeconds(10), () => result = LoadText(MathAlgorithmDocument), "MathAlgorithm load");
 
         Assert.Equal(0, result.Diagnostics.Count);
-        var telemetryPreserved = result.Document!.TelemetryMetaData!.Preserved!;
-        Assert.True(telemetryPreserved.Any(f => f.ElementName == "AlgorithmSet" && f.OuterXml.Contains("MathAlgorithm")));
-        Assert.True(telemetryPreserved.Single(f => f.ElementName == "AlgorithmSet").OuterXml.Contains("def run(x):"));
-        Assert.True(result.Document.CommandMetaData!.Preserved!.Any(f => f.OuterXml.Contains("CmdSide")));
+        var algorithms = result.Document!.TelemetryMetaData!.AlgorithmSet!;
+        Assert.Equal(["Avg", "Custom1"], algorithms.Select(a => a.Name));
+
+        var math = algorithms[0];
+        Assert.Equal(AlgorithmKind.Math, math.Kind);
+        Assert.Equal(["MathOperation"], math.Preserved!.Select(f => f.ElementName).ToList());
+
+        var custom = algorithms[1];
+        Assert.Equal(AlgorithmKind.Custom, custom.Kind);
+        Assert.Equal("python", custom.Language);
+        Assert.Contains("def run(x):", custom.AlgorithmText);
+        Assert.Equal(("IN1", "x"), (custom.Inputs!.Single().ParameterRef, custom.Inputs.Single().Name));
+        Assert.Equal(("OUT1", "y"), (custom.Outputs!.Single().ParameterRef, custom.Outputs.Single().Name));
+
+        var commandSide = result.Document.CommandMetaData!.AlgorithmSet!.Single();
+        Assert.Equal(("CmdSide", "JavaScript", "var s = \"<tag>\";"),
+            (commandSide.Name, commandSide.Language, commandSide.AlgorithmText));
         // The child system after the algorithm sets must still parse — nothing consumed past it.
         Assert.Equal("Bus", result.Document.Children.Single().Name);
     }

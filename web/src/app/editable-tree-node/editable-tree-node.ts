@@ -65,10 +65,12 @@ export class EditableTreeNodeComponent {
       { kind: 'parameter', label: 'Parameters', names: (telemetry?.parameterSet ?? []).map((p) => p.name) },
       { kind: 'container', label: 'Containers', names: (telemetry?.containerSet ?? []).map((c) => c.name) },
       { kind: 'message', label: 'Messages', names: (telemetry?.messageSet?.messages ?? []).map((m) => m.name) },
+      { kind: 'algorithm', label: 'Algorithms', names: (telemetry?.algorithmSet ?? []).map((a) => a.name) },
       { kind: 'commandParameterType', label: 'Command Parameter Types', names: (node.commandMetaData?.parameterTypeSet ?? []).map((t) => t.name) },
       { kind: 'commandParameter', label: 'Command Parameters', names: (node.commandMetaData?.parameterSet ?? []).map((p) => p.name) },
       { kind: 'argumentType', label: 'Argument Types', names: (node.commandMetaData?.argumentTypeSet ?? []).map((t) => t.name) },
       { kind: 'metaCommand', label: 'Commands', names: (node.commandMetaData?.metaCommands ?? []).map((m) => m.name) },
+      { kind: 'commandAlgorithm', label: 'Command Algorithms', names: (node.commandMetaData?.algorithmSet ?? []).map((a) => a.name) },
     ];
     return sources
       .map(({ kind, label, names }) => ({
@@ -166,6 +168,8 @@ function matchesOrHasMatch(node: SpaceSystemDocument, lowerCaseTerm: string): bo
     ...(telemetry?.parameterSet ?? []).map((p) => p.name),
     ...(telemetry?.containerSet ?? []).map((c) => c.name),
     ...(telemetry?.messageSet?.messages ?? []).map((m) => m.name),
+    ...(telemetry?.algorithmSet ?? []).map((a) => a.name),
+    ...(node.commandMetaData?.algorithmSet ?? []).map((a) => a.name),
     ...(node.commandMetaData?.parameterTypeSet ?? []).map((t) => t.name),
     ...(node.commandMetaData?.parameterSet ?? []).map((p) => p.name),
     ...(node.commandMetaData?.argumentTypeSet ?? []).map((t) => t.name),

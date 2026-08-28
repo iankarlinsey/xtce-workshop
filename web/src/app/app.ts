@@ -19,6 +19,7 @@ import {
   RestrictionCriteriaDoc,
   MessageDoc,
   MetaCommandDoc,
+  AlgorithmDoc,
   TelemetryItem,
   getNodeAtPath,
   updateNodeAtPath,
@@ -285,6 +286,16 @@ export class App {
     return getItemAtSelection(doc, selection) as MessageDoc | null;
   });
 
+  protected readonly selectedAlgorithm = computed(() => {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    const kind = selection?.item?.kind;
+    if (!doc || !selection || (kind !== 'algorithm' && kind !== 'commandAlgorithm')) {
+      return null;
+    }
+    return getItemAtSelection(doc, selection) as AlgorithmDoc | null;
+  });
+
   protected readonly selectedMetaCommand = computed(() => {
     const doc = this.currentDocument();
     const selection = this.selection();
@@ -348,6 +359,11 @@ export class App {
       }
       case 'commandParameter':
         return XTCE_REFERENCE['Parameter'] ?? null;
+      case 'algorithm':
+      case 'commandAlgorithm': {
+        const algorithm = this.selectedAlgorithm();
+        return algorithm ? XTCE_REFERENCE[algorithm.kind === 'Math' ? 'MathAlgorithm' : 'CustomAlgorithm'] ?? null : null;
+      }
       case 'parameter':
         return XTCE_REFERENCE['Parameter'] ?? null;
       case 'container':
@@ -1265,6 +1281,34 @@ export class App {
     });
   }
 
+  // --- Algorithm input/output editing ----------------------------------------------------
+
+  onAlgorithmRefInput(list: 'inputs' | 'outputs', index: number, field: 'parameterRef' | 'name', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const algorithm = item as AlgorithmDoc;
+      return {
+        ...algorithm,
+        [list]: (algorithm[list] ?? []).map((entry, i) =>
+          i === index ? { ...entry, [field]: field === 'name' && value === '' ? null : value } : entry),
+      };
+    });
+  }
+
+  onAddAlgorithmRef(list: 'inputs' | 'outputs'): void {
+    this.mutateSelectedItem((item) => {
+      const algorithm = item as AlgorithmDoc;
+      return { ...algorithm, [list]: [...(algorithm[list] ?? []), { parameterRef: '' }] };
+    });
+  }
+
+  onRemoveAlgorithmRef(list: 'inputs' | 'outputs', index: number): void {
+    this.mutateSelectedItem((item) => {
+      const algorithm = item as AlgorithmDoc;
+      return { ...algorithm, [list]: (algorithm[list] ?? []).filter((_, i) => i !== index) };
+    });
+  }
+
   // --- Enumeration list editing --------------------------------------------------------
 
   onAddEnumeration(): void {
@@ -1594,6 +1638,8 @@ export class App {
       ArgumentType: { kind: 'argumentType', items: node.commandMetaData?.argumentTypeSet ?? undefined },
       CommandParameterType: { kind: 'commandParameterType', items: node.commandMetaData?.parameterTypeSet ?? undefined },
       CommandParameter: { kind: 'commandParameter', items: node.commandMetaData?.parameterSet ?? undefined },
+      Algorithm: { kind: 'algorithm', items: node.telemetryMetaData?.algorithmSet ?? undefined },
+      CommandAlgorithm: { kind: 'commandAlgorithm', items: node.commandMetaData?.algorithmSet ?? undefined },
     };
     const target = lists[match.kind];
     const itemIndex = target.items?.findIndex((item) => item.name === match.name) ?? -1;

@@ -41,6 +41,8 @@ CONSTRUCTS = {
     "AbsoluteTimeArgumentType": "AbsoluteTimeArgumentType",
     "ArrayArgumentType": "ArrayArgumentType",
     "AggregateArgumentType": "AggregateArgumentType",
+    "CustomAlgorithm": "InputOutputTriggerAlgorithmType",
+    "MathAlgorithm": "MathAlgorithmType",
 }
 
 

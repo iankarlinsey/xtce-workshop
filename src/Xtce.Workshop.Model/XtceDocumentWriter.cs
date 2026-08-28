@@ -189,6 +189,11 @@ public static class XtceDocumentWriter
             slots.Add(("MessageSet", () => WriteMessageSet(writer, messageSet)));
         }
 
+        if (telemetryMetaData.AlgorithmSet is { } algorithms)
+        {
+            slots.Add(("AlgorithmSet", () => WriteAlgorithmSet(writer, algorithms, telemetryMetaData.PreservedAlgorithms)));
+        }
+
         AddPreservedSlots(slots, writer, telemetryMetaData.Preserved);
         EmitInSchemaOrder(TelemetryMetaDataChildOrder, slots);
 
@@ -309,6 +314,11 @@ public static class XtceDocumentWriter
                 WriteFragments(writer, commandMetaData.PreservedArgumentTypes);
                 writer.WriteEndElement();
             }));
+        }
+
+        if (commandMetaData.AlgorithmSet is { } algorithms)
+        {
+            slots.Add(("AlgorithmSet", () => WriteAlgorithmSet(writer, algorithms, commandMetaData.PreservedAlgorithms)));
         }
 
         if (commandMetaData.MetaCommands.Count > 0 || commandMetaData.PreservedEntries is { Count: > 0 })
@@ -830,6 +840,99 @@ public static class XtceDocumentWriter
         DataEncodingKind.Binary => "BinaryDataEncoding",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported data encoding kind."),
     };
+
+    // The custom algorithm inheritance stack's flattened sequence, description first.
+    private static readonly string[] AlgorithmChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet",
+        "AlgorithmText", "ExternalAlgorithmSet", "InputSet", "OutputSet", "TriggerSet", "MathOperation",
+    ];
+
+    private static void WriteAlgorithmSet(
+        XmlWriter writer, IReadOnlyList<Algorithm> algorithms, IReadOnlyList<RawXmlFragment>? preservedAlgorithms)
+    {
+        writer.WriteStartElement("AlgorithmSet", XtceNamespace);
+        foreach (var algorithm in algorithms)
+        {
+            WriteAlgorithm(writer, algorithm);
+        }
+        WriteFragments(writer, preservedAlgorithms);
+        writer.WriteEndElement();
+    }
+
+    private static void WriteAlgorithm(XmlWriter writer, Algorithm algorithm)
+    {
+        writer.WriteStartElement(algorithm.Kind == AlgorithmKind.Custom ? "CustomAlgorithm" : "MathAlgorithm", XtceNamespace);
+        writer.WriteAttributeString("name", algorithm.Name);
+        if (algorithm.Thread is { } thread)
+        {
+            writer.WriteAttributeString("thread", XmlConvert.ToString(thread));
+        }
+        if (algorithm.TriggerContainer is not null)
+        {
+            writer.WriteAttributeString("triggerContainer", algorithm.TriggerContainer);
+        }
+        if (algorithm.Priority is { } priority)
+        {
+            writer.WriteAttributeString("priority", XmlConvert.ToString(priority));
+        }
+        WritePreservedAttributes(writer, algorithm.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        if (algorithm.AlgorithmText is { } text)
+        {
+            slots.Add(("AlgorithmText", () =>
+            {
+                writer.WriteStartElement("AlgorithmText", XtceNamespace);
+                if (algorithm.Language is not null)
+                {
+                    writer.WriteAttributeString("language", algorithm.Language);
+                }
+                writer.WriteString(text);
+                writer.WriteEndElement();
+            }));
+        }
+        if (algorithm.Inputs is not null || algorithm.PreservedInputs is { Count: > 0 })
+        {
+            slots.Add(("InputSet", () =>
+                WriteAlgorithmRefSet(writer, "InputSet", "InputParameterInstanceRef", "inputName",
+                    algorithm.Inputs, algorithm.PreservedInputs)));
+        }
+        if (algorithm.Outputs is not null || algorithm.PreservedOutputs is { Count: > 0 })
+        {
+            slots.Add(("OutputSet", () =>
+                WriteAlgorithmRefSet(writer, "OutputSet", "OutputParameterRef", "outputName",
+                    algorithm.Outputs, algorithm.PreservedOutputs)));
+        }
+        AddPreservedSlots(slots, writer, algorithm.Preserved);
+        EmitInSchemaOrder(AlgorithmChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteAlgorithmRefSet(
+        XmlWriter writer,
+        string setElementName,
+        string entryElementName,
+        string nameAttribute,
+        IReadOnlyList<AlgorithmParameterRef>? entries,
+        IReadOnlyList<RawXmlFragment>? preservedEntries)
+    {
+        writer.WriteStartElement(setElementName, XtceNamespace);
+        foreach (var entry in entries ?? [])
+        {
+            writer.WriteStartElement(entryElementName, XtceNamespace);
+            writer.WriteAttributeString("parameterRef", entry.ParameterRef);
+            if (entry.Name is not null)
+            {
+                writer.WriteAttributeString(nameAttribute, entry.Name);
+            }
+            WritePreservedAttributes(writer, entry.PreservedAttributes);
+            writer.WriteEndElement();
+        }
+        WriteFragments(writer, preservedEntries);
+        writer.WriteEndElement();
+    }
 
     private static void WriteTimeEncoding(XmlWriter writer, TimeEncoding encoding)
     {

@@ -420,6 +420,10 @@ describe('App', () => {
               name: 'BusVoltage', parameterTypeRef: 'Volt_Type', initialValue: '28.5',
               properties: { dataSource: 'telemetered', readOnly: true },
             }],
+            algorithmSet: [{
+              name: 'Smooth', kind: 'Custom', language: 'python', algorithmText: 'y = x',
+              inputs: [{ parameterRef: 'BusVoltage', name: 'x' }],
+            }],
             containerSet: [{ name: 'Frame', entryList: [{ kind: 'ParameterRef', ref: 'BusVoltage' }] }],
           },
         },
@@ -697,6 +701,73 @@ describe('App', () => {
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body.telemetryMetaData.parameterSet[0].properties)
         .toEqual({ dataSource: 'constant', readOnly: true });
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('algorithms render in the tree and text edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Smooth');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('CustomAlgorithm');
+      expect((compiled.querySelector('input[aria-label="Algorithm input 0 parameter ref"]') as HTMLInputElement).value)
+        .toBe('BusVoltage');
+
+      const textArea = compiled.querySelector('#algo-text') as HTMLTextAreaElement;
+      expect(textArea.value).toBe('y = x');
+      textArea.value = 'y = 2 * x';
+      textArea.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.algorithmSet[0].algorithmText).toBe('y = 2 * x');
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('algorithm input/output rows and unit rows add, edit, and remove', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Smooth');
+      const compiled = fixture.nativeElement as HTMLElement;
+      const clickButton = (label: string) => {
+        (Array.from(compiled.querySelectorAll('rux-button, button')).find(
+          (b) => b.textContent?.trim() === label
+        ) as HTMLButtonElement).click();
+        fixture.detectChanges();
+      };
+
+      clickButton('+ Add output');
+      const outputRef = compiled.querySelector('input[aria-label="Algorithm output 0 parameter ref"]') as HTMLInputElement;
+      outputRef.value = 'BusVoltage';
+      outputRef.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      const outputName = compiled.querySelector('input[aria-label="Algorithm output 0 name"]') as HTMLInputElement;
+      outputName.value = 'y';
+      outputName.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      (compiled.querySelector('button[aria-label="Remove algorithm input"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      clickTreeRowByText(fixture, 'Volt_Type');
+      clickButton('+ Add unit');
+      const newUnit = compiled.querySelector('input[aria-label="Unit 1 value"]') as HTMLInputElement;
+      newUnit.value = 'mV';
+      newUnit.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      (compiled.querySelector('button[aria-label="Remove unit"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const algorithm = req.request.body.telemetryMetaData.algorithmSet[0];
+      expect(algorithm.inputs).toEqual([]);
+      expect(algorithm.outputs).toEqual([{ parameterRef: 'BusVoltage', name: 'y' }]);
+      // First unit removed; the added 'mV' one remains.
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[0].unitSet).toEqual([{ value: 'mV' }]);
       req.flush('<SpaceSystem/>');
     }));
 

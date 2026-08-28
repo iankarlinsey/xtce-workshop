@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="AlgorithmDemo">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <FloatParameterType name="Volt_Type">
+        <IntegerDataEncoding encoding="unsigned" sizeInBits="12"/>
+      </FloatParameterType>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="RawVolt" parameterTypeRef="Volt_Type"/>
+      <Parameter name="SmoothVolt" parameterTypeRef="Volt_Type"/>
+    </ParameterSet>
+    <AlgorithmSet>
+      <CustomAlgorithm name="SmoothingFilter" thread="true" priority="2">
+        <AlgorithmText language="python">y = 0.9 * y + 0.1 * x</AlgorithmText>
+        <InputSet>
+          <InputParameterInstanceRef parameterRef="RawVolt" inputName="x"/>
+        </InputSet>
+        <OutputSet>
+          <OutputParameterRef parameterRef="SmoothVolt" outputName="y"/>
+        </OutputSet>
+      </CustomAlgorithm>
+      <MathAlgorithm name="DoubleVolt">
+        <MathOperation outputParameterRef="SmoothVolt">
+          <ParameterInstanceRefOperand parameterRef="RawVolt"/>
+          <ValueOperand>2</ValueOperand>
+          <Operator>*</Operator>
+          <TriggerSet><OnParameterUpdateTrigger parameterRef="RawVolt"/></TriggerSet>
+        </MathOperation>
+      </MathAlgorithm>
+    </AlgorithmSet>
+  </TelemetryMetaData>
+  <CommandMetaData>
+    <AlgorithmSet>
+      <CustomAlgorithm name="CommandChecksum">
+        <AlgorithmText language="JavaScript">return crc16(frame);</AlgorithmText>
+      </CustomAlgorithm>
+    </AlgorithmSet>
+  </CommandMetaData>
+</SpaceSystem>

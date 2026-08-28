@@ -1065,3 +1065,20 @@
 .loading-cancel {
   align-self: flex-end;
 }
+
+.algorithm-text {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  resize: vertical;
+}
+
+.algorithm-text:focus {
+  outline: none;
+  border-color: var(--accent);
+}

@@ -64,6 +64,10 @@ public static class FragmentEnumerator
                     yield return (fragment, $"{commandPath}/ParameterSet/{parameter.Name}");
                 }
             }
+            foreach (var pair in EnumerateAlgorithms(commandMetaData.AlgorithmSet, commandMetaData.PreservedAlgorithms, $"{commandPath}/AlgorithmSet"))
+            {
+                yield return pair;
+            }
             foreach (var fragment in commandMetaData.PreservedEntries ?? [])
             {
                 yield return (fragment, $"{commandPath}/MetaCommandSet");
@@ -194,6 +198,11 @@ public static class FragmentEnumerator
             }
         }
 
+        foreach (var pair in EnumerateAlgorithms(telemetry.AlgorithmSet, telemetry.PreservedAlgorithms, $"{path}/AlgorithmSet"))
+        {
+            yield return pair;
+        }
+
         if (telemetry.MessageSet is { } messageSet)
         {
             foreach (var fragment in messageSet.Preserved ?? [])
@@ -206,6 +215,31 @@ public static class FragmentEnumerator
                 {
                     yield return (fragment, $"{path}/MessageSet/{message.Name}");
                 }
+            }
+        }
+    }
+
+    private static IEnumerable<(RawXmlFragment Fragment, string Location)> EnumerateAlgorithms(
+        IReadOnlyList<Algorithm>? algorithms, IReadOnlyList<RawXmlFragment>? preservedAlgorithms, string setPath)
+    {
+        foreach (var fragment in preservedAlgorithms ?? [])
+        {
+            yield return (fragment, setPath);
+        }
+        foreach (var algorithm in algorithms ?? [])
+        {
+            var algorithmPath = $"{setPath}/{algorithm.Name}";
+            foreach (var fragment in algorithm.Preserved ?? [])
+            {
+                yield return (fragment, algorithmPath);
+            }
+            foreach (var fragment in algorithm.PreservedInputs ?? [])
+            {
+                yield return (fragment, algorithmPath);
+            }
+            foreach (var fragment in algorithm.PreservedOutputs ?? [])
+            {
+                yield return (fragment, algorithmPath);
             }
         }
     }
