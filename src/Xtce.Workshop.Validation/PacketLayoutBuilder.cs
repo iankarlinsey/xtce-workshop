@@ -125,6 +125,7 @@ public static class PacketLayoutBuilder
                     {
                         note = "argument type isn't statically inspectable";
                     }
+                    ApplyRepeat(entry, ref size, ref note);
                     rows.Add(new PacketLayoutRow(entry.Ref!, "argument", container.Name, offset, size, variable, note));
                     Advance(ref offset, size);
                     break;
@@ -133,9 +134,11 @@ public static class PacketLayoutBuilder
                 case SequenceEntryKind.FixedValue:
                 {
                     var label = entry.Name ?? entry.BinaryValue ?? "FixedValueEntry";
-                    rows.Add(new PacketLayoutRow(label, "fixed", container.Name, offset, entry.SizeInBits, false,
-                        entry.SizeInBits is null ? "size not statically known" : null));
-                    Advance(ref offset, entry.SizeInBits);
+                    var fixedSize = entry.SizeInBits;
+                    string? fixedNote = fixedSize is null ? "size not statically known" : null;
+                    ApplyRepeat(entry, ref fixedSize, ref fixedNote);
+                    rows.Add(new PacketLayoutRow(label, "fixed", container.Name, offset, fixedSize, false, fixedNote));
+                    Advance(ref offset, fixedSize);
                     break;
                 }
 
@@ -305,8 +308,24 @@ public static class PacketLayoutBuilder
             note = parameterResolution.Found ? "parameter isn't statically inspectable" : "unresolved reference";
         }
 
+        ApplyRepeat(entry, ref size, ref note);
         rows.Add(new PacketLayoutRow(entry.Ref!, "parameter", sourceContainer, offset, size, variable, note));
         Advance(ref offset, size);
+    }
+
+    /// <summary>A fixed RepeatEntry multiplies the entry's footprint; conditional entries get a note.</summary>
+    private static void ApplyRepeat(SequenceEntry entry, ref long? size, ref string? note)
+    {
+        if (entry.Repeat is { FixedCount: > 1 } repeat && size is { } fixedSize)
+        {
+            size = fixedSize * repeat.FixedCount;
+            note = note is null ? $"×{repeat.FixedCount} repeat" : $"{note}; ×{repeat.FixedCount} repeat";
+        }
+        if (entry.IncludeCondition is not null)
+        {
+            var conditional = "conditional (IncludeCondition)";
+            note = note is null ? conditional : $"{note}; {conditional}";
+        }
     }
 
     /// <summary>Statically-known encoded size of a type, in bits (shared with the CSV exporter).</summary>
@@ -338,6 +357,21 @@ public static class PacketLayoutBuilder
     {
         // A fixed containerStart location re-anchors the running offset; anything else
         // (containerEnd, nextEntry, dynamic) makes it unknown from here on.
+        if (entry.Location is { } modeled)
+        {
+            if (modeled.ReferenceLocation == "containerStart" && modeled.FixedValue >= 0)
+            {
+                offset = modeled.FixedValue;
+            }
+            else if (modeled.ReferenceLocation is null or "previousEntry")
+            {
+                Advance(ref offset, modeled.FixedValue);
+            }
+            else
+            {
+                offset = null;
+            }
+        }
         foreach (var fragment in entry.Preserved ?? [])
         {
             if (fragment.ElementName != "LocationInContainerInBits")

@@ -157,6 +157,10 @@ public static class ArgumentScanner
             {
                 yield return fragment;
             }
+            foreach (var fragment in entry.IncludeCondition?.Preserved ?? [])
+            {
+                yield return fragment;
+            }
         }
     }
 

@@ -1718,6 +1718,172 @@ public static class XtceDocumentReader
         reader.ReadEndElement();
     }
 
+    /// <summary>
+    /// Handles one entry-mechanic child (issue #109): LocationInContainerInBits and
+    /// RepeatEntry model their fixed shapes (dynamic forms fall back to preserved
+    /// fragments); IncludeCondition always models compositionally. Returns false when the
+    /// current element is none of the three.
+    /// </summary>
+    private static bool TryReadEntryMechanic(
+        XmlReader reader,
+        ref EntryLocation? location,
+        ref EntryRepeat? repeat,
+        ref MatchCriteria? includeCondition,
+        ref List<RawXmlFragment>? preserved,
+        ref List<string>? pendingComments)
+    {
+        if (reader.LocalName == "LocationInContainerInBits" && location is null)
+        {
+            DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+            var outerXml = reader.ReadOuterXml();
+            if (TryParseEntryLocation(outerXml, out location))
+            {
+                return true;
+            }
+            (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("LocationInContainerInBits", outerXml));
+            return true;
+        }
+        if (reader.LocalName == "RepeatEntry" && repeat is null)
+        {
+            DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+            var outerXml = reader.ReadOuterXml();
+            if (TryParseEntryRepeat(outerXml, out repeat))
+            {
+                return true;
+            }
+            (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("RepeatEntry", outerXml));
+            return true;
+        }
+        if (reader.LocalName == "IncludeCondition" && includeCondition is null)
+        {
+            DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+            includeCondition = ReadMatchCriteria(reader);
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryParseEntryLocation(string outerXml, out EntryLocation? location)
+    {
+        location = null;
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            var referenceLocation = reader.GetAttribute("referenceLocation");
+            var preservedAttributes = CapturePreservedAttributes(reader, ["referenceLocation"]);
+            if (reader.IsEmptyElement)
+            {
+                return false; // IntegerValueType requires a value child
+            }
+            reader.ReadStartElement();
+            long? fixedValue = null;
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "FixedValue" && fixedValue is null)
+                {
+                    var text = reader.ReadElementContentAsString();
+                    if (!long.TryParse(text, out var parsed))
+                    {
+                        return false;
+                    }
+                    fixedValue = parsed;
+                }
+                else if (reader.NodeType is XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+                {
+                    reader.Read();
+                }
+                else
+                {
+                    return false; // DynamicValue, DiscreteLookupList, comments — keep the fragment
+                }
+            }
+            if (fixedValue is null)
+            {
+                return false;
+            }
+            location = new EntryLocation(fixedValue.Value, referenceLocation, preservedAttributes);
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false; // FixedValue with element children
+        }
+    }
+
+    private static bool TryParseEntryRepeat(string outerXml, out EntryRepeat? repeat)
+    {
+        repeat = null;
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            var preservedAttributes = CapturePreservedAttributes(reader);
+            if (reader.IsEmptyElement)
+            {
+                return false;
+            }
+            reader.ReadStartElement();
+            long? count = null;
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Count" && count is null
+                    && !reader.IsEmptyElement)
+                {
+                    reader.ReadStartElement();
+                    while (reader.NodeType != XmlNodeType.EndElement)
+                    {
+                        if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "FixedValue" && count is null)
+                        {
+                            if (!long.TryParse(reader.ReadElementContentAsString(), out var parsed))
+                            {
+                                return false;
+                            }
+                            count = parsed;
+                        }
+                        else if (reader.NodeType is XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+                        {
+                            reader.Read();
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                    reader.ReadEndElement();
+                }
+                else if (reader.NodeType is XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+                {
+                    reader.Read();
+                }
+                else
+                {
+                    return false; // Offset, dynamic counts, comments — keep the fragment
+                }
+            }
+            if (count is null)
+            {
+                return false;
+            }
+            repeat = new EntryRepeat(count.Value, preservedAttributes);
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
     private static SequenceEntry ReadRefEntry(XmlReader reader, SequenceEntryKind kind, string refAttributeName)
     {
         var reference = RequireAttribute(reader, refAttributeName, $"a {reader.LocalName}");
@@ -1725,6 +1891,9 @@ public static class XtceDocumentReader
 
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
+        EntryLocation? location = null;
+        EntryRepeat? repeat = null;
+        MatchCriteria? includeCondition = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1736,9 +1905,14 @@ public static class XtceDocumentReader
 
             while (reader.NodeType != XmlNodeType.EndElement)
             {
-                if (reader.NodeType == XmlNodeType.Element)
+                if (reader.NodeType == XmlNodeType.Element
+                    && TryReadEntryMechanic(reader, ref location, ref repeat, ref includeCondition,
+                        ref preserved, ref pendingComments))
                 {
-                    // LocationInContainerInBits, RepeatEntry, IncludeCondition,
+                    // handled — modeled or preserved by the helper
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
                     // TimeAssociation, AncillaryDataSet — preserved verbatim.
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
@@ -1753,7 +1927,8 @@ public static class XtceDocumentReader
             reader.ReadEndElement();
         }
 
-        return new SequenceEntry(kind, reference, null, preserved, preservedAttributes);
+        return new SequenceEntry(kind, reference, null, preserved, preservedAttributes,
+            Location: location, Repeat: repeat, IncludeCondition: includeCondition);
     }
 
     private static SequenceEntry ReadFixedValueEntry(XmlReader reader)
@@ -1769,6 +1944,9 @@ public static class XtceDocumentReader
 
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
+        EntryLocation? location = null;
+        EntryRepeat? repeat = null;
+        MatchCriteria? includeCondition = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1780,7 +1958,13 @@ public static class XtceDocumentReader
 
             while (reader.NodeType != XmlNodeType.EndElement)
             {
-                if (reader.NodeType == XmlNodeType.Element)
+                if (reader.NodeType == XmlNodeType.Element
+                    && TryReadEntryMechanic(reader, ref location, ref repeat, ref includeCondition,
+                        ref preserved, ref pendingComments))
+                {
+                    // handled — modeled or preserved by the helper
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
                 {
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
@@ -1796,7 +1980,7 @@ public static class XtceDocumentReader
         }
 
         return new SequenceEntry(SequenceEntryKind.FixedValue, null, null, preserved, preservedAttributes,
-            binaryValue, sizeInBits, name);
+            binaryValue, sizeInBits, name, location, repeat, includeCondition);
     }
 
     private static BaseContainer ReadBaseContainer(XmlReader reader)

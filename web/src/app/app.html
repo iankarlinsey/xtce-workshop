@@ -719,6 +719,9 @@
                   [attr.aria-label]="'Entry ' + i + ' reference'"
                 />
               }
+              @if (entryMechanics(entry); as mechanics) {
+                <span class="meta-text">{{ mechanics }}</span>
+              }
               <rux-button secondary class="entry-btn" (click)="onMoveEntry(i, -1)" [disabled]="i === 0" aria-label="Move entry up">&uarr;</rux-button>
               <rux-button secondary class="entry-btn" (click)="onMoveEntry(i, 1)" [disabled]="i === container.entryList.length - 1" aria-label="Move entry down">&darr;</rux-button>
               <button type="button" class="btn btn-danger entry-btn" (click)="onRemoveEntry(i)" aria-label="Remove entry">&times;</button>

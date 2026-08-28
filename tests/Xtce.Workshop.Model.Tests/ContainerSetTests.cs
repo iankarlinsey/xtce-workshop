@@ -67,8 +67,9 @@ public class ContainerSetTests
 
         var seqCountEntry = header.EntryList[1];
         Assert.Equal("SeqCount", seqCountEntry.Ref);
-        Assert.Equal(["LocationInContainerInBits"], seqCountEntry.Preserved!.Select(f => f.ElementName).ToList());
-        Assert.Contains("FixedValue", seqCountEntry.Preserved[0].OuterXml);
+        // The fixed location is modeled since #109 — no fragment left behind.
+        Assert.Null(seqCountEntry.Preserved);
+        Assert.NotNull(seqCountEntry.Location);
     }
 
     [Test]

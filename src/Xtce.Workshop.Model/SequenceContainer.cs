@@ -20,13 +20,61 @@ public enum SequenceEntryKind
 }
 
 /// <summary>
+/// A modeled LocationInContainerInBits (issue #109): the statically useful shape only —
+/// a FixedValue with its referenceLocation (default previousEntry, never baked in).
+/// Dynamic locations stay preserved fragments on the entry.
+/// </summary>
+public sealed record EntryLocation(
+    long FixedValue,
+    string? ReferenceLocation = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(EntryLocation? other) =>
+        other is not null
+        && FixedValue == other.FixedValue
+        && ReferenceLocation == other.ReferenceLocation
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(FixedValue);
+        hash.Add(ReferenceLocation);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
+/// A modeled RepeatEntry (issue #109): a fixed Count only. Dynamic counts and Offsets
+/// stay preserved fragments on the entry.
+/// </summary>
+public sealed record EntryRepeat(
+    long FixedCount,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(EntryRepeat? other) =>
+        other is not null
+        && FixedCount == other.FixedCount
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(FixedCount);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
 /// One entry in an EntryList. For the ref kinds, Ref is the
-/// parameterRef/containerRef/argumentRef attribute; Preserved holds unmodeled children
-/// (LocationInContainerInBits, RepeatEntry, IncludeCondition, TimeAssociation,
-/// AncillaryDataSet) and PreservedAttributes unmodeled attributes (shortDescription).
-/// For Kind == FixedValue, BinaryValue/SizeInBits/Name mirror FixedValueEntry's
-/// attributes and Ref is null. For Kind == Raw, RawXml is the whole entry element and
-/// the other fields are null.
+/// parameterRef/containerRef/argumentRef attribute; Location/Repeat/IncludeCondition are
+/// modeled where statically shaped (#109 — dynamic forms stay in Preserved alongside
+/// TimeAssociation and AncillaryDataSet); PreservedAttributes carries unmodeled
+/// attributes (shortDescription). For Kind == FixedValue, BinaryValue/SizeInBits/Name
+/// mirror FixedValueEntry's attributes and Ref is null. For Kind == Raw, RawXml is the
+/// whole entry element and the other fields are null.
 /// </summary>
 public sealed record SequenceEntry(
     SequenceEntryKind Kind,
@@ -36,7 +84,10 @@ public sealed record SequenceEntry(
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
     string? BinaryValue = null,
     long? SizeInBits = null,
-    string? Name = null)
+    string? Name = null,
+    EntryLocation? Location = null,
+    EntryRepeat? Repeat = null,
+    MatchCriteria? IncludeCondition = null)
 {
     public bool Equals(SequenceEntry? other) =>
         other is not null
@@ -47,7 +98,10 @@ public sealed record SequenceEntry(
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
         && BinaryValue == other.BinaryValue
         && SizeInBits == other.SizeInBits
-        && Name == other.Name;
+        && Name == other.Name
+        && Equals(Location, other.Location)
+        && Equals(Repeat, other.Repeat)
+        && Equals(IncludeCondition, other.IncludeCondition);
 
     public override int GetHashCode()
     {
@@ -60,6 +114,9 @@ public sealed record SequenceEntry(
         hash.Add(BinaryValue);
         hash.Add(SizeInBits);
         hash.Add(Name);
+        hash.Add(Location);
+        hash.Add(Repeat);
+        hash.Add(IncludeCondition);
         return hash.ToHashCode();
     }
 }

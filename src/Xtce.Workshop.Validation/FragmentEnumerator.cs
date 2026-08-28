@@ -148,6 +148,10 @@ public static class FragmentEnumerator
                         {
                             yield return (fragment, containerPath);
                         }
+                        foreach (var fragment in entry.IncludeCondition?.Preserved ?? [])
+                        {
+                            yield return (fragment, containerPath);
+                        }
                     }
                 }
             }
@@ -209,6 +213,10 @@ public static class FragmentEnumerator
                     yield return (rawEntry, containerPath);
                 }
                 foreach (var fragment in entry.Preserved ?? [])
+                {
+                    yield return (fragment, containerPath);
+                }
+                foreach (var fragment in entry.IncludeCondition?.Preserved ?? [])
                 {
                     yield return (fragment, containerPath);
                 }

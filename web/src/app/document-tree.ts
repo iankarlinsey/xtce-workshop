@@ -141,6 +141,17 @@ export interface ParameterDoc {
   [key: string]: unknown;
 }
 
+export interface EntryLocationDoc {
+  fixedValue: number;
+  referenceLocation?: string | null;
+  [key: string]: unknown;
+}
+
+export interface EntryRepeatDoc {
+  fixedCount: number;
+  [key: string]: unknown;
+}
+
 export interface SequenceEntryDoc {
   kind: 'ParameterRef' | 'ContainerRef' | 'Raw' | 'ArgumentRef' | 'FixedValue';
   ref?: string | null;
@@ -148,6 +159,9 @@ export interface SequenceEntryDoc {
   binaryValue?: string | null;
   sizeInBits?: number | null;
   name?: string | null;
+  location?: EntryLocationDoc | null;
+  repeat?: EntryRepeatDoc | null;
+  includeCondition?: MatchCriteriaDoc | null;
   [key: string]: unknown;
 }
 

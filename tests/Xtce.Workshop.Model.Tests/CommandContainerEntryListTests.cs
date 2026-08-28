@@ -51,7 +51,10 @@ public class CommandContainerEntryListTests
 
         Assert.Equal(("sync", "5A5A", 16L), (entries[0].Name, entries[0].BinaryValue, entries[0].SizeInBits!.Value));
         Assert.Equal("opcode", entries[1].Ref);
-        Assert.Equal(["IncludeCondition"], entries[1].Preserved!.Select(f => f.ElementName).ToList());
+        // IncludeCondition is modeled (#109); its instance-ref comparison (not the plain
+        // form) rides preserved INSIDE the criteria.
+        Assert.Null(entries[1].Preserved);
+        Assert.Equal(["Comparison"], entries[1].IncludeCondition!.Preserved!.Select(f => f.ElementName).ToList());
         Assert.Equal(CommentAnchor.ElementName, entries[2].RawXml!.ElementName);
         Assert.Equal("ArrayArgumentRefEntry", entries[3].RawXml!.ElementName);
 

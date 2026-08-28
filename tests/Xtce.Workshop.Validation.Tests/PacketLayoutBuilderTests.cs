@@ -347,4 +347,42 @@ public class PacketLayoutBuilderTests
         Assert.Equal(48, Assert.Single(layout.Rows).SizeInBits);
         Assert.Equal(48, layout.TotalSizeInBits);
     }
+
+    [Test]
+    public void ModeledLocationsAndRepeats_ShapeTheLayout()
+    {
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <TelemetryMetaData>
+                <ParameterTypeSet>
+                  <IntegerParameterType name="U8"><IntegerDataEncoding sizeInBits="8"/></IntegerParameterType>
+                </ParameterTypeSet>
+                <ParameterSet>
+                  <Parameter name="A" parameterTypeRef="U8"/>
+                  <Parameter name="B" parameterTypeRef="U8"/>
+                </ParameterSet>
+                <ContainerSet>
+                  <SequenceContainer name="Frame">
+                    <EntryList>
+                      <ParameterRefEntry parameterRef="A">
+                        <LocationInContainerInBits referenceLocation="containerStart"><FixedValue>16</FixedValue></LocationInContainerInBits>
+                      </ParameterRefEntry>
+                      <ParameterRefEntry parameterRef="B">
+                        <RepeatEntry><Count><FixedValue>4</FixedValue></Count></RepeatEntry>
+                      </ParameterRefEntry>
+                    </EntryList>
+                  </SequenceContainer>
+                </ContainerSet>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
+        var root = XtceDocumentReader.Load(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        var layout = PacketLayoutBuilder.Build(root, [], "Frame")!;
+
+        Assert.Equal([16L, 24L], layout.Rows.Select(r => r.OffsetInBits).ToList());
+        Assert.Equal([8L, 32L], layout.Rows.Select(r => r.SizeInBits).ToList());
+        Assert.Equal("\u00d74 repeat", layout.Rows[1].Note);
+        Assert.Equal(56, layout.TotalSizeInBits);
+    }
 }

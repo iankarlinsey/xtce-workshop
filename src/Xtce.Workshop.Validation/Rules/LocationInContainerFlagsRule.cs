@@ -17,12 +17,26 @@ public sealed class LocationInContainerFlagsRule : IValidationRule
 
     public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
-        foreach (var container in context.Node.TelemetryMetaData?.ContainerSet ?? [])
+        foreach (var (entries, location) in EntryLists(context))
         {
-            var location = $"{context.Path}/ContainerSet/{container.Name}";
-
-            foreach (var entry in container.EntryList)
+            foreach (var entry in entries)
             {
+                // Modeled locations (#109) — the fixed shape carries the same flags.
+                if (entry.Location is { } modeled)
+                {
+                    if (modeled.ReferenceLocation == "nextEntry")
+                    {
+                        yield return new ValidationIssue(RuleId, Severity, location,
+                            "LocationInContainerInBits uses referenceLocation=\"nextEntry\", which is proposed for deprecation and should be avoided.",
+                            CandidateNumber: 12);
+                    }
+                    else if (modeled.ReferenceLocation is "containerStart" or "containerEnd" && modeled.FixedValue < 0)
+                    {
+                        yield return new ValidationIssue(RuleId, Severity, location,
+                            $"LocationInContainerInBits has a negative {modeled.ReferenceLocation} offset ({modeled.FixedValue}) — implementation dependent and a likely error.",
+                            CandidateNumber: 12);
+                    }
+                }
                 var fragments = entry.Kind == SequenceEntryKind.Raw
                     ? (entry.RawXml is { } raw ? [raw] : Array.Empty<RawXmlFragment>())
                     : (entry.Preserved ?? (IReadOnlyList<RawXmlFragment>)[]);
@@ -45,6 +59,22 @@ public sealed class LocationInContainerFlagsRule : IValidationRule
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private static IEnumerable<(IReadOnlyList<SequenceEntry> Entries, string Location)> EntryLists(SpaceSystemContext context)
+    {
+        foreach (var container in context.Node.TelemetryMetaData?.ContainerSet ?? [])
+        {
+            yield return (container.EntryList, $"{context.Path}/ContainerSet/{container.Name}");
+        }
+        foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
+        {
+            if (metaCommand.CommandContainer?.EntryList is { } entryList)
+            {
+                yield return (entryList,
+                    $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}/CommandContainer");
             }
         }
     }

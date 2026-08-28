@@ -1646,6 +1646,22 @@ export class App {
     return parts.length > 0 ? parts.join(' — ') : 'check preserved as XML';
   }
 
+  /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */
+  protected entryMechanics(entry: SequenceEntryDoc): string {
+    const parts: string[] = [];
+    if (entry.location) {
+      parts.push(`@ bit ${entry.location.fixedValue}${entry.location.referenceLocation ? ' from ' + entry.location.referenceLocation : ''}`);
+    }
+    if (entry.repeat) {
+      parts.push(`×${entry.repeat.fixedCount}`);
+    }
+    if (entry.includeCondition) {
+      const match = entry.includeCondition.comparison;
+      parts.push(match ? `if ${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}` : 'conditional');
+    }
+    return parts.join(' ');
+  }
+
   protected entryLabel(entry: SequenceEntryDoc): string {
     switch (entry.kind) {
       case 'ParameterRef':

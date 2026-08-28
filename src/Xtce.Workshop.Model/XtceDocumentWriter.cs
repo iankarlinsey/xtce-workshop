@@ -232,30 +232,7 @@ public static class XtceDocumentWriter
                 if (captured.MatchCriteria is { } matchCriteria)
                 {
                     messageSlots.Add(("MatchCriteria", () =>
-                    {
-                        writer.WriteStartElement("MatchCriteria", XtceNamespace);
-                        WritePreservedAttributes(writer, matchCriteria.PreservedAttributes);
-                        var criteriaSlots = new List<(string Name, Action Emit)>();
-                        if (matchCriteria.Comparison is { } single)
-                        {
-                            criteriaSlots.Add(("Comparison", () => WriteComparison(writer, single)));
-                        }
-                        if (matchCriteria.ComparisonList is { } comparisonList)
-                        {
-                            criteriaSlots.Add(("ComparisonList", () =>
-                            {
-                                writer.WriteStartElement("ComparisonList", XtceNamespace);
-                                foreach (var entry in comparisonList)
-                                {
-                                    WriteComparison(writer, entry);
-                                }
-                                writer.WriteEndElement();
-                            }));
-                        }
-                        AddPreservedSlots(criteriaSlots, writer, matchCriteria.Preserved);
-                        EmitInSchemaOrder(MatchCriteriaChildOrder, criteriaSlots);
-                        writer.WriteEndElement();
-                    }));
+                        WriteMatchCriteriaElement(writer, "MatchCriteria", matchCriteria)));
                 }
                 AddPreservedSlots(messageSlots, writer, captured.Preserved);
                 messageSlots.Add(("ContainerRef", () =>
@@ -742,6 +719,7 @@ public static class XtceDocumentWriter
             }
             WritePreservedAttributes(writer, entry.PreservedAttributes);
             var fixedSlots = new List<(string Name, Action Emit)>();
+            AddEntryMechanicSlots(writer, entry, fixedSlots);
             AddPreservedSlots(fixedSlots, writer, entry.Preserved);
             EmitInSchemaOrder(SequenceEntryChildOrder, fixedSlots);
             writer.WriteEndElement();
@@ -762,9 +740,75 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, entry.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        AddEntryMechanicSlots(writer, entry, slots);
         AddPreservedSlots(slots, writer, entry.Preserved);
         EmitInSchemaOrder(SequenceEntryChildOrder, slots);
 
+        writer.WriteEndElement();
+    }
+
+    private static void AddEntryMechanicSlots(XmlWriter writer, SequenceEntry entry, List<(string Name, Action Emit)> slots)
+    {
+        if (entry.Location is { } location)
+        {
+            slots.Add(("LocationInContainerInBits", () =>
+            {
+                writer.WriteStartElement("LocationInContainerInBits", XtceNamespace);
+                if (location.ReferenceLocation is not null)
+                {
+                    writer.WriteAttributeString("referenceLocation", location.ReferenceLocation);
+                }
+                WritePreservedAttributes(writer, location.PreservedAttributes);
+                writer.WriteStartElement("FixedValue", XtceNamespace);
+                writer.WriteValue(location.FixedValue);
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+            }));
+        }
+        if (entry.Repeat is { } repeat)
+        {
+            slots.Add(("RepeatEntry", () =>
+            {
+                writer.WriteStartElement("RepeatEntry", XtceNamespace);
+                WritePreservedAttributes(writer, repeat.PreservedAttributes);
+                writer.WriteStartElement("Count", XtceNamespace);
+                writer.WriteStartElement("FixedValue", XtceNamespace);
+                writer.WriteValue(repeat.FixedCount);
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+            }));
+        }
+        if (entry.IncludeCondition is { } includeCondition)
+        {
+            slots.Add(("IncludeCondition", () =>
+                WriteMatchCriteriaElement(writer, "IncludeCondition", includeCondition)));
+        }
+    }
+
+    private static void WriteMatchCriteriaElement(XmlWriter writer, string elementName, MatchCriteria criteria)
+    {
+        writer.WriteStartElement(elementName, XtceNamespace);
+        WritePreservedAttributes(writer, criteria.PreservedAttributes);
+        var criteriaSlots = new List<(string Name, Action Emit)>();
+        if (criteria.Comparison is { } single)
+        {
+            criteriaSlots.Add(("Comparison", () => WriteComparison(writer, single)));
+        }
+        if (criteria.ComparisonList is { } comparisonList)
+        {
+            criteriaSlots.Add(("ComparisonList", () =>
+            {
+                writer.WriteStartElement("ComparisonList", XtceNamespace);
+                foreach (var entry in comparisonList)
+                {
+                    WriteComparison(writer, entry);
+                }
+                writer.WriteEndElement();
+            }));
+        }
+        AddPreservedSlots(criteriaSlots, writer, criteria.Preserved);
+        EmitInSchemaOrder(MatchCriteriaChildOrder, criteriaSlots);
         writer.WriteEndElement();
     }
 
