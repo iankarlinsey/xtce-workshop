@@ -19,7 +19,7 @@
     <div class="spacer"></div>
     @if (currentDocument() || sourceText()) {
       <div class="view-toggle" role="group" aria-label="Document view">
-        <rux-button [secondary]="viewMode() !== 'source'" (click)="onShowSource()">Source</rux-button>
+        <rux-button [secondary]="viewMode() !== 'source'" [disabled]="documentSession() !== null" (click)="onShowSource()">Source</rux-button>
         <rux-button [secondary]="viewMode() !== 'tree'" [disabled]="!currentDocument()"
                     (click)="onShowTree()">Tree</rux-button>
       </div>
@@ -148,7 +148,46 @@
           </div>
         }
       } @else {
-        @if (currentDocument(); as doc) {
+        @if (documentSession(); as session) {
+          <p class="meta-text session-note">Server-held document ({{ (session.inputByteCount / 1048576).toFixed(0) }} MB) — the tree loads as you expand it; edits apply on the server.</p>
+          <div class="tree-container session-tree">
+            @for (row of sessionRows(); track row.type + row.path + (row.kind ?? '') + (row.index ?? -1)) {
+              @if (row.type === 'system') {
+                <div class="session-row session-system" [style.padding-left.px]="row.depth * 14" (click)="onToggleSessionSystem(row.path)">
+                  <span class="toggle" [attr.aria-expanded]="row.expanded">{{ row.expanded ? '▾' : '▸' }}</span>
+                  <span class="label">{{ row.label }}</span>
+                </div>
+              } @else if (row.type === 'group') {
+                <div class="session-row session-group" [style.padding-left.px]="row.depth * 14" (click)="onToggleSessionGroup(row.path, row.kind!)">
+                  <span class="toggle" [attr.aria-expanded]="row.expanded">{{ row.expanded ? '▾' : '▸' }}</span>
+                  <span class="label">{{ row.label }}</span>
+                  <span class="session-count">{{ row.count }}</span>
+                </div>
+              } @else if (row.type === 'item') {
+                <div class="session-row session-item" [style.padding-left.px]="row.depth * 14" (click)="onOpenSessionItem(row.path, row.kind!, row.index!)">
+                  <span class="label">{{ row.label }}</span>
+                </div>
+              } @else {
+                <button type="button" class="session-row session-more" [style.margin-left.px]="row.depth * 14" (click)="onLoadMoreSessionItems(row.path, row.kind!)">
+                  {{ row.label }}
+                </button>
+              }
+            }
+          </div>
+          @if (validationIssues().length > 0) {
+            <div class="validation-panel">
+              <p class="validation-summary">Rule findings ({{ validationIssues().length }})</p>
+              <ul class="validation-list">
+                @for (issue of validationIssues(); track issue.location + issue.ruleId + issue.message) {
+                  <li class="validation-issue" [class.severity-warning]="issue.severity === 'Warning'">
+                    <span class="validation-location">{{ issue.location }}</span>
+                    <span class="validation-message">{{ issue.message }}</span>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        } @else if (currentDocument(); as doc) {
           <div class="side-actions">
             <rux-button secondary (click)="onRunReport()">Report</rux-button>
           </div>

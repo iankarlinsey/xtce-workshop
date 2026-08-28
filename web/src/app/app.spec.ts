@@ -115,6 +115,115 @@ describe('App', () => {
     httpMock.expectOne('/api/xtce/validate').flush({ validationIssues: issues });
   }
 
+  describe('server-held sessions (#129)', () => {
+    function openSession(fixture: ReturnType<typeof createAppAndFlushHealth>) {
+      const file = new File(['<big/>'], 'big.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      flushLoadIntoTree(fixture, {
+        name: 'Sat',
+        largeDocument: true,
+        documentSessionId: 'sess1',
+        inputByteCount: 314572800,
+        validationIssues: [
+          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/Bad', message: 'dangling', line: 12, column: 3 },
+        ],
+      });
+      // The root node summary is fetched immediately.
+      httpMock.expectOne((r) => r.url === '/api/xtce/sessions/sess1/node').flush({
+        name: 'Sat',
+        childSystems: ['Bus'],
+        groups: { parameterType: 2, parameter: 1 },
+      });
+      fixture.detectChanges();
+    }
+
+    it('a large-document load enters session mode with a lazy tree', () => {
+      const fixture = createAppAndFlushHealth();
+      openSession(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('Server-held document (300 MB)');
+      expect(compiled.textContent).toContain('Parameter Types');
+      expect(compiled.textContent).toContain('Bus');
+      expect(compiled.textContent).toContain('dangling'); // positioned findings still listed
+      const labels = Array.from(compiled.querySelectorAll('.session-row .label')).map((el) => el.textContent?.trim());
+      expect(labels).toContain('Sat');
+    });
+
+    it('expanding a group pages names and clicking an item opens its form', () => {
+      const fixture = createAppAndFlushHealth();
+      openSession(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (Array.from(compiled.querySelectorAll('.session-group .label'))
+        .find((el) => el.textContent?.trim() === 'Parameter Types')!
+        .closest('.session-group') as HTMLElement).click();
+      httpMock.expectOne((r) => r.url === '/api/xtce/sessions/sess1/items'
+        && r.params.get('kind') === 'parameterType').flush({
+          total: 2, offset: 0, names: ['Volt_Type', 'Mode_Type'],
+        });
+      fixture.detectChanges();
+
+      (Array.from(compiled.querySelectorAll('.session-item .label'))
+        .find((el) => el.textContent?.trim() === 'Volt_Type')!
+        .closest('.session-item') as HTMLElement).click();
+      httpMock.expectOne((r) => r.url === '/api/xtce/sessions/sess1/item'
+        && r.params.get('index') === '0').flush({ name: 'Volt_Type', kind: 'Integer', sizeInBits: 16 });
+      fixture.detectChanges();
+
+      expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('IntegerParameterType');
+      expect((compiled.querySelector('#type-size') as HTMLInputElement).value).toBe('16');
+    });
+
+    it('editing an open item PUTs it back and revalidates the held model', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      openSession(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (Array.from(compiled.querySelectorAll('.session-group .label'))
+        .find((el) => el.textContent?.trim() === 'Parameter Types')!
+        .closest('.session-group') as HTMLElement).click();
+      httpMock.expectOne((r) => r.url === '/api/xtce/sessions/sess1/items').flush({
+        total: 2, offset: 0, names: ['Volt_Type', 'Mode_Type'],
+      });
+      fixture.detectChanges();
+      (Array.from(compiled.querySelectorAll('.session-item .label'))
+        .find((el) => el.textContent?.trim() === 'Volt_Type')!
+        .closest('.session-item') as HTMLElement).click();
+      httpMock.expectOne((r) => r.url === '/api/xtce/sessions/sess1/item').flush({
+        name: 'Volt_Type', kind: 'Integer', sizeInBits: 16,
+      });
+      fixture.detectChanges();
+
+      const sizeInput = compiled.querySelector('#type-size') as HTMLInputElement;
+      sizeInput.value = '32';
+      sizeInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      tick(App.revalidateDelayMs);
+
+      const put = httpMock.expectOne((r) => r.method === 'PUT'
+        && r.url === '/api/xtce/sessions/sess1/item'
+        && r.params.get('kind') === 'parameterType' && r.params.get('index') === '0');
+      expect((put.request.body as { sizeInBits: number }).sizeInBits).toBe(32);
+      put.flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne('/api/xtce/sessions/sess1/validate').flush({ validationIssues: [] });
+      fixture.detectChanges();
+
+      expect((fixture.componentInstance as unknown as { validationIssues: () => unknown[] })
+        .validationIssues().length).toBe(0);
+    }));
+
+    it('Save streams the server-held XML as a blob download', () => {
+      const fixture = createAppAndFlushHealth();
+      openSession(fixture);
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/sessions/sess1/save');
+      expect(req.request.responseType).toBe('blob');
+      req.flush(new Blob(['<SpaceSystem/>'], { type: 'application/xml' }));
+    });
+  });
+
   it('should create the app', () => {
     const fixture = createAppAndFlushHealth();
     expect(fixture.componentInstance).toBeTruthy();

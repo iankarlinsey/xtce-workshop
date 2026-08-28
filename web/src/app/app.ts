@@ -105,13 +105,43 @@ interface LoadJobSnapshot {
 
 interface LoadResult {
   name: string;
-  document: SpaceSystemDocument;
+  document?: SpaceSystemDocument | null;
+  largeDocument?: boolean;
+  documentSessionId?: string;
+  inputByteCount?: number;
   validationIssues: ValidationIssue[];
   diagnostics?: LoadDiagnostic[];
   schemaErrors?: SchemaError[];
   rootNamespace?: string | null;
   detectedVersion?: string | null;
 }
+
+/** One system's summary in a server-held session (#129). */
+interface SessionNodeSummary {
+  name: string;
+  childSystems: string[];
+  groups: Record<string, number>;
+}
+
+/** One row of the flattened lazy session tree. */
+interface SessionRow {
+  type: 'system' | 'group' | 'item' | 'more';
+  depth: number;
+  label: string;
+  path: string;
+  kind?: string;
+  index?: number;
+  count?: number;
+  expanded?: boolean;
+}
+
+const SESSION_GROUP_LABELS: Record<string, string> = {
+  parameterType: 'Parameter Types', parameter: 'Parameters', container: 'Containers',
+  message: 'Messages', algorithm: 'Algorithms', stream: 'Streams', service: 'Services',
+  commandParameterType: 'Command Parameter Types', commandParameter: 'Command Parameters',
+  argumentType: 'Argument Types', metaCommand: 'Commands', blockMetaCommand: 'Block Commands',
+  commandContainer: 'Command Containers', commandAlgorithm: 'Command Algorithms',
+};
 
 @Component({
   selector: 'app-root',
@@ -159,6 +189,15 @@ export class App {
   protected readonly reportError = signal<string | null>(null);
   protected readonly documentMetrics = signal<DocumentMetrics | null>(null);
   protected readonly searchMatches = signal<SearchMatch[] | null>(null);
+
+  // --- Server-held document sessions (#129) ---------------------------------------------
+  protected readonly documentSession = signal<{ id: string; name: string; inputByteCount: number } | null>(null);
+  protected readonly sessionNodes = signal<Record<string, SessionNodeSummary>>({});
+  protected readonly sessionNames = signal<Record<string, { total: number; names: string[] }>>({});
+  protected readonly expandedSessionSystems = signal<ReadonlySet<string>>(new Set(['']));
+  protected readonly expandedSessionGroups = signal<ReadonlySet<string>>(new Set());
+  /** The real coordinates of the item open in the form panel, for PUT-backed edits. */
+  private sessionItemRef: { path: string; kind: string; index: number } | null = null;
   protected readonly loadDiagnostics = signal<LoadDiagnostic[]>([]);
   protected readonly loadSchemaErrors = signal<SchemaError[]>([]);
   /** Reader's element-position index for the loaded text, by validator location. */
@@ -637,14 +676,20 @@ export class App {
 
     // Source-first: the file's own text is visible immediately, before (and regardless
     // of) anything the server says. Markers land on this exact text when the parse
-    // response arrives.
+    // response arrives. Above the large-document threshold the text never becomes a
+    // browser string at all — the load lands in the server-held session's lazy tree.
     this.viewMode.set('source');
     this.startLoading(`Loading ${file.name}`, file.size);
     this.advanceTo('read');
-    file.text().then((fileText) => {
-      this.sourceText.set(fileText);
+    if (file.size < 25_000_000) {
+      file.text().then((fileText) => {
+        this.sourceText.set(fileText);
+        this.patchStage('read', { state: 'done' });
+      });
+    } else {
+      this.sourceText.set('');
       this.patchStage('read', { state: 'done' });
-    });
+    }
     this.saveError.set(null);
     this.validationIssues.set([]);
     this.treeSearchTerm.set('');
@@ -653,7 +698,7 @@ export class App {
     formData.append('file', file);
 
     const applyInitial = (result: LoadResult) => {
-      if (!result?.document) {
+      if (!result?.document && !result?.largeDocument) {
         // A 200 whose body isn't our shape (e.g. an intermediary proxy/auth layer
         // answering in the app's place) must never leave the UI silently empty.
         this.loadError.set('The server response did not contain a document — '
@@ -661,9 +706,10 @@ export class App {
         return;
       }
       this.applyLoadResult(result);
-      if (isCleanResult(result)) {
+      if (result.largeDocument || isCleanResult(result)) {
         // Clean initial load: land in the tree; anything with findings stays in
         // source, where triage happens, with the tree one (enabled) toggle away.
+        // Large documents always land in the (lazy) tree — the text never came down.
         this.sourceText.set('');
         this.viewMode.set('tree');
       }
@@ -696,7 +742,29 @@ export class App {
   }
 
   private applyLoadResult(result: LoadResult): void {
-    this.currentDocument.set(result.document);
+    this.closeDocumentSession();
+    if (result.largeDocument && result.documentSessionId) {
+      // #129: the model stays server-side; browse and edit it item by item.
+      this.documentSession.set({
+        id: result.documentSessionId, name: result.name, inputByteCount: result.inputByteCount ?? 0,
+      });
+      this.currentDocument.set(null);
+      this.selection.set(null);
+      this.sessionNodes.set({});
+      this.sessionNames.set({});
+      this.expandedSessionSystems.set(new Set(['']));
+      this.expandedSessionGroups.set(new Set());
+      this.sessionItemRef = null;
+      this.validationIssues.set(result.validationIssues ?? []);
+      this.conformanceReport.set(null);
+      this.loadDiagnostics.set(result.diagnostics ?? []);
+      this.loadSchemaErrors.set(result.schemaErrors ?? []);
+      this.rootNamespace.set(result.rootNamespace ?? null);
+      this.detectedVersion.set(result.detectedVersion ?? null);
+      this.fetchSessionNode('');
+      return;
+    }
+    this.currentDocument.set(result.document ?? null);
     this.selection.set({ systemPath: [] });
     this.validationIssues.set(result.validationIssues ?? []);
     this.conformanceReport.set(null);
@@ -744,6 +812,9 @@ export class App {
   onShowSource(): void {
     if (this.viewMode() === 'source') {
       return;
+    }
+    if (this.documentSession()) {
+      return; // a server-held document's text never came down to show
     }
     const doc = this.currentDocument();
     if (!doc) {
@@ -1288,6 +1359,10 @@ export class App {
   }
 
   onDeleteSelectedItem(): void {
+    if (this.documentSession()) {
+      this.saveError.set('Deleting items in a server-held document is not supported yet.');
+      return;
+    }
     const doc = this.currentDocument();
     const selection = this.selection();
     if (!doc || !selection?.item) {
@@ -2160,8 +2235,186 @@ export class App {
   /** Save writes the current TEXT: in source view the editor bytes verbatim (parseable
    *  or not), in tree view the serialization of the edits — the same bytes toggling to
    *  source would show. */
+  // --- Server-held session browsing/editing (#129) --------------------------------------
+
+  /** The flattened lazy tree: systems, group headers with counts, loaded item names. */
+  protected readonly sessionRows = computed<SessionRow[]>(() => {
+    const session = this.documentSession();
+    if (!session) {
+      return [];
+    }
+    const nodes = this.sessionNodes();
+    const names = this.sessionNames();
+    const expandedSystems = this.expandedSessionSystems();
+    const expandedGroups = this.expandedSessionGroups();
+    const rows: SessionRow[] = [];
+    const walk = (path: string, label: string, depth: number) => {
+      const expanded = expandedSystems.has(path);
+      rows.push({ type: 'system', depth, label, path, expanded });
+      const node = nodes[path];
+      if (!expanded || !node) {
+        return;
+      }
+      for (const kind of Object.keys(SESSION_GROUP_LABELS)) {
+        const count = node.groups[kind] ?? 0;
+        if (count === 0) {
+          continue;
+        }
+        const groupKey = `${path}|${kind}`;
+        const groupExpanded = expandedGroups.has(groupKey);
+        rows.push({
+          type: 'group', depth: depth + 1, label: SESSION_GROUP_LABELS[kind],
+          path, kind, count, expanded: groupExpanded,
+        });
+        const page = names[groupKey];
+        if (groupExpanded && page) {
+          page.names.forEach((name, index) =>
+            rows.push({ type: 'item', depth: depth + 2, label: name, path, kind, index }));
+          if (page.names.length < page.total) {
+            rows.push({
+              type: 'more', depth: depth + 2, path, kind,
+              label: `Show more (${page.names.length} of ${page.total})`,
+            });
+          }
+        }
+      }
+      node.childSystems.forEach((childName, childIndex) =>
+        walk(path === '' ? `${childIndex}` : `${path}/${childIndex}`, childName, depth + 1));
+    };
+    walk('', session.name, 0);
+    return rows;
+  });
+
+  private fetchSessionNode(path: string): void {
+    const session = this.documentSession();
+    if (!session) {
+      return;
+    }
+    this.http.get<SessionNodeSummary>(
+      `/api/xtce/sessions/${session.id}/node`, { params: { path } }
+    ).subscribe({
+      next: (node) => this.sessionNodes.update((nodes) => ({ ...nodes, [path]: node })),
+      error: () => this.loadError.set('The server-held document session expired — reload the file.'),
+    });
+  }
+
+  private fetchSessionItems(path: string, kind: string, offset: number): void {
+    const session = this.documentSession();
+    if (!session) {
+      return;
+    }
+    this.http.get<{ total: number; offset: number; names: string[] }>(
+      `/api/xtce/sessions/${session.id}/items`,
+      { params: { path, kind, offset, limit: 200 } }
+    ).subscribe({
+      next: (page) => this.sessionNames.update((names) => {
+        const key = `${path}|${kind}`;
+        const existing = offset > 0 ? names[key]?.names ?? [] : [];
+        return { ...names, [key]: { total: page.total, names: [...existing, ...page.names] } };
+      }),
+      error: () => this.loadError.set('The server-held document session expired — reload the file.'),
+    });
+  }
+
+  onToggleSessionSystem(path: string): void {
+    const expanded = new Set(this.expandedSessionSystems());
+    if (expanded.has(path)) {
+      expanded.delete(path);
+    } else {
+      expanded.add(path);
+      if (!this.sessionNodes()[path]) {
+        this.fetchSessionNode(path);
+      }
+    }
+    this.expandedSessionSystems.set(expanded);
+  }
+
+  onToggleSessionGroup(path: string, kind: string): void {
+    const key = `${path}|${kind}`;
+    const expanded = new Set(this.expandedSessionGroups());
+    if (expanded.has(key)) {
+      expanded.delete(key);
+    } else {
+      expanded.add(key);
+      if (!this.sessionNames()[key]) {
+        this.fetchSessionItems(path, kind, 0);
+      }
+    }
+    this.expandedSessionGroups.set(expanded);
+  }
+
+  onLoadMoreSessionItems(path: string, kind: string): void {
+    const loaded = this.sessionNames()[`${path}|${kind}`]?.names.length ?? 0;
+    this.fetchSessionItems(path, kind, loaded);
+  }
+
+  /** Fetches one item and opens it in the regular forms via a single-item document window. */
+  onOpenSessionItem(path: string, kind: string, index: number): void {
+    const session = this.documentSession();
+    if (!session) {
+      return;
+    }
+    this.http.get<TelemetryItem>(
+      `/api/xtce/sessions/${session.id}/item`, { params: { path, kind, index } }
+    ).subscribe({
+      next: (item) => {
+        this.sessionItemRef = { path, kind, index };
+        const { document, selection } = this.buildSessionItemWindow(path, kind, item);
+        this.currentDocument.set(document);
+        this.selection.set(selection);
+      },
+      error: () => this.loadError.set('The server-held document session expired — reload the file.'),
+    });
+  }
+
+  /**
+   * A minimal document containing just the system chain down to the fetched item, so
+   * every existing form (and mutateSelectedItem) works unchanged; edits sync back via
+   * PUT in scheduleRevalidate.
+   */
+  private buildSessionItemWindow(
+    path: string, kind: string, item: TelemetryItem
+  ): { document: SpaceSystemDocument; selection: Selection } {
+    const nodes = this.sessionNodes();
+    const segments = path === '' ? [] : path.split('/');
+    const names: string[] = [this.documentSession()?.name ?? nodes['']?.name ?? 'Document'];
+    let prefix = '';
+    for (const segment of segments) {
+      const parent = nodes[prefix];
+      names.push(parent?.childSystems[Number(segment)] ?? `System ${segment}`);
+      prefix = prefix === '' ? segment : `${prefix}/${segment}`;
+    }
+    let document: SpaceSystemDocument = { name: names[names.length - 1], children: [] };
+    for (let i = names.length - 2; i >= 0; i--) {
+      document = { name: names[i], children: [document] };
+    }
+    const systemPath = segments.map(() => 0);
+    document = addItemToSystem(document, systemPath, kind as ItemKind, item);
+    return { document, selection: { systemPath, item: { kind: kind as ItemKind, index: 0 } } };
+  }
+
+  private closeDocumentSession(): void {
+    const session = this.documentSession();
+    if (!session) {
+      return;
+    }
+    this.http.delete(`/api/xtce/sessions/${session.id}`).subscribe({ next: () => {}, error: () => {} });
+    this.documentSession.set(null);
+    this.sessionItemRef = null;
+  }
+
   onSaveDocument(): void {
     this.saveError.set(null);
+    const session = this.documentSession();
+    if (session) {
+      // Server-side serialization streamed down as a Blob — a 300MB file never has to
+      // exist as one JavaScript string.
+      this.http.get(`/api/xtce/sessions/${session.id}/save`, { responseType: 'blob' }).subscribe({
+        next: (blob) => this.downloadBlobObject(blob, `${session.name}.xml`),
+        error: () => this.saveError.set('Failed to save the server-held document.'),
+      });
+      return;
+    }
     if (this.viewMode() === 'source') {
       const text = this.sourceView()?.currentText() ?? this.sourceText();
       if (!text) {
@@ -2349,6 +2602,11 @@ export class App {
       if (!doc) {
         return;
       }
+      const session = this.documentSession();
+      if (session && this.sessionItemRef) {
+        this.pushSessionItemEdit(session.id, doc);
+        return;
+      }
       try {
         this.http.post<{ validationIssues: ValidationIssue[] }>('/api/xtce/validate', doc).subscribe({
           next: (result) => this.validationIssues.set(result.validationIssues ?? []),
@@ -2362,12 +2620,54 @@ export class App {
     }, App.revalidateDelayMs);
   }
 
+  /** Syncs the single-item window back into the server-held model, then revalidates it. */
+  private pushSessionItemEdit(sessionId: string, doc: SpaceSystemDocument): void {
+    const ref = this.sessionItemRef;
+    const selection = this.selection();
+    if (!ref || !selection?.item) {
+      return;
+    }
+    const item = getItemAtSelection(doc, selection);
+    if (!item) {
+      return;
+    }
+    this.http.put(
+      `/api/xtce/sessions/${sessionId}/item`,
+      item,
+      { params: { path: ref.path, kind: ref.kind, index: ref.index } }
+    ).subscribe({
+      next: () => {
+        // A rename must show in the lazy tree row immediately.
+        this.sessionNames.update((names) => {
+          const key = `${ref.path}|${ref.kind}`;
+          const page = names[key];
+          if (!page || !page.names[ref.index]) {
+            return names;
+          }
+          const updated = [...page.names];
+          updated[ref.index] = (item as { name?: string }).name ?? updated[ref.index];
+          return { ...names, [key]: { ...page, names: updated } };
+        });
+        this.http.post<{ validationIssues: ValidationIssue[] }>(
+          `/api/xtce/sessions/${sessionId}/validate`, null
+        ).subscribe({
+          next: (result) => this.validationIssues.set(result.validationIssues ?? []),
+          error: () => {},
+        });
+      },
+      error: () => this.saveError.set('The edit could not be applied to the server-held document.'),
+    });
+  }
+
   private downloadXml(xml: string, filename: string): void {
     this.downloadBlob(xml, 'application/xml', filename);
   }
 
   private downloadBlob(content: string, contentType: string, filename: string): void {
-    const blob = new Blob([content], { type: contentType });
+    this.downloadBlobObject(new Blob([content], { type: contentType }), filename);
+  }
+
+  private downloadBlobObject(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
 
     const anchor = document.createElement('a');

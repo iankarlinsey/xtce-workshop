@@ -1082,3 +1082,14 @@
   outline: none;
   border-color: var(--accent);
 }
+
+/* --- Server-held session tree (#129) --- */
+.session-note { padding: 6px 10px; }
+.session-tree { overflow-y: auto; }
+.session-row { display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer; font-size: 13px; }
+.session-row:hover { background: var(--surface-hover, rgba(255, 255, 255, 0.06)); }
+.session-system .label { font-weight: 600; }
+.session-group .label { text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; color: var(--text-muted, #9fb1c1); }
+.session-count { margin-left: auto; font-size: 11px; color: var(--text-faint, #7a8894); border: 1px solid var(--text-faint, #7a8894); border-radius: 8px; padding: 0 6px; }
+.session-item .label { color: var(--text, inherit); }
+.session-more { background: none; border: none; color: var(--accent, #4da6ff); font-size: 12px; cursor: pointer; padding: 3px 8px; text-align: left; }
