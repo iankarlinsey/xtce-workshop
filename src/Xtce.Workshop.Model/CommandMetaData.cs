@@ -1,17 +1,20 @@
 namespace Xtce.Workshop.Model;
 
 /// <summary>
-/// A MetaCommand's inline CommandContainer, modeled just deeply enough for rule R21 and
-/// lossless round-trips: name, the BaseContainer reference (inheritance wiring), and
-/// everything else — including the required EntryList with its command-specific entry
-/// kinds (FixedValueEntry, ArgumentRefEntry, ...) — preserved verbatim.
+/// A MetaCommand's inline CommandContainer: name, the BaseContainer reference
+/// (inheritance wiring), and — since issue #97 — the EntryList with the command-side
+/// entry kinds modeled (ArgumentRefEntry, FixedValueEntry, plus the shared
+/// ParameterRefEntry/ContainerRefEntry; the rest ride as Raw entries in position).
+/// EntryList is null only for a container that had none in the source (schema-invalid
+/// but preserved as-was); an empty element is an empty, non-null list.
 /// </summary>
 public sealed record CommandContainer(
     string Name,
     string? BaseContainerRef = null,
     IReadOnlyList<RawXmlFragment>? BaseContainerPreserved = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    IReadOnlyList<SequenceEntry>? EntryList = null)
 {
     public bool Equals(CommandContainer? other) =>
         other is not null
@@ -19,7 +22,8 @@ public sealed record CommandContainer(
         && BaseContainerRef == other.BaseContainerRef
         && Structural.ListEquals(BaseContainerPreserved, other.BaseContainerPreserved)
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Structural.ListEquals(EntryList, other.EntryList);
 
     public override int GetHashCode()
     {
@@ -29,6 +33,7 @@ public sealed record CommandContainer(
         Structural.AddList(ref hash, BaseContainerPreserved);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        Structural.AddList(ref hash, EntryList);
         return hash.ToHashCode();
     }
 }

@@ -1380,9 +1380,73 @@ export class App {
         return 'param';
       case 'ContainerRef':
         return 'container';
+      case 'ArgumentRef':
+        return 'argument';
+      case 'FixedValue':
+        return 'fixed';
       default:
         return entry.rawXml?.elementName ?? 'other';
     }
+  }
+
+  // --- Command container entry editing ---------------------------------------------------
+
+  private mutateCommandEntryList(update: (entries: SequenceEntryDoc[]) => SequenceEntryDoc[]): void {
+    this.mutateSelectedItem((item) => {
+      const metaCommand = item as MetaCommandDoc;
+      if (!metaCommand.commandContainer) {
+        return metaCommand;
+      }
+      return {
+        ...metaCommand,
+        commandContainer: {
+          ...metaCommand.commandContainer,
+          entryList: update(metaCommand.commandContainer.entryList ?? []),
+        },
+      };
+    });
+  }
+
+  onCommandEntryFieldInput(index: number, field: 'ref' | 'binaryValue' | 'name', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateCommandEntryList((entries) => entries.map((entry, i) =>
+      i === index ? { ...entry, [field]: field !== 'ref' && value === '' ? null : value } : entry));
+  }
+
+  onCommandEntryNumberFieldInput(index: number, field: 'sizeInBits', event: Event): void {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    const parsed = raw === '' ? null : Number(raw);
+    this.mutateCommandEntryList((entries) => entries.map((entry, i) =>
+      i === index ? { ...entry, [field]: parsed !== null && Number.isFinite(parsed) ? parsed : null } : entry));
+  }
+
+  onAddCommandEntry(kindSelect: HTMLSelectElement, refInput: HTMLInputElement): void {
+    const kind = kindSelect.value as SequenceEntryDoc['kind'];
+    const reference = refInput.value.trim();
+    this.mutateCommandEntryList((entries) => [
+      ...entries,
+      kind === 'FixedValue'
+        ? { kind, binaryValue: reference || '00', sizeInBits: 8 }
+        : { kind, ref: reference },
+    ]);
+    refInput.value = '';
+  }
+
+  onRemoveCommandEntry(index: number): void {
+    this.mutateCommandEntryList((entries) => entries.filter((_, i) => i !== index));
+  }
+
+  onMoveCommandEntry(index: number, delta: number): void {
+    this.mutateCommandEntryList((entries) => {
+      const target = index + delta;
+      if (target < 0 || target >= entries.length) {
+        return entries;
+      }
+      const next = [...entries];
+      const [entry] = next.splice(index, 1);
+      next.splice(target, 0, entry);
+      return next;
+    });
   }
 
   // --- Save / search / revalidation ----------------------------------------------------

@@ -980,6 +980,13 @@ describe('App', () => {
                 name: 'Reboot',
                 baseMetaCommandRef: 'BaseCmd',
                 arguments: [{ name: 'delay', argumentTypeRef: 'CmdU8' }],
+                commandContainer: {
+                  name: 'RebootFrame',
+                  entryList: [
+                    { kind: 'FixedValue', binaryValue: '5A5A', sizeInBits: 16 },
+                    { kind: 'ArgumentRef', ref: 'delay' },
+                  ],
+                },
                 completeVerifiers: [{ elementName: 'CompleteVerifier', outerXml: '<CompleteVerifier/>' }],
               },
             ],
@@ -1016,6 +1023,57 @@ describe('App', () => {
       expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('IntegerArgumentType');
       expect((compiled.querySelector('#type-size') as HTMLInputElement).value).toBe('8');
     });
+
+    it('the command container entry list renders and edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      clickTreeRowByText(fixture, 'Reboot');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect((compiled.querySelector('input[aria-label="Command entry 0 binary value"]') as HTMLInputElement).value).toBe('5A5A');
+      expect((compiled.querySelector('input[aria-label="Command entry 1 reference"]') as HTMLInputElement).value).toBe('delay');
+
+      const sizeInput = compiled.querySelector('input[aria-label="Command entry 0 size in bits"]') as HTMLInputElement;
+      sizeInput.value = '32';
+      sizeInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.commandMetaData.metaCommands[1].commandContainer.entryList).toEqual([
+        { kind: 'FixedValue', binaryValue: '5A5A', sizeInBits: 32 },
+        { kind: 'ArgumentRef', ref: 'delay' },
+      ]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('adding and reordering command container entries flows into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      clickTreeRowByText(fixture, 'Reboot');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const kindSelect = compiled.querySelector('select[aria-label="New command entry kind"]') as HTMLSelectElement;
+      const refInput = compiled.querySelector('input[aria-label="New command entry reference"]') as HTMLInputElement;
+      kindSelect.value = 'ArgumentRef';
+      refInput.value = 'mode';
+      (Array.from(compiled.querySelectorAll('.add-entry-row rux-button, .add-entry-row button')).find(
+        (b) => b.textContent?.trim() === '+ Add entry'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      fixture.componentInstance.onMoveCommandEntry(2, -1);
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.commandMetaData.metaCommands[1].commandContainer.entryList.map(
+        (e: { kind: string; ref?: string }) => e.ref ?? e.kind
+      )).toEqual(['FixedValue', 'mode', 'delay']);
+      req.flush('<SpaceSystem/>');
+    }));
 
     it('editing a command argument flows into Save under arguments', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();

@@ -77,20 +77,33 @@ public sealed class DimSubsetLessThanTypeRule : IValidationRule
         }
     }
 
-    /// <summary>Candidates #1/#2: array entries in preserved CommandContainer EntryLists.</summary>
+    /// <summary>Candidates #1/#2: array entries in CommandContainer EntryLists — the modeled
+    /// list's Raw rows (Array*RefEntry stays Raw) plus any still-preserved EntryList fragment.</summary>
     private IEnumerable<ValidationIssue> ValidateCommandContainerEntries(SpaceSystemContext context)
     {
         foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
         {
+            var rawEntries = new List<(string ElementName, string OuterXml)>();
+            foreach (var entry in metaCommand.CommandContainer?.EntryList ?? [])
+            {
+                if (entry.RawXml is { } raw)
+                {
+                    rawEntries.Add((raw.ElementName, raw.OuterXml));
+                }
+            }
             var entryList = (metaCommand.CommandContainer?.Preserved ?? []).FirstOrDefault(f => f.ElementName == "EntryList");
-            if (entryList is null)
+            if (entryList is not null)
+            {
+                rawEntries.AddRange(ArgumentScanner.ChildElements(entryList.OuterXml));
+            }
+            if (rawEntries.Count == 0)
             {
                 continue;
             }
             var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}/CommandContainer";
             IReadOnlyList<ModeledArguments.Scoped>? visibleArguments = null;
 
-            foreach (var (entryName, entryXml) in ArgumentScanner.ChildElements(entryList.OuterXml))
+            foreach (var (entryName, entryXml) in rawEntries)
             {
                 if (entryName == "ArrayArgumentRefEntry")
                 {

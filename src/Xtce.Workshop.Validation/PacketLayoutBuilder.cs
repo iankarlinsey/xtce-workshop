@@ -37,17 +37,148 @@ public static class PacketLayoutBuilder
             context = childContext;
         }
 
-        if (!context.ModeledContainers.TryGetValue(containerName, out var container))
-        {
-            return null;
-        }
-
         var rows = new List<PacketLayoutRow>();
         long? offset = 0;
-        AppendContainer(context, container, new HashSet<SequenceContainer>(ReferenceEqualityComparer.Instance),
-            rows, ref offset, viaInheritance: true);
+        if (context.ModeledContainers.TryGetValue(containerName, out var container))
+        {
+            AppendContainer(context, container, new HashSet<SequenceContainer>(ReferenceEqualityComparer.Instance),
+                rows, ref offset, viaInheritance: true);
+            return new PacketLayout(rows, offset);
+        }
 
-        return new PacketLayout(rows, offset);
+        // A MetaCommand's inline CommandContainer lays out too (#97): FixedValueEntry
+        // sizes are explicit, ArgumentRefEntry sizes come from the owning command's
+        // merged argument declarations and their (modeled) argument-type encodings.
+        if (context.InlineCommandContainerOwners.TryGetValue(containerName, out var owner)
+            && owner.CommandContainer is { } commandContainer)
+        {
+            AppendCommandContainer(context, owner, commandContainer,
+                new HashSet<CommandContainer>(ReferenceEqualityComparer.Instance), rows, ref offset);
+            return new PacketLayout(rows, offset);
+        }
+
+        return null;
+    }
+
+    private static void AppendCommandContainer(
+        SpaceSystemContext context,
+        MetaCommand owner,
+        CommandContainer container,
+        HashSet<CommandContainer> visited,
+        List<PacketLayoutRow> rows,
+        ref long? offset)
+    {
+        if (!visited.Add(container))
+        {
+            rows.Add(new PacketLayoutRow(container.Name, "cycle", container.Name, offset, null, false,
+                "container inheritance/reference cycle — layout truncated"));
+            offset = null;
+            return;
+        }
+
+        if (container.BaseContainerRef is { } baseRef)
+        {
+            AppendContainerByRef(context, owner, container.Name, baseRef, visited, rows, ref offset,
+                "base container exists but isn't statically inspectable");
+        }
+
+        var mergedArguments = ModeledArguments.Merged(context, owner);
+
+        foreach (var entry in container.EntryList ?? [])
+        {
+            ApplyExplicitLocation(entry, ref offset);
+
+            switch (entry.Kind)
+            {
+                case SequenceEntryKind.ParameterRef:
+                    AppendParameterEntry(context, container.Name, entry, rows, ref offset);
+                    break;
+
+                case SequenceEntryKind.ContainerRef:
+                    AppendContainerByRef(context, owner, container.Name, entry.Ref!, visited, rows, ref offset,
+                        "included container isn't statically inspectable");
+                    break;
+
+                case SequenceEntryKind.ArgumentRef:
+                {
+                    long? size = null;
+                    var variable = false;
+                    string? note = null;
+                    var argument = mergedArguments.FirstOrDefault(a => a.Decl.Name == entry.Ref);
+                    if (argument is null)
+                    {
+                        note = "unresolved argument reference";
+                    }
+                    else if (ModeledArguments.ResolveType(argument.Scope, argument.Decl.ArgumentTypeRef) is { } type)
+                    {
+                        (size, variable) = EncodedSize(type);
+                        if (size is null)
+                        {
+                            note = variable ? "variable-length encoding" : "no statically-known encoding";
+                        }
+                        else if (variable)
+                        {
+                            note = "variable — size shown is the maximum";
+                        }
+                    }
+                    else
+                    {
+                        note = "argument type isn't statically inspectable";
+                    }
+                    rows.Add(new PacketLayoutRow(entry.Ref!, "argument", container.Name, offset, size, variable, note));
+                    Advance(ref offset, size);
+                    break;
+                }
+
+                case SequenceEntryKind.FixedValue:
+                {
+                    var label = entry.Name ?? entry.BinaryValue ?? "FixedValueEntry";
+                    rows.Add(new PacketLayoutRow(label, "fixed", container.Name, offset, entry.SizeInBits, false,
+                        entry.SizeInBits is null ? "size not statically known" : null));
+                    Advance(ref offset, entry.SizeInBits);
+                    break;
+                }
+
+                case SequenceEntryKind.Raw:
+                    AppendRawEntry(container.Name, entry, rows, ref offset);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Expands a containerRef that may name a telemetry SequenceContainer or another
+    /// MetaCommand's inline CommandContainer; anything else gets an opaque row.
+    /// </summary>
+    private static void AppendContainerByRef(
+        SpaceSystemContext context,
+        MetaCommand owner,
+        string sourceContainer,
+        string containerRef,
+        HashSet<CommandContainer> visited,
+        List<PacketLayoutRow> rows,
+        ref long? offset,
+        string opaqueNote)
+    {
+        var resolution = NameReferenceResolver.Resolve(context, containerRef, NamedItemKind.Container);
+        if (resolution.Container is { } sequenceContainer && resolution.DefinedIn is { } scope)
+        {
+            AppendContainer(scope, sequenceContainer, new HashSet<SequenceContainer>(ReferenceEqualityComparer.Instance),
+                rows, ref offset, viaInheritance: true);
+            return;
+        }
+        var lastSlash = containerRef.LastIndexOf('/');
+        var localName = lastSlash < 0 ? containerRef : containerRef[(lastSlash + 1)..];
+        if (resolution.DefinedIn is { } definedIn
+            && definedIn.InlineCommandContainerOwners.TryGetValue(localName, out var innerOwner)
+            && innerOwner.CommandContainer is { } innerContainer)
+        {
+            AppendCommandContainer(definedIn, innerOwner, innerContainer, visited, rows, ref offset);
+            return;
+        }
+        rows.Add(new PacketLayoutRow(containerRef, "container", sourceContainer, offset, null, false,
+            resolution.Found ? opaqueNote : "unresolved reference"));
+        offset = null;
     }
 
     private static void AppendContainer(
@@ -90,7 +221,7 @@ public static class PacketLayoutBuilder
             switch (entry.Kind)
             {
                 case SequenceEntryKind.ParameterRef:
-                    AppendParameterEntry(context, container, entry, rows, ref offset);
+                    AppendParameterEntry(context, container.Name, entry, rows, ref offset);
                     break;
 
                 case SequenceEntryKind.ContainerRef:
@@ -112,31 +243,34 @@ public static class PacketLayoutBuilder
                 }
 
                 case SequenceEntryKind.Raw:
-                {
-                    var fragment = entry.RawXml!;
-                    if (fragment.ElementName == CommentAnchor.ElementName)
-                    {
-                        break; // a preserved XML comment riding in entry position — no bits
-                    }
-                    var sizeAttr = XmlFragmentInspector.RootAttribute(fragment.OuterXml, "sizeInBits");
-                    long? size = long.TryParse(sizeAttr, out var parsed) ? parsed : null;
-                    var label = XmlFragmentInspector.RootAttribute(fragment.OuterXml, "parameterRef")
-                        ?? XmlFragmentInspector.RootAttribute(fragment.OuterXml, "containerRef")
-                        ?? XmlFragmentInspector.RootAttribute(fragment.OuterXml, "streamRef")
-                        ?? XmlFragmentInspector.RootAttribute(fragment.OuterXml, "binaryValue")
-                        ?? fragment.ElementName;
-                    rows.Add(new PacketLayoutRow(label, fragment.ElementName, container.Name, offset, size, false,
-                        size is null ? "size not statically known" : null));
-                    Advance(ref offset, size);
+                    AppendRawEntry(container.Name, entry, rows, ref offset);
                     break;
-                }
             }
         }
     }
 
+    private static void AppendRawEntry(string sourceContainer, SequenceEntry entry, List<PacketLayoutRow> rows, ref long? offset)
+    {
+        var fragment = entry.RawXml!;
+        if (fragment.ElementName == CommentAnchor.ElementName)
+        {
+            return; // a preserved XML comment riding in entry position — no bits
+        }
+        var sizeAttr = XmlFragmentInspector.RootAttribute(fragment.OuterXml, "sizeInBits");
+        long? size = long.TryParse(sizeAttr, out var parsed) ? parsed : null;
+        var label = XmlFragmentInspector.RootAttribute(fragment.OuterXml, "parameterRef")
+            ?? XmlFragmentInspector.RootAttribute(fragment.OuterXml, "containerRef")
+            ?? XmlFragmentInspector.RootAttribute(fragment.OuterXml, "streamRef")
+            ?? XmlFragmentInspector.RootAttribute(fragment.OuterXml, "binaryValue")
+            ?? fragment.ElementName;
+        rows.Add(new PacketLayoutRow(label, fragment.ElementName, sourceContainer, offset, size, false,
+            size is null ? "size not statically known" : null));
+        Advance(ref offset, size);
+    }
+
     private static void AppendParameterEntry(
         SpaceSystemContext context,
-        SequenceContainer container,
+        string sourceContainer,
         SequenceEntry entry,
         List<PacketLayoutRow> rows,
         ref long? offset)
@@ -171,7 +305,7 @@ public static class PacketLayoutBuilder
             note = parameterResolution.Found ? "parameter isn't statically inspectable" : "unresolved reference";
         }
 
-        rows.Add(new PacketLayoutRow(entry.Ref!, "parameter", container.Name, offset, size, variable, note));
+        rows.Add(new PacketLayoutRow(entry.Ref!, "parameter", sourceContainer, offset, size, variable, note));
         Advance(ref offset, size);
     }
 

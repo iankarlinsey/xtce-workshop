@@ -372,6 +372,18 @@ public static class XtceDocumentWriter
 
                 var containerSlots = new List<(string Name, Action Emit)>();
                 AddPreservedSlots(containerSlots, writer, commandContainer.Preserved);
+                if (commandContainer.EntryList is { } entryList)
+                {
+                    containerSlots.Add(("EntryList", () =>
+                    {
+                        writer.WriteStartElement("EntryList", XtceNamespace);
+                        foreach (var entry in entryList)
+                        {
+                            WriteSequenceEntry(writer, entry);
+                        }
+                        writer.WriteEndElement();
+                    }));
+                }
                 if (commandContainer.BaseContainerRef is { } baseRef)
                 {
                     containerSlots.Add(("BaseContainer", () =>
@@ -467,10 +479,32 @@ public static class XtceDocumentWriter
             return;
         }
 
+        if (entry.Kind == SequenceEntryKind.FixedValue)
+        {
+            writer.WriteStartElement("FixedValueEntry", XtceNamespace);
+            if (entry.Name is not null)
+            {
+                writer.WriteAttributeString("name", entry.Name);
+            }
+            writer.WriteAttributeString("binaryValue", entry.BinaryValue
+                ?? throw new InvalidOperationException("A FixedValueEntry has no binaryValue."));
+            if (entry.SizeInBits is { } fixedSize)
+            {
+                writer.WriteAttributeString("sizeInBits", XmlConvert.ToString(fixedSize));
+            }
+            WritePreservedAttributes(writer, entry.PreservedAttributes);
+            var fixedSlots = new List<(string Name, Action Emit)>();
+            AddPreservedSlots(fixedSlots, writer, entry.Preserved);
+            EmitInSchemaOrder(SequenceEntryChildOrder, fixedSlots);
+            writer.WriteEndElement();
+            return;
+        }
+
         var (elementName, refAttributeName) = entry.Kind switch
         {
             SequenceEntryKind.ParameterRef => ("ParameterRefEntry", "parameterRef"),
             SequenceEntryKind.ContainerRef => ("ContainerRefEntry", "containerRef"),
+            SequenceEntryKind.ArgumentRef => ("ArgumentRefEntry", "argumentRef"),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry.Kind, "Unsupported entry kind."),
         };
 

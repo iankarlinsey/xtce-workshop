@@ -695,6 +695,7 @@ public static class XtceDocumentReader
         string? baseContainerRef = null;
         List<RawXmlFragment>? basePreserved = null;
         List<RawXmlFragment>? preserved = null;
+        List<SequenceEntry>? entryList = null;
         List<string>? pendingComments = null;
 
         if (reader.IsEmptyElement)
@@ -735,10 +736,16 @@ public static class XtceDocumentReader
                         reader.ReadEndElement();
                     }
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "EntryList" && entryList is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    entryList = new List<SequenceEntry>();
+                    ReadEntryList(reader, entryList, commandEntries: true);
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // EntryList (required, with its command-specific entry kinds),
-                    // description children, encodings — preserved verbatim.
+                    // Description children, BinaryEncoding, DefaultRateInStream —
+                    // preserved verbatim.
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
                 }
@@ -752,7 +759,7 @@ public static class XtceDocumentReader
             reader.ReadEndElement();
         }
 
-        return new CommandContainer(name, baseContainerRef, basePreserved, preserved, preservedAttributes);
+        return new CommandContainer(name, baseContainerRef, basePreserved, preserved, preservedAttributes, entryList);
     }
 
     private static void ReadVerifierSet(
@@ -1075,7 +1082,7 @@ public static class XtceDocumentReader
         return new SequenceContainer(name, entries, baseContainer, isAbstract, preserved, preservedAttributes);
     }
 
-    private static void ReadEntryList(XmlReader reader, List<SequenceEntry> entries)
+    private static void ReadEntryList(XmlReader reader, List<SequenceEntry> entries, bool commandEntries = false)
     {
         if (reader.IsEmptyElement)
         {
@@ -1095,9 +1102,17 @@ public static class XtceDocumentReader
             {
                 entries.Add(ReadRefEntry(reader, SequenceEntryKind.ContainerRef, "containerRef"));
             }
+            else if (commandEntries && reader.NodeType == XmlNodeType.Element && reader.LocalName == "ArgumentRefEntry")
+            {
+                entries.Add(ReadRefEntry(reader, SequenceEntryKind.ArgumentRef, "argumentRef"));
+            }
+            else if (commandEntries && reader.NodeType == XmlNodeType.Element && reader.LocalName == "FixedValueEntry")
+            {
+                entries.Add(ReadFixedValueEntry(reader));
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // The other five entry kinds (segments, stream segments, indirect and array
+                // The remaining entry kinds (segments, stream segments, indirect and array
                 // refs) ride as Raw entries IN POSITION — entry order is the packet layout,
                 // so unlike set-typed collections these cannot be appended at the end.
                 var elementName = reader.LocalName;
@@ -1158,6 +1173,49 @@ public static class XtceDocumentReader
         }
 
         return new SequenceEntry(kind, reference, null, preserved, preservedAttributes);
+    }
+
+    private static SequenceEntry ReadFixedValueEntry(XmlReader reader)
+    {
+        var binaryValue = RequireAttribute(reader, "binaryValue", "a FixedValueEntry");
+        var sizeInBits = ParseLong(reader, "sizeInBits");
+        var name = reader.GetAttribute("name");
+        // An unparseable sizeInBits stays a preserved attribute rather than being dropped.
+        var modeledAttributes = sizeInBits is null
+            ? new[] { "binaryValue", "name" }
+            : new[] { "binaryValue", "name", "sizeInBits" };
+        var preservedAttributes = CapturePreservedAttributes(reader, modeledAttributes);
+
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new SequenceEntry(SequenceEntryKind.FixedValue, null, null, preserved, preservedAttributes,
+            binaryValue, sizeInBits, name);
     }
 
     private static BaseContainer ReadBaseContainer(XmlReader reader)

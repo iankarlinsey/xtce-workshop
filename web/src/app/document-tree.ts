@@ -71,9 +71,12 @@ export interface ParameterDoc {
 }
 
 export interface SequenceEntryDoc {
-  kind: 'ParameterRef' | 'ContainerRef' | 'Raw';
+  kind: 'ParameterRef' | 'ContainerRef' | 'Raw' | 'ArgumentRef' | 'FixedValue';
   ref?: string | null;
   rawXml?: { elementName: string; outerXml: string; anchor?: string | null } | null;
+  binaryValue?: string | null;
+  sizeInBits?: number | null;
+  name?: string | null;
   [key: string]: unknown;
 }
 
@@ -138,12 +141,20 @@ export interface ArgumentAssignmentDoc {
   [key: string]: unknown;
 }
 
+export interface CommandContainerDoc {
+  name: string;
+  baseContainerRef?: string | null;
+  entryList?: SequenceEntryDoc[] | null;
+  [key: string]: unknown;
+}
+
 export interface MetaCommandDoc {
   name: string;
   abstract?: boolean | null;
   baseMetaCommandRef?: string | null;
   arguments?: ArgumentDoc[] | null;
   argumentAssignments?: ArgumentAssignmentDoc[] | null;
+  commandContainer?: CommandContainerDoc | null;
   executionVerifiers?: unknown[] | null;
   completeVerifiers?: unknown[] | null;
   [key: string]: unknown;

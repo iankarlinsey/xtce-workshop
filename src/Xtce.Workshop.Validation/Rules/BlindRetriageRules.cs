@@ -17,6 +17,24 @@ public sealed class FixedValueBitLengthRule : IValidationRule
 
     public IEnumerable<ValidationIssue> Validate(SpaceSystemContext context)
     {
+        // Modeled FixedValueEntry rows in command container entry lists (#97).
+        foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
+        {
+            foreach (var entry in metaCommand.CommandContainer?.EntryList ?? [])
+            {
+                if (entry.Kind != SequenceEntryKind.FixedValue || entry.BinaryValue is null || entry.SizeInBits is null)
+                {
+                    continue;
+                }
+                var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}/CommandContainer";
+                foreach (var issue in Check(entry.BinaryValue, entry.SizeInBits.Value, location))
+                {
+                    yield return issue;
+                }
+            }
+        }
+
+        // FixedValueEntry inside still-preserved fragments (e.g. command-side container sets).
         foreach (var (fragment, location) in FragmentEnumerator.EnumerateNode(context))
         {
             foreach (var entry in XmlFragmentInspector.FindFixedValueEntries(fragment.OuterXml))
@@ -25,14 +43,22 @@ public sealed class FixedValueBitLengthRule : IValidationRule
                 {
                     continue;
                 }
-                var availableBits = (long)entry.BinaryValue.Length * 4; // hexBinary: 4 bits per digit
-                if (availableBits < entry.SizeInBits)
+                foreach (var issue in Check(entry.BinaryValue, entry.SizeInBits.Value, location))
                 {
-                    yield return new ValidationIssue(RuleId, Severity, location,
-                        $"FixedValueEntry binaryValue '{entry.BinaryValue}' provides {availableBits} bits but sizeInBits is {entry.SizeInBits} — the value should have sufficient bit length.",
-                        CandidateNumber: 3);
+                    yield return issue;
                 }
             }
+        }
+    }
+
+    private IEnumerable<ValidationIssue> Check(string binaryValue, long sizeInBits, string location)
+    {
+        var availableBits = (long)binaryValue.Length * 4; // hexBinary: 4 bits per digit
+        if (availableBits < sizeInBits)
+        {
+            yield return new ValidationIssue(RuleId, Severity, location,
+                $"FixedValueEntry binaryValue '{binaryValue}' provides {availableBits} bits but sizeInBits is {sizeInBits} — the value should have sufficient bit length.",
+                CandidateNumber: 3);
         }
     }
 }

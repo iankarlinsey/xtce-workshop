@@ -231,4 +231,52 @@ public class PacketLayoutBuilderTests
         Assert.Equal([12L, 32L, 64L, 256L], layout.Rows.Select(r => r.SizeInBits).ToList());
         Assert.Equal([false, false, false, true], layout.Rows.Select(r => r.IsVariable).ToList());
     }
+
+    [Test]
+    public void CommandContainer_LaysOut_FixedValuesAndArguments_WithBaseChain()
+    {
+        // Inline command containers lay out too (#97): the header comes from the base
+        // command's container, the fixed sync marker has an explicit size, and argument
+        // sizes come from the merged argument declarations' encodings.
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <CommandMetaData>
+                <ArgumentTypeSet>
+                  <IntegerArgumentType name="U8"><IntegerDataEncoding sizeInBits="8"/></IntegerArgumentType>
+                  <IntegerArgumentType name="U16"><IntegerDataEncoding sizeInBits="16"/></IntegerArgumentType>
+                </ArgumentTypeSet>
+                <MetaCommandSet>
+                  <MetaCommand name="Base" abstract="true">
+                    <ArgumentList><Argument name="opcode" argumentTypeRef="U8"/></ArgumentList>
+                    <CommandContainer name="BaseFrame">
+                      <EntryList>
+                        <FixedValueEntry name="sync" binaryValue="5A5A" sizeInBits="16"/>
+                        <ArgumentRefEntry argumentRef="opcode"/>
+                      </EntryList>
+                    </CommandContainer>
+                  </MetaCommand>
+                  <MetaCommand name="Fire">
+                    <BaseMetaCommand metaCommandRef="Base"/>
+                    <ArgumentList><Argument name="duration" argumentTypeRef="U16"/></ArgumentList>
+                    <CommandContainer name="FireFrame">
+                      <EntryList>
+                        <ArgumentRefEntry argumentRef="duration"/>
+                      </EntryList>
+                      <BaseContainer containerRef="BaseFrame"/>
+                    </CommandContainer>
+                  </MetaCommand>
+                </MetaCommandSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """;
+        var root = XtceDocumentReader.Load(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        var layout = PacketLayoutBuilder.Build(root, [], "FireFrame")!;
+
+        Assert.Equal(["sync", "opcode", "duration"], layout.Rows.Select(r => r.Name).ToList());
+        Assert.Equal(["fixed", "argument", "argument"], layout.Rows.Select(r => r.Kind).ToList());
+        Assert.Equal([0L, 16L, 24L], layout.Rows.Select(r => r.OffsetInBits).ToList());
+        Assert.Equal([16L, 8L, 16L], layout.Rows.Select(r => r.SizeInBits).ToList());
+        Assert.Equal(40, layout.TotalSizeInBits);
+    }
 }

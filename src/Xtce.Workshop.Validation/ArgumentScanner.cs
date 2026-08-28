@@ -157,6 +157,19 @@ public static class ArgumentScanner
         {
             yield return fragment;
         }
+        foreach (var entry in metaCommand.CommandContainer?.EntryList ?? [])
+        {
+            // Modeled entries keep their IncludeConditions etc. in Preserved; Raw entries
+            // ride whole — both were reachable when EntryList was one big fragment.
+            if (entry.RawXml is { } rawEntry)
+            {
+                yield return rawEntry;
+            }
+            foreach (var fragment in entry.Preserved ?? [])
+            {
+                yield return fragment;
+            }
+        }
     }
 
     // ---- shared parsing helpers -------------------------------------------------------------

@@ -2,32 +2,41 @@ namespace Xtce.Workshop.Model;
 
 /// <summary>
 /// Which EntryList element a SequenceEntry represents. ParameterRef and ContainerRef are
-/// the modeled kinds; Raw carries any of the other five entry kinds (ParameterSegmentRefEntry,
-/// ContainerSegmentRefEntry, StreamSegmentEntry, IndirectParameterRefEntry,
-/// ArrayParameterRefEntry) verbatim, IN POSITION — entry order is the packet layout, so
-/// unlike ParameterTypeSet (unordered set semantics, preserved entries appended at the end),
-/// EntryList keeps unmodeled entries interleaved exactly where they appeared.
+/// modeled everywhere; ArgumentRef and FixedValue occur only in a CommandContainer's
+/// EntryList (the command-side entry kinds, issue #97). Raw carries the remaining kinds
+/// (ParameterSegmentRefEntry, ContainerSegmentRefEntry, StreamSegmentEntry,
+/// IndirectParameterRefEntry, ArrayParameterRefEntry, ArrayArgumentRefEntry) verbatim,
+/// IN POSITION — entry order is the packet layout, so unlike ParameterTypeSet (unordered
+/// set semantics, preserved entries appended at the end), EntryList keeps unmodeled
+/// entries interleaved exactly where they appeared.
 /// </summary>
 public enum SequenceEntryKind
 {
     ParameterRef,
     ContainerRef,
     Raw,
+    ArgumentRef,
+    FixedValue,
 }
 
 /// <summary>
-/// One entry in a SequenceContainer's EntryList. For ParameterRef/ContainerRef kinds, Ref
-/// is the parameterRef/containerRef attribute, Preserved holds unmodeled children
+/// One entry in an EntryList. For the ref kinds, Ref is the
+/// parameterRef/containerRef/argumentRef attribute; Preserved holds unmodeled children
 /// (LocationInContainerInBits, RepeatEntry, IncludeCondition, TimeAssociation,
 /// AncillaryDataSet) and PreservedAttributes unmodeled attributes (shortDescription).
-/// For Kind == Raw, RawXml is the whole entry element and the other fields are null.
+/// For Kind == FixedValue, BinaryValue/SizeInBits/Name mirror FixedValueEntry's
+/// attributes and Ref is null. For Kind == Raw, RawXml is the whole entry element and
+/// the other fields are null.
 /// </summary>
 public sealed record SequenceEntry(
     SequenceEntryKind Kind,
     string? Ref = null,
     RawXmlFragment? RawXml = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    string? BinaryValue = null,
+    long? SizeInBits = null,
+    string? Name = null)
 {
     public bool Equals(SequenceEntry? other) =>
         other is not null
@@ -35,7 +44,10 @@ public sealed record SequenceEntry(
         && Ref == other.Ref
         && Equals(RawXml, other.RawXml)
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && BinaryValue == other.BinaryValue
+        && SizeInBits == other.SizeInBits
+        && Name == other.Name;
 
     public override int GetHashCode()
     {
@@ -45,6 +57,9 @@ public sealed record SequenceEntry(
         hash.Add(RawXml);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(BinaryValue);
+        hash.Add(SizeInBits);
+        hash.Add(Name);
         return hash.ToHashCode();
     }
 }

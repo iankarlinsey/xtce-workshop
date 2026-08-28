@@ -78,13 +78,25 @@ public static class FragmentEnumerator
                 }
                 if (metaCommand.CommandContainer is { } inlineContainer)
                 {
+                    var containerPath = $"{metaCommandPath}/CommandContainer";
                     foreach (var fragment in inlineContainer.Preserved ?? [])
                     {
-                        yield return (fragment, $"{metaCommandPath}/CommandContainer");
+                        yield return (fragment, containerPath);
                     }
                     foreach (var fragment in inlineContainer.BaseContainerPreserved ?? [])
                     {
-                        yield return (fragment, $"{metaCommandPath}/CommandContainer");
+                        yield return (fragment, containerPath);
+                    }
+                    foreach (var entry in inlineContainer.EntryList ?? [])
+                    {
+                        if (entry.RawXml is { } rawEntry)
+                        {
+                            yield return (rawEntry, containerPath);
+                        }
+                        foreach (var fragment in entry.Preserved ?? [])
+                        {
+                            yield return (fragment, containerPath);
+                        }
                     }
                 }
             }
