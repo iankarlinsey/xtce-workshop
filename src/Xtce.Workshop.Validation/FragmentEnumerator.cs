@@ -268,6 +268,10 @@ public static class FragmentEnumerator
         {
             yield return (fragment, typePath);
         }
+        foreach (var fragment in type.DefaultAlarm?.Preserved ?? [])
+        {
+            yield return (fragment, typePath);
+        }
         foreach (var member in type.Members ?? [])
         {
             foreach (var fragment in member.Preserved ?? [])

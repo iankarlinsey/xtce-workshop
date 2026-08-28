@@ -94,6 +94,26 @@ export interface DataEncodingDoc {
   [key: string]: unknown;
 }
 
+export interface AlarmRangeDoc {
+  minInclusive?: string | null;
+  minExclusive?: string | null;
+  maxInclusive?: string | null;
+  maxExclusive?: string | null;
+  [key: string]: unknown;
+}
+
+export interface NumericAlarmDoc {
+  minViolations?: number | null;
+  rangeForm?: string | null;
+  watchRange?: AlarmRangeDoc | null;
+  warningRange?: AlarmRangeDoc | null;
+  distressRange?: AlarmRangeDoc | null;
+  criticalRange?: AlarmRangeDoc | null;
+  severeRange?: AlarmRangeDoc | null;
+  hasStaticRanges?: boolean;
+  [key: string]: unknown;
+}
+
 export interface ParameterTypeDoc {
   name: string;
   kind: ParameterTypeKind;
@@ -109,6 +129,7 @@ export interface ParameterTypeDoc {
   dataEncoding?: DataEncodingDoc | null;
   timeEncoding?: TimeEncodingDoc | null;
   unitSet?: UnitDoc[] | null;
+  defaultAlarm?: NumericAlarmDoc | null;
   [key: string]: unknown;
 }
 

@@ -9,6 +9,8 @@ import {
   ParameterTypeDoc,
   DataEncodingDoc,
   CalibratorDoc,
+  NumericAlarmDoc,
+  AlarmRangeDoc,
   ParameterDoc,
   SequenceContainerDoc,
   ParameterTypeKind,
@@ -1284,6 +1286,55 @@ export class App {
       const parsed = raw === '' ? null : Number(raw);
       return { ...calibrator, splineOrder: parsed !== null && Number.isFinite(parsed) ? parsed : null };
     });
+  }
+
+  // --- Numeric alarm editing --------------------------------------------------------------
+
+  protected readonly alarmRangeKeys = ['watchRange', 'warningRange', 'distressRange', 'criticalRange', 'severeRange'] as const;
+
+  protected alarmRangeLabel(key: string): string {
+    return key.replace('Range', '');
+  }
+
+  protected alarmRange(alarm: NumericAlarmDoc, key: string): AlarmRangeDoc | null {
+    return (alarm[key] as AlarmRangeDoc | null) ?? null;
+  }
+
+  private mutateAlarm(update: (alarm: NumericAlarmDoc) => NumericAlarmDoc | null): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      if (!type.defaultAlarm) {
+        return type;
+      }
+      return { ...type, defaultAlarm: update(type.defaultAlarm) };
+    });
+  }
+
+  onAddAlarm(): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      return type.defaultAlarm ? type : { ...type, defaultAlarm: { hasStaticRanges: true } };
+    });
+  }
+
+  onRemoveAlarm(): void {
+    this.mutateAlarm(() => null);
+  }
+
+  onAlarmRangeInput(rangeKey: string, field: string, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateAlarm((alarm) => {
+      const range = { ...((alarm[rangeKey] as AlarmRangeDoc | null) ?? {}), [field]: value === '' ? null : value };
+      const empty = !range.minInclusive && !range.minExclusive && !range.maxInclusive && !range.maxExclusive;
+      return { ...alarm, hasStaticRanges: true, [rangeKey]: empty ? null : range };
+    });
+  }
+
+  onAlarmFieldInput(field: 'rangeForm' | 'minViolations', event: Event): void {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    this.mutateAlarm((alarm) => field === 'rangeForm'
+      ? { ...alarm, rangeForm: raw === '' ? null : raw }
+      : { ...alarm, minViolations: raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : null });
   }
 
   onAddEncoding(kindSelect: HTMLSelectElement): void {

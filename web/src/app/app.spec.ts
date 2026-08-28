@@ -704,6 +704,45 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('the alarm editor adds ranges and edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Volt_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
+        (b) => b.textContent?.trim() === '+ Add alarm'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const setInput = (selector: string, value: string) => {
+        const input = compiled.querySelector(selector) as HTMLInputElement;
+        input.value = value;
+        input.dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+      };
+      setInput('input[aria-label="warningRange minInclusive"]', '10');
+      setInput('input[aria-label="warningRange maxInclusive"]', '90');
+      setInput('input[aria-label="criticalRange minExclusive"]', '0');
+      setInput('input[aria-label="criticalRange maxExclusive"]', '100');
+      setInput('#alarm-rangeform', 'outside');
+      setInput('#alarm-minviolations', '2');
+      // Clearing every bound drops the range back to null.
+      setInput('input[aria-label="watchRange minInclusive"]', '5');
+      setInput('input[aria-label="watchRange minInclusive"]', '');
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const alarm = req.request.body.telemetryMetaData.parameterTypeSet[0].defaultAlarm;
+      expect(alarm.warningRange).toEqual({ minInclusive: '10', maxInclusive: '90' });
+      expect(alarm.criticalRange).toEqual({ minExclusive: '0', maxExclusive: '100' });
+      expect(alarm.watchRange).toBeNull();
+      expect(alarm.rangeForm).toBe('outside');
+      expect(alarm.minViolations).toBe(2);
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('the calibrator editor adds a polynomial and edits flow into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

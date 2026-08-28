@@ -130,6 +130,87 @@ public sealed record Calibrator(
     }
 }
 
+/// <summary>One alarm severity range (FloatRangeType): bounds stay verbatim strings.</summary>
+public sealed record AlarmRange(
+    string? MinInclusive = null,
+    string? MinExclusive = null,
+    string? MaxInclusive = null,
+    string? MaxExclusive = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(AlarmRange? other) =>
+        other is not null
+        && MinInclusive == other.MinInclusive
+        && MinExclusive == other.MinExclusive
+        && MaxInclusive == other.MaxInclusive
+        && MaxExclusive == other.MaxExclusive
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(MinInclusive);
+        hash.Add(MinExclusive);
+        hash.Add(MaxInclusive);
+        hash.Add(MaxExclusive);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
+/// A numeric DefaultAlarm (Integer/Float types, issue #105): the StaticAlarmRanges
+/// severity ladder is modeled (rangeForm + the five ranges, XSD defaults never baked
+/// in); ChangeAlarmRanges, AlarmMultiRanges, AlarmConditions, CustomAlarm, and
+/// AncillaryDataSet ride in Preserved; minViolations is modeled, other alarm attributes
+/// preserved. A StaticAlarmRanges that can't be modeled cleanly stays a preserved
+/// fragment alongside.
+/// </summary>
+public sealed record NumericAlarm(
+    long? MinViolations = null,
+    string? RangeForm = null,
+    AlarmRange? WatchRange = null,
+    AlarmRange? WarningRange = null,
+    AlarmRange? DistressRange = null,
+    AlarmRange? CriticalRange = null,
+    AlarmRange? SevereRange = null,
+    bool HasStaticRanges = false,
+    IReadOnlyList<RawAttribute>? StaticRangesPreservedAttributes = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(NumericAlarm? other) =>
+        other is not null
+        && MinViolations == other.MinViolations
+        && RangeForm == other.RangeForm
+        && Equals(WatchRange, other.WatchRange)
+        && Equals(WarningRange, other.WarningRange)
+        && Equals(DistressRange, other.DistressRange)
+        && Equals(CriticalRange, other.CriticalRange)
+        && Equals(SevereRange, other.SevereRange)
+        && HasStaticRanges == other.HasStaticRanges
+        && Structural.ListEquals(StaticRangesPreservedAttributes, other.StaticRangesPreservedAttributes)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(MinViolations);
+        hash.Add(RangeForm);
+        hash.Add(WatchRange);
+        hash.Add(WarningRange);
+        hash.Add(DistressRange);
+        hash.Add(CriticalRange);
+        hash.Add(SevereRange);
+        hash.Add(HasStaticRanges);
+        Structural.AddList(ref hash, StaticRangesPreservedAttributes);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
 /// <summary>The four DataEncoding element kinds of the XSD's BaseDataType choice.</summary>
 public enum DataEncodingKind
 {
@@ -294,7 +375,8 @@ public sealed record ParameterTypeDefinition(
     DataEncoding? DataEncoding = null,
     TimeEncoding? TimeEncoding = null,
     IReadOnlyList<Unit>? UnitSet = null,
-    IReadOnlyList<RawXmlFragment>? PreservedUnits = null)
+    IReadOnlyList<RawXmlFragment>? PreservedUnits = null,
+    NumericAlarm? DefaultAlarm = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -314,7 +396,8 @@ public sealed record ParameterTypeDefinition(
         && Equals(DataEncoding, other.DataEncoding)
         && Equals(TimeEncoding, other.TimeEncoding)
         && Structural.ListEquals(UnitSet, other.UnitSet)
-        && Structural.ListEquals(PreservedUnits, other.PreservedUnits);
+        && Structural.ListEquals(PreservedUnits, other.PreservedUnits)
+        && Equals(DefaultAlarm, other.DefaultAlarm);
 
     public override int GetHashCode()
     {
@@ -336,6 +419,7 @@ public sealed record ParameterTypeDefinition(
         hash.Add(TimeEncoding);
         Structural.AddList(ref hash, UnitSet);
         Structural.AddList(ref hash, PreservedUnits);
+        hash.Add(DefaultAlarm);
         return hash.ToHashCode();
     }
 }

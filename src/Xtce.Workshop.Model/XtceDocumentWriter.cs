@@ -768,6 +768,10 @@ public static class XtceDocumentWriter
             slots.Add((DataEncodingElementName(dataEncoding.Kind), () => WriteDataEncoding(writer, dataEncoding)));
         }
         AddPreservedSlots(slots, writer, parameterType.Preserved);
+        if (parameterType.DefaultAlarm is { } defaultAlarm)
+        {
+            slots.Add(("DefaultAlarm", () => WriteNumericAlarm(writer, defaultAlarm)));
+        }
         if (parameterType.Kind == ParameterTypeKind.Array)
         {
             slots.Add(("DimensionList", () =>
@@ -998,6 +1002,74 @@ public static class XtceDocumentWriter
         "ErrorDetectCorrect", "DefaultCalibrator", "ContextCalibratorList",
         "SizeInBits", "Variable", "FromBinaryTransformAlgorithm", "ToBinaryTransformAlgorithm",
     ];
+
+    // AlarmType choice first, then NumericAlarmType's sequence.
+    private static readonly string[] NumericAlarmChildOrder =
+    [
+        "AncillaryDataSet", "AlarmConditions", "CustomAlarm",
+        "StaticAlarmRanges", "ChangeAlarmRanges", "AlarmMultiRanges",
+    ];
+
+    private static void WriteNumericAlarm(XmlWriter writer, NumericAlarm alarm)
+    {
+        writer.WriteStartElement("DefaultAlarm", XtceNamespace);
+        if (alarm.MinViolations is { } minViolations)
+        {
+            writer.WriteAttributeString("minViolations", XmlConvert.ToString(minViolations));
+        }
+        WritePreservedAttributes(writer, alarm.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        if (alarm.HasStaticRanges)
+        {
+            slots.Add(("StaticAlarmRanges", () =>
+            {
+                writer.WriteStartElement("StaticAlarmRanges", XtceNamespace);
+                if (alarm.RangeForm is not null)
+                {
+                    writer.WriteAttributeString("rangeForm", alarm.RangeForm);
+                }
+                WritePreservedAttributes(writer, alarm.StaticRangesPreservedAttributes);
+                WriteAlarmRange(writer, "WatchRange", alarm.WatchRange);
+                WriteAlarmRange(writer, "WarningRange", alarm.WarningRange);
+                WriteAlarmRange(writer, "DistressRange", alarm.DistressRange);
+                WriteAlarmRange(writer, "CriticalRange", alarm.CriticalRange);
+                WriteAlarmRange(writer, "SevereRange", alarm.SevereRange);
+                writer.WriteEndElement();
+            }));
+        }
+        AddPreservedSlots(slots, writer, alarm.Preserved);
+        EmitInSchemaOrder(NumericAlarmChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteAlarmRange(XmlWriter writer, string elementName, AlarmRange? range)
+    {
+        if (range is null)
+        {
+            return;
+        }
+        writer.WriteStartElement(elementName, XtceNamespace);
+        if (range.MinInclusive is not null)
+        {
+            writer.WriteAttributeString("minInclusive", range.MinInclusive);
+        }
+        if (range.MinExclusive is not null)
+        {
+            writer.WriteAttributeString("minExclusive", range.MinExclusive);
+        }
+        if (range.MaxInclusive is not null)
+        {
+            writer.WriteAttributeString("maxInclusive", range.MaxInclusive);
+        }
+        if (range.MaxExclusive is not null)
+        {
+            writer.WriteAttributeString("maxExclusive", range.MaxExclusive);
+        }
+        WritePreservedAttributes(writer, range.PreservedAttributes);
+        writer.WriteEndElement();
+    }
 
     private static void WriteDefaultCalibrator(XmlWriter writer, Calibrator calibrator)
     {

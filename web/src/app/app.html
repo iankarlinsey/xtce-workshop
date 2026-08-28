@@ -573,6 +573,36 @@
             }
           </div>
         }
+        @if (type.kind === 'Integer' || type.kind === 'Float') {
+          <div class="form-field enum-editor">
+            <label>Default alarm <span class="hint">(static severity ranges)</span></label>
+            @if (type.defaultAlarm; as alarm) {
+              <div class="form-field">
+                <label for="alarm-rangeform">Range form <span class="hint">(XTCE default: outside)</span></label>
+                <input id="alarm-rangeform" [value]="alarm.rangeForm ?? ''" (input)="onAlarmFieldInput('rangeForm', $event)" />
+              </div>
+              <div class="form-field">
+                <label for="alarm-minviolations">Min violations <span class="hint">(XTCE default: 1)</span></label>
+                <input id="alarm-minviolations" type="number" [value]="alarm.minViolations ?? ''" (input)="onAlarmFieldInput('minViolations', $event)" />
+              </div>
+              @for (rangeKey of alarmRangeKeys; track rangeKey) {
+                <div class="enum-row">
+                  <span class="entry-kind">{{ alarmRangeLabel(rangeKey) }}</span>
+                  <input class="enum-value" [value]="alarmRange(alarm, rangeKey)?.minInclusive ?? ''" (input)="onAlarmRangeInput(rangeKey, 'minInclusive', $event)" placeholder="min ≥" [attr.aria-label]="rangeKey + ' minInclusive'" />
+                  <input class="enum-value" [value]="alarmRange(alarm, rangeKey)?.maxInclusive ?? ''" (input)="onAlarmRangeInput(rangeKey, 'maxInclusive', $event)" placeholder="max ≤" [attr.aria-label]="rangeKey + ' maxInclusive'" />
+                  <input class="enum-value" [value]="alarmRange(alarm, rangeKey)?.minExclusive ?? ''" (input)="onAlarmRangeInput(rangeKey, 'minExclusive', $event)" placeholder="min >" [attr.aria-label]="rangeKey + ' minExclusive'" />
+                  <input class="enum-value" [value]="alarmRange(alarm, rangeKey)?.maxExclusive ?? ''" (input)="onAlarmRangeInput(rangeKey, 'maxExclusive', $event)" placeholder="max <" [attr.aria-label]="rangeKey + ' maxExclusive'" />
+                </div>
+              }
+              <div class="enum-row">
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveAlarm()" aria-label="Remove default alarm">Remove alarm</button>
+              </div>
+              <app-preserved-xml [item]="alarm" />
+            } @else {
+              <rux-button secondary (click)="onAddAlarm()">+ Add alarm</rux-button>
+            }
+          </div>
+        }
         @if (type.kind === 'Enumerated') {
           <div class="form-field enum-editor">
             <label>Enumeration list</label>

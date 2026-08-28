@@ -109,4 +109,54 @@ public class UnitsPropertiesTimeEncodingTests
         Assert.Equal(document, Load(written));
         Assert.Contains("<RelativeTimeAgumentType", written);
     }
+
+    [Test]
+    public void Load_ModelsNumericDefaultAlarms_AndBailsOutOnOddShapes()
+    {
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <TelemetryMetaData>
+                <ParameterTypeSet>
+                  <IntegerParameterType name="A">
+                    <IntegerDataEncoding sizeInBits="8"/>
+                    <DefaultAlarm minViolations="3">
+                      <StaticAlarmRanges rangeForm="outside">
+                        <WarningRange minInclusive="10" maxInclusive="90"/>
+                        <CriticalRange minExclusive="0" maxExclusive="100"/>
+                      </StaticAlarmRanges>
+                    </DefaultAlarm>
+                  </IntegerParameterType>
+                  <FloatParameterType name="B">
+                    <FloatDataEncoding/>
+                    <DefaultAlarm>
+                      <StaticAlarmRanges>
+                        <!-- comment forces the bail-out -->
+                        <WarningRange minInclusive="1"/>
+                      </StaticAlarmRanges>
+                    </DefaultAlarm>
+                  </FloatParameterType>
+                </ParameterTypeSet>
+                <ParameterSet/>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
+        var loaded = Load(xml);
+        var types = loaded.TelemetryMetaData!.ParameterTypeSet;
+
+        var alarm = types.Single(t => t.Name == "A").DefaultAlarm!;
+        Assert.Equal((3L, "outside", true), (alarm.MinViolations!.Value, alarm.RangeForm, alarm.HasStaticRanges));
+        Assert.Equal(("10", "90"), (alarm.WarningRange!.MinInclusive, alarm.WarningRange.MaxInclusive));
+        Assert.Equal(("0", "100"), (alarm.CriticalRange!.MinExclusive, alarm.CriticalRange.MaxExclusive));
+        Assert.Null(alarm.WatchRange);
+
+        // The commented ranges stay a preserved fragment on the alarm — nothing modeled.
+        var bailed = types.Single(t => t.Name == "B").DefaultAlarm!;
+        Assert.False(bailed.HasStaticRanges);
+        Assert.Equal(["StaticAlarmRanges"], bailed.Preserved!.Select(f => f.ElementName).ToList());
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, Load(written));
+        var errors = XsdValidation.Validate(written);
+        Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
+    }
 }

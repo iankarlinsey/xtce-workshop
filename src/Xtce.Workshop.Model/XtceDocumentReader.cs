@@ -1707,6 +1707,7 @@ public static class XtceDocumentReader
         TimeEncoding? timeEncoding = null;
         List<Unit>? unitSet = null;
         List<RawXmlFragment>? preservedUnits = null;
+        NumericAlarm? defaultAlarm = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1752,6 +1753,13 @@ public static class XtceDocumentReader
                     unitSet = new List<Unit>();
                     ReadUnitSet(reader, unitSet, ref preservedUnits);
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "DefaultAlarm"
+                         && defaultAlarm is null
+                         && kind is ParameterTypeKind.Integer or ParameterTypeKind.Float)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    defaultAlarm = ReadNumericAlarm(reader);
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
                     // UnitSet, alarms, ToString, ValidRange, SizeRangeInCharacters,
@@ -1787,7 +1795,136 @@ public static class XtceDocumentReader
             dataEncoding,
             timeEncoding,
             unitSet,
-            preservedUnits);
+            preservedUnits,
+            defaultAlarm);
+    }
+
+    private static NumericAlarm ReadNumericAlarm(XmlReader reader)
+    {
+        var minViolations = ParseLong(reader, "minViolations");
+        var preservedAttributes = CapturePreservedAttributes(reader, ["minViolations"]);
+
+        string? rangeForm = null;
+        var hasStaticRanges = false;
+        IReadOnlyList<RawAttribute>? staticPreservedAttributes = null;
+        var ranges = new Dictionary<string, AlarmRange>();
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "StaticAlarmRanges" && !hasStaticRanges)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseStaticAlarmRanges(outerXml, ranges, out rangeForm, out staticPreservedAttributes))
+                    {
+                        hasStaticRanges = true;
+                    }
+                    else
+                    {
+                        ranges.Clear(); // a partial parse must not leak modeled ranges
+                        rangeForm = null;
+                        staticPreservedAttributes = null;
+                        (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("StaticAlarmRanges", outerXml));
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // ChangeAlarmRanges, AlarmMultiRanges, AlarmConditions, CustomAlarm,
+                    // AncillaryDataSet — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new NumericAlarm(
+            minViolations,
+            rangeForm,
+            ranges.GetValueOrDefault("WatchRange"),
+            ranges.GetValueOrDefault("WarningRange"),
+            ranges.GetValueOrDefault("DistressRange"),
+            ranges.GetValueOrDefault("CriticalRange"),
+            ranges.GetValueOrDefault("SevereRange"),
+            hasStaticRanges,
+            staticPreservedAttributes,
+            preserved,
+            preservedAttributes);
+    }
+
+    private static bool TryParseStaticAlarmRanges(
+        string outerXml,
+        Dictionary<string, AlarmRange> ranges,
+        out string? rangeForm,
+        out IReadOnlyList<RawAttribute>? preservedAttributes)
+    {
+        rangeForm = null;
+        preservedAttributes = null;
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            rangeForm = reader.GetAttribute("rangeForm");
+            preservedAttributes = CapturePreservedAttributes(reader, ["rangeForm"]);
+
+            if (reader.IsEmptyElement)
+            {
+                return true;
+            }
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element
+                    && reader.LocalName is "WatchRange" or "WarningRange" or "DistressRange" or "CriticalRange" or "SevereRange"
+                    && !ranges.ContainsKey(reader.LocalName))
+                {
+                    var elementName = reader.LocalName;
+                    var range = new AlarmRange(
+                        reader.GetAttribute("minInclusive"),
+                        reader.GetAttribute("minExclusive"),
+                        reader.GetAttribute("maxInclusive"),
+                        reader.GetAttribute("maxExclusive"),
+                        CapturePreservedAttributes(reader, ["minInclusive", "minExclusive", "maxInclusive", "maxExclusive"]));
+                    if (!SkipEmptyShapedElement(reader))
+                    {
+                        return false;
+                    }
+                    ranges[elementName] = range;
+                }
+                else if (reader.NodeType is XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)
+                {
+                    reader.Read();
+                }
+                else
+                {
+                    return false; // AncillaryDataSet, duplicates, comments — bail to the fragment
+                }
+            }
+            return true;
+        }
+        catch (XmlException)
+        {
+            ranges.Clear();
+            return false;
+        }
     }
 
     private static void ReadUnitSet(XmlReader reader, List<Unit> units, ref List<RawXmlFragment>? preservedUnits)
