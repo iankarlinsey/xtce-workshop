@@ -351,6 +351,10 @@ public static class FragmentEnumerator
             {
                 yield return (fragment, algorithmPath);
             }
+            if (algorithm.MathOperation?.TriggerSet is { } triggerSet)
+            {
+                yield return (triggerSet, algorithmPath);
+            }
         }
     }
 

@@ -82,7 +82,9 @@ public class AlgorithmParsingTests
 
         var math = algorithms[0];
         Assert.Equal(AlgorithmKind.Math, math.Kind);
-        Assert.Equal(["MathOperation"], math.Preserved!.Select(f => f.ElementName).ToList());
+        // MathOperation is modeled since #125 — no fragment left behind.
+        Assert.Null(math.Preserved);
+        Assert.NotNull(math.MathOperation);
 
         var custom = algorithms[1];
         Assert.Equal(AlgorithmKind.Custom, custom.Kind);

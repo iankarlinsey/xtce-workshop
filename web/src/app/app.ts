@@ -33,6 +33,7 @@ import {
   ReferenceTimeDoc,
   MatchCriteriaDoc,
   BooleanExpressionNodeDoc,
+  MathOperationTermDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -1886,6 +1887,20 @@ export class App {
       return `offset from ${referenceTime.offsetFromParameterRef}${suffix}`;
     }
     return `epoch ${referenceTime.epoch}`;
+  }
+
+  /** "this Gain * 1.5 +" — the postfix program of a MathOperation term list. */
+  protected mathTermsText(terms: MathOperationTermDoc[] | null | undefined): string {
+    return (terms ?? []).map((term) => {
+      switch (term.kind) {
+        case 'ThisParameter':
+          return 'this';
+        case 'ParameterInstanceRef':
+          return term.instanceRef?.parameterRef ?? '?';
+        default:
+          return term.text ?? '';
+      }
+    }).join(' ');
   }
 
   /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */

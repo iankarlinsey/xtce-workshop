@@ -41,6 +41,7 @@ public enum CalibratorKind
 {
     Polynomial,
     Spline,
+    MathOperation,
 }
 
 /// <summary>One PolynomialCalibrator Term. Values stay verbatim strings (doubles round-trip untouched).</summary>
@@ -104,7 +105,8 @@ public sealed record Calibrator(
     long? SplineOrder = null,
     bool? Extrapolate = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    IReadOnlyList<MathOperationTerm>? MathTerms = null)
 {
     public bool Equals(Calibrator? other) =>
         other is not null
@@ -114,7 +116,8 @@ public sealed record Calibrator(
         && SplineOrder == other.SplineOrder
         && Extrapolate == other.Extrapolate
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Structural.ListEquals(MathTerms, other.MathTerms);
 
     public override int GetHashCode()
     {
@@ -126,6 +129,7 @@ public sealed record Calibrator(
         hash.Add(Extrapolate);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        Structural.AddList(ref hash, MathTerms);
         return hash.ToHashCode();
     }
 }

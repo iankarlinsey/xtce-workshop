@@ -136,7 +136,7 @@ public class DataEncodingTests
     }
 
     [Test]
-    public void Load_ModelsSplineCalibrators_AndBailsOutOnMathOperation()
+    public void Load_ModelsSplineCalibrators_AndMathOperationCalibrators()
     {
         var xml = $"""
             <SpaceSystem xmlns="{Ns}" name="S">
@@ -172,10 +172,13 @@ public class DataEncodingTests
         Assert.Equal((CalibratorKind.Spline, 2L, true), (spline.Kind, spline.SplineOrder!.Value, spline.Extrapolate!.Value));
         Assert.Equal(["0", "1", "2"], spline.Points!.Select(p => p.Raw));
 
-        // MathOperationCalibrator is NOT modeled — the whole element stays a fragment.
+        // MathOperationCalibrator is modeled since #125 — a postfix term list.
         var mathEncoding = types.Single(t => t.Name == "B").DataEncoding!;
-        Assert.Null(mathEncoding.DefaultCalibrator);
-        Assert.Equal(["DefaultCalibrator"], mathEncoding.Preserved!.Select(f => f.ElementName).ToList());
+        var math = mathEncoding.DefaultCalibrator!;
+        Assert.Equal(CalibratorKind.MathOperation, math.Kind);
+        var term = Assert.Single(math.MathTerms!);
+        Assert.Equal((MathOperandKind.Value, "1"), (term.Kind, term.Text));
+        Assert.Null(mathEncoding.Preserved);
 
         var written = XtceDocumentWriter.Write(loaded);
         Assert.Equal(loaded, Load(written));

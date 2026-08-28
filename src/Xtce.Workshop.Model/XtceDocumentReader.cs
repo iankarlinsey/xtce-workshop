@@ -1902,6 +1902,7 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
         Description? description = null;
+        TriggeredMathOperation? mathOperation = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1949,9 +1950,26 @@ public static class XtceDocumentReader
                 {
                     // description-trio child handled
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MathOperation"
+                         && mathOperation is null && kind == AlgorithmKind.Math
+                         && HasOnlyAttributes(reader, "outputParameterRef")
+                         && reader.GetAttribute("outputParameterRef") is not null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseTriggeredMathOperation(outerXml, out mathOperation))
+                    {
+                        // modeled postfix program
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("MathOperation", outerXml));
+                    }
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // ExternalAlgorithmSet, TriggerSet, MathOperation — preserved verbatim.
+                    // ExternalAlgorithmSet, TriggerSet — preserved verbatim.
                     // (An AlgorithmText with unexpected attributes also lands here so
                     // nothing is dropped.)
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
@@ -1968,7 +1986,7 @@ public static class XtceDocumentReader
         }
 
         return new Algorithm(name, kind, algorithmText, language, inputs, preservedInputs, outputs, preservedOutputs,
-            thread, triggerContainer, priority, preserved, preservedAttributes, description);
+            thread, triggerContainer, priority, preserved, preservedAttributes, description, mathOperation);
     }
 
     /// <summary>
@@ -4200,6 +4218,120 @@ public static class XtceDocumentReader
         }
     }
 
+    /// <summary>Reads one MathOperation operand; false bails the whole owner (order is meaning).</summary>
+    /// <summary>
+    /// Strict parse of a MathAlgorithm's MathOperation; false preserves the whole element.
+    /// The TriggerSet rides verbatim as a fragment (the trigger choice is its own
+    /// sub-language); operand order is the postfix program, so nothing may be dropped.
+    /// </summary>
+    private static bool TryParseTriggeredMathOperation(string outerXml, out TriggeredMathOperation? operation)
+    {
+        operation = null;
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            var outputParameterRef = reader.GetAttribute("outputParameterRef");
+            var preservedAttributes = CapturePreservedAttributes(reader, "outputParameterRef");
+            if (outputParameterRef is null || reader.IsEmptyElement)
+            {
+                return false;
+            }
+            reader.ReadStartElement();
+
+            var terms = new List<MathOperationTerm>();
+            RawXmlFragment? triggerSet = null;
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "TriggerSet"
+                    && triggerSet is null)
+                {
+                    triggerSet = new RawXmlFragment("TriggerSet", reader.ReadOuterXml());
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    if (!TryReadMathTerm(reader, out var term) || term is null)
+                    {
+                        return false;
+                    }
+                    terms.Add(term);
+                }
+                else if (reader.NodeType is XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            operation = new TriggeredMathOperation(terms, outputParameterRef, triggerSet, preservedAttributes);
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryReadMathTerm(XmlReader reader, out MathOperationTerm? term)
+    {
+        term = null;
+        switch (reader.LocalName)
+        {
+            case "ValueOperand" when reader.AttributeCount == 0:
+                if (reader.IsEmptyElement)
+                {
+                    term = new MathOperationTerm(MathOperandKind.Value, "");
+                    reader.Read();
+                    return true;
+                }
+                if (!TryReadTextOnlyElement(reader.ReadOuterXml(), out var valueText))
+                {
+                    return false;
+                }
+                term = new MathOperationTerm(MathOperandKind.Value, valueText);
+                return true;
+            case "ThisParameterOperand" when reader.AttributeCount == 0:
+                if (reader.IsEmptyElement)
+                {
+                    reader.Read();
+                }
+                else if (TryReadTextOnlyElement(reader.ReadOuterXml(), out var thisText) && thisText.Length == 0)
+                {
+                    // fixed="" — an expanded-but-empty element is the same operand
+                }
+                else
+                {
+                    return false;
+                }
+                term = new MathOperationTerm(MathOperandKind.ThisParameter);
+                return true;
+            case "Operator" when reader.AttributeCount == 0 && !reader.IsEmptyElement:
+                if (!TryReadTextOnlyElement(reader.ReadOuterXml(), out var operatorText))
+                {
+                    return false;
+                }
+                term = new MathOperationTerm(MathOperandKind.Operator, operatorText.Trim());
+                return true;
+            case "ParameterInstanceRefOperand" when reader.IsEmptyElement
+                && reader.GetAttribute("parameterRef") is { } parameterRef:
+                var instanceRef = new ParameterInstanceRef(
+                    parameterRef,
+                    ParseLong(reader, "instance"),
+                    ParseBool(reader, "useCalibratedValue"),
+                    CapturePreservedAttributes(reader, ["parameterRef", "instance", "useCalibratedValue"]));
+                term = new MathOperationTerm(MathOperandKind.ParameterInstanceRef, InstanceRef: instanceRef);
+                reader.Read();
+                return true;
+            default:
+                return false;
+        }
+    }
+
     private static bool TryParseDefaultCalibrator(string outerXml, out Calibrator? calibrator)
     {
         calibrator = null;
@@ -4220,14 +4352,20 @@ public static class XtceDocumentReader
             IReadOnlyList<RawAttribute>? preservedAttributes = null;
             List<PolynomialTerm>? terms = null;
             List<SplinePointEntry>? points = null;
+            List<MathOperationTerm>? mathTerms = null;
             List<RawXmlFragment>? preservedChildren = null;
 
             while (reader.NodeType != XmlNodeType.EndElement)
             {
                 if (reader.NodeType == XmlNodeType.Element && kind is null
-                    && reader.LocalName is "PolynomialCalibrator" or "SplineCalibrator")
+                    && reader.LocalName is "PolynomialCalibrator" or "SplineCalibrator" or "MathOperationCalibrator")
                 {
-                    kind = reader.LocalName == "PolynomialCalibrator" ? CalibratorKind.Polynomial : CalibratorKind.Spline;
+                    kind = reader.LocalName switch
+                    {
+                        "PolynomialCalibrator" => CalibratorKind.Polynomial,
+                        "SplineCalibrator" => CalibratorKind.Spline,
+                        _ => CalibratorKind.MathOperation,
+                    };
                     string[] modeledAttributes = [];
                     if (kind == CalibratorKind.Spline)
                     {
@@ -4272,6 +4410,15 @@ public static class XtceDocumentReader
                             (points ??= new List<SplinePointEntry>()).Add(
                                 new SplinePointEntry(raw, calibrated, pointOrder, pointPreserved));
                         }
+                        else if (reader.NodeType == XmlNodeType.Element
+                                 && kind == CalibratorKind.MathOperation)
+                        {
+                            if (!TryReadMathTerm(reader, out var term) || term is null)
+                            {
+                                return false; // operand order is the program — never drop or reorder
+                            }
+                            (mathTerms ??= new List<MathOperationTerm>()).Add(term);
+                        }
                         else if (reader.NodeType == XmlNodeType.Element)
                         {
                             // AncillaryDataSet (or foreign content) — preserved on the record.
@@ -4303,7 +4450,7 @@ public static class XtceDocumentReader
                 return false;
             }
             calibrator = new Calibrator(kind.Value, terms, points, splineOrder, extrapolate,
-                preservedChildren, preservedAttributes);
+                preservedChildren, preservedAttributes, mathTerms);
             return true;
         }
         catch (XmlException)

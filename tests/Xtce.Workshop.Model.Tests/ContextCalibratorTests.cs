@@ -107,7 +107,7 @@ public class ContextCalibratorTests
     }
 
     [Test]
-    public void Load_MathOperationEntry_RidesRawInPosition()
+    public void Load_MathOperationEntry_IsModeledInPosition()
     {
         var loaded = Load(WrapEncodingChildren("""
             <ContextCalibratorList>
@@ -135,9 +135,11 @@ public class ContextCalibratorTests
 
         Assert.Equal(3, encoding.ContextCalibrators!.Count);
         Assert.Null(encoding.ContextCalibrators[0].RawXml);
-        // Position 1 is the unmodelable math entry — list order is evaluation order.
-        Assert.Equal("ContextCalibrator", encoding.ContextCalibrators[1].RawXml!.ElementName);
-        Assert.Null(encoding.ContextCalibrators[1].Context);
+        // Position 1 is the math entry — modeled since #125, still in evaluation order.
+        var mathEntry = encoding.ContextCalibrators[1];
+        Assert.Null(mathEntry.RawXml);
+        Assert.Equal(CalibratorKind.MathOperation, mathEntry.Calibrator!.Kind);
+        Assert.Equal("2", mathEntry.Context!.Comparison!.Value);
         Assert.Equal("3", Assert.Single(encoding.ContextCalibrators[2].Calibrator!.Terms!).Coefficient);
 
         RoundTrip(loaded, out var reloaded);

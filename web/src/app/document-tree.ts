@@ -74,8 +74,16 @@ export interface SplinePointDoc {
   [key: string]: unknown;
 }
 
+export interface MathOperationTermDoc {
+  kind: 'Value' | 'ThisParameter' | 'Operator' | 'ParameterInstanceRef';
+  text?: string | null;
+  instanceRef?: { parameterRef: string; [key: string]: unknown } | null;
+  [key: string]: unknown;
+}
+
 export interface CalibratorDoc {
-  kind: 'Polynomial' | 'Spline';
+  kind: 'Polynomial' | 'Spline' | 'MathOperation';
+  mathTerms?: MathOperationTermDoc[] | null;
   terms?: PolynomialTermDoc[] | null;
   points?: SplinePointDoc[] | null;
   splineOrder?: number | null;
@@ -291,6 +299,7 @@ export interface AlgorithmParameterRefDoc {
 }
 
 export interface AlgorithmDoc {
+  mathOperation?: { terms: MathOperationTermDoc[]; outputParameterRef: string; [key: string]: unknown } | null;
   name: string;
   kind: 'Custom' | 'Math';
   algorithmText?: string | null;

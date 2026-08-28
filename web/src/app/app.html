@@ -569,6 +569,8 @@
                       </div>
                     }
                     <rux-button secondary (click)="onAddCalibratorRow('terms')">+ Add term</rux-button>
+                  } @else if (calibrator.kind === 'MathOperation') {
+                    <p class="meta-text">Postfix: {{ mathTermsText(calibrator.mathTerms) }}</p>
                   } @else {
                     <div class="form-field">
                       <label for="cal-order">Order <span class="hint">(XTCE default: 1)</span></label>
@@ -1053,6 +1055,12 @@
           <label for="algo-name">Name</label>
           <input id="algo-name" [value]="algorithm.name" (input)="onItemFieldInput('name', $event)" />
         </div>
+        @if (algorithm.mathOperation; as mathOperation) {
+          <div class="form-field">
+            <label>Math operation <span class="hint">(postfix / RPN)</span></label>
+            <p class="meta-text">{{ mathTermsText(mathOperation.terms) }} → {{ mathOperation.outputParameterRef }}</p>
+          </div>
+        }
         @if (algorithm.kind === 'Custom') {
           <div class="form-field">
             <label for="algo-language">Language <span class="hint">(XTCE default: pseudo)</span></label>
@@ -1100,7 +1108,9 @@
             </label>
           </div>
         } @else {
-          <p class="meta-text">MathOperation is preserved as XML (postfix expression editing is future work).</p>
+          @if (!algorithm.mathOperation) {
+            <p class="meta-text">MathOperation is preserved as XML.</p>
+          }
         }
 
         <app-preserved-xml [item]="algorithm" />

@@ -216,6 +216,43 @@ public static class XtceDocumentQuery
                 {
                     usages.Add(new UsageMatch("OffsetFrom", typeLocation, offsetRef));
                 }
+
+                // #125 — math-calibrator instance-ref operands.
+                var calibrators = (type.DataEncoding?.ContextCalibrators ?? [])
+                    .Concat(type.TimeEncoding?.DataEncoding?.ContextCalibrators ?? [])
+                    .Select(c => c.Calibrator)
+                    .Append(type.DataEncoding?.DefaultCalibrator)
+                    .Append(type.TimeEncoding?.DataEncoding?.DefaultCalibrator);
+                foreach (var mathTerm in calibrators.SelectMany(c => c?.MathTerms ?? []))
+                {
+                    if (mathTerm.InstanceRef is { } operand
+                        && ResolvesToTarget(context, operand.ParameterRef, systemPath, parameterName))
+                    {
+                        usages.Add(new UsageMatch("ParameterInstanceRefOperand", typeLocation, operand.ParameterRef));
+                    }
+                }
+            }
+
+            // #125 — modeled MathOperation operand refs on both algorithm sets.
+            var algorithmSets = new (IReadOnlyList<Algorithm>? Set, string SetPath)[]
+            {
+                (telemetry?.AlgorithmSet, $"{context.Path}/AlgorithmSet"),
+                (context.Node.CommandMetaData?.AlgorithmSet, $"{context.Path}/CommandMetaData/AlgorithmSet"),
+            };
+            foreach (var (algorithmSet, setPath) in algorithmSets)
+            {
+                foreach (var algorithm in algorithmSet ?? [])
+                {
+                    foreach (var mathTerm in algorithm.MathOperation?.Terms ?? [])
+                    {
+                        if (mathTerm.InstanceRef is { } operand
+                            && ResolvesToTarget(context, operand.ParameterRef, systemPath, parameterName))
+                        {
+                            usages.Add(new UsageMatch("ParameterInstanceRefOperand",
+                                $"{setPath}/{algorithm.Name}", operand.ParameterRef));
+                        }
+                    }
+                }
             }
 
             foreach (var (fragment, location) in FragmentEnumerator.EnumerateNode(context))

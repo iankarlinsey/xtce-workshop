@@ -60,7 +60,8 @@ public sealed record Algorithm(
     long? Priority = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
-    Description? Description = null)
+    Description? Description = null,
+    TriggeredMathOperation? MathOperation = null)
 {
     public bool Equals(Algorithm? other) =>
         other is not null
@@ -77,7 +78,8 @@ public sealed record Algorithm(
         && Priority == other.Priority
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
-        && Equals(Description, other.Description);
+        && Equals(Description, other.Description)
+        && Equals(MathOperation, other.MathOperation);
 
     public override int GetHashCode()
     {
@@ -96,6 +98,7 @@ public sealed record Algorithm(
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
         hash.Add(Description);
+        hash.Add(MathOperation);
         return hash.ToHashCode();
     }
 }

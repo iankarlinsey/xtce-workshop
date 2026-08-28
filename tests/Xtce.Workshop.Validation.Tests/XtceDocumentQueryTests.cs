@@ -251,6 +251,37 @@ public class XtceDocumentQueryTests
     }
 
     [Test]
+    public void FindParameterUsages_SeesModeledMathOperandRefs()
+    {
+        var tree = new SpaceSystem("Root", [], new TelemetryMetaData(
+            [
+                new ParameterTypeDefinition("F", ParameterTypeKind.Float),
+                new ParameterTypeDefinition("TempType", ParameterTypeKind.Integer,
+                    DataEncoding: new DataEncoding(DataEncodingKind.Integer,
+                        DefaultCalibrator: new Calibrator(CalibratorKind.MathOperation, MathTerms:
+                        [
+                            new MathOperationTerm(MathOperandKind.ParameterInstanceRef,
+                                InstanceRef: new ParameterInstanceRef("Gain")),
+                            new MathOperationTerm(MathOperandKind.Operator, "*"),
+                        ]))),
+            ],
+            [new Parameter("Gain", "F")],
+            AlgorithmSet:
+            [
+                new Algorithm("Double", AlgorithmKind.Math, MathOperation: new TriggeredMathOperation(
+                    [new MathOperationTerm(MathOperandKind.ParameterInstanceRef, InstanceRef: new ParameterInstanceRef("Gain"))],
+                    "Out")),
+            ]));
+
+        var usages = XtceDocumentQuery.FindParameterUsages(tree, "Root", "Gain");
+
+        Assert.Equal(2, usages.Count);
+        Assert.All(usages, u => Assert.Equal("ParameterInstanceRefOperand", u.Kind));
+        Assert.Contains(usages, u => u.Location.EndsWith("TempType"));
+        Assert.Contains(usages, u => u.Location.EndsWith("Double"));
+    }
+
+    [Test]
     public void FindParameterUsages_DoesNotMatchASameNamedParameterElsewhere()
     {
         var tree = new SpaceSystem("Root",

@@ -1184,9 +1184,13 @@ public static class XtceDocumentWriter
         writer.WriteEndElement();
     }
 
-    private static void WriteParameterInstanceRef(XmlWriter writer, ParameterInstanceRef instanceRef)
+    private static void WriteParameterInstanceRef(XmlWriter writer, ParameterInstanceRef instanceRef) =>
+        WriteParameterInstanceRefElement(writer, "ParameterInstanceRef", instanceRef);
+
+    private static void WriteParameterInstanceRefElement(
+        XmlWriter writer, string elementName, ParameterInstanceRef instanceRef)
     {
-        writer.WriteStartElement("ParameterInstanceRef", XtceNamespace);
+        writer.WriteStartElement(elementName, XtceNamespace);
         writer.WriteAttributeString("parameterRef", instanceRef.ParameterRef);
         if (instanceRef.Instance is { } instance)
         {
@@ -1687,6 +1691,24 @@ public static class XtceDocumentWriter
                 WriteAlgorithmRefSet(writer, "OutputSet", "OutputParameterRef", "outputName",
                     algorithm.Outputs, algorithm.PreservedOutputs)));
         }
+        if (algorithm.MathOperation is { } mathOperation)
+        {
+            slots.Add(("MathOperation", () =>
+            {
+                writer.WriteStartElement("MathOperation", XtceNamespace);
+                writer.WriteAttributeString("outputParameterRef", mathOperation.OutputParameterRef);
+                WritePreservedAttributes(writer, mathOperation.PreservedAttributes);
+                foreach (var term in mathOperation.Terms)
+                {
+                    WriteMathTerm(writer, term);
+                }
+                if (mathOperation.TriggerSet is { } triggerSet)
+                {
+                    WriteFragmentXml(writer, triggerSet.OuterXml);
+                }
+                writer.WriteEndElement();
+            }));
+        }
         AddPreservedSlots(slots, writer, algorithm.Preserved);
         EmitInSchemaOrder(AlgorithmChildOrder, slots);
 
@@ -1994,8 +2016,12 @@ public static class XtceDocumentWriter
     private static void WriteCalibratorElement(XmlWriter writer, string elementName, Calibrator calibrator)
     {
         writer.WriteStartElement(elementName, XtceNamespace);
-        writer.WriteStartElement(
-            calibrator.Kind == CalibratorKind.Polynomial ? "PolynomialCalibrator" : "SplineCalibrator", XtceNamespace);
+        writer.WriteStartElement(calibrator.Kind switch
+        {
+            CalibratorKind.Polynomial => "PolynomialCalibrator",
+            CalibratorKind.Spline => "SplineCalibrator",
+            _ => "MathOperationCalibrator",
+        }, XtceNamespace);
         if (calibrator.SplineOrder is { } order)
         {
             writer.WriteAttributeString("order", XmlConvert.ToString(order));
@@ -2026,8 +2052,36 @@ public static class XtceDocumentWriter
             WritePreservedAttributes(writer, point.PreservedAttributes);
             writer.WriteEndElement();
         }
+        foreach (var term in calibrator.MathTerms ?? [])
+        {
+            WriteMathTerm(writer, term);
+        }
         writer.WriteEndElement();
         writer.WriteEndElement();
+    }
+
+    private static void WriteMathTerm(XmlWriter writer, MathOperationTerm term)
+    {
+        switch (term.Kind)
+        {
+            case MathOperandKind.Value:
+                writer.WriteStartElement("ValueOperand", XtceNamespace);
+                writer.WriteString(term.Text);
+                writer.WriteEndElement();
+                break;
+            case MathOperandKind.ThisParameter:
+                writer.WriteStartElement("ThisParameterOperand", XtceNamespace);
+                writer.WriteEndElement();
+                break;
+            case MathOperandKind.Operator:
+                writer.WriteStartElement("Operator", XtceNamespace);
+                writer.WriteString(term.Text);
+                writer.WriteEndElement();
+                break;
+            case MathOperandKind.ParameterInstanceRef when term.InstanceRef is { } instanceRef:
+                WriteParameterInstanceRefElement(writer, "ParameterInstanceRefOperand", instanceRef);
+                break;
+        }
     }
 
     private static void WriteDimensionIndex(XmlWriter writer, string elementName, DimensionIndex index)

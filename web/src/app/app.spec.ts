@@ -428,6 +428,17 @@ describe('App', () => {
             algorithmSet: [{
               name: 'Smooth', kind: 'Custom', language: 'python', algorithmText: 'y = x',
               inputs: [{ parameterRef: 'BusVoltage', name: 'x' }],
+            }, {
+              name: 'Doubler', kind: 'Math',
+              mathOperation: {
+                terms: [
+                  { kind: 'ParameterInstanceRef', instanceRef: { parameterRef: 'BusVoltage' } },
+                  { kind: 'Value', text: '2' },
+                  { kind: 'Operator', text: '*' },
+                  { kind: 'ThisParameter' },
+                ],
+                outputParameterRef: 'SmoothVolt',
+              },
             }],
             containerSet: [{ name: 'Frame', entryList: [{ kind: 'ParameterRef', ref: 'BusVoltage' }] }],
           },
@@ -904,6 +915,11 @@ describe('App', () => {
       expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('CustomAlgorithm');
       expect((compiled.querySelector('input[aria-label="Algorithm input 0 parameter ref"]') as HTMLInputElement).value)
         .toBe('BusVoltage');
+
+      clickTreeRowByText(fixture, 'Doubler');
+      expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('MathAlgorithm');
+      expect(compiled.textContent).toContain('BusVoltage 2 * this → SmoothVolt');
+      clickTreeRowByText(fixture, 'Smooth');
 
       const textArea = compiled.querySelector('#algo-text') as HTMLTextAreaElement;
       expect(textArea.value).toBe('y = x');
