@@ -30,10 +30,11 @@ public static class XtceCsvExporter
                 var size = typeResolution.ParameterType is { } type
                     ? PacketLayoutBuilder.EncodedSize(type).Size?.ToString() ?? ""
                     : "";
-                var properties = (parameter.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ParameterProperties");
-                var dataSource = properties is null
-                    ? ""
-                    : XmlFragmentInspector.RootAttribute(properties.OuterXml, "dataSource") ?? "";
+                var propertiesFragment = (parameter.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ParameterProperties");
+                var dataSource = parameter.Properties?.DataSource
+                    ?? (propertiesFragment is null
+                        ? ""
+                        : XmlFragmentInspector.RootAttribute(propertiesFragment.OuterXml, "dataSource") ?? "");
 
                 AppendRow(csv,
                 [

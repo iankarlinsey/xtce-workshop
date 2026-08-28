@@ -37,6 +37,30 @@ export interface MemberDoc {
   [key: string]: unknown;
 }
 
+export interface UnitDoc {
+  value: string;
+  description?: string | null;
+  power?: string | null;
+  factor?: string | null;
+  form?: string | null;
+  [key: string]: unknown;
+}
+
+export interface TimeEncodingDoc {
+  units?: string | null;
+  scale?: string | null;
+  offset?: string | null;
+  dataEncoding?: DataEncodingDoc | null;
+  [key: string]: unknown;
+}
+
+export interface ParameterPropertiesDoc {
+  dataSource?: string | null;
+  readOnly?: boolean | null;
+  persistence?: boolean | null;
+  [key: string]: unknown;
+}
+
 export interface DataEncodingDoc {
   kind: 'Integer' | 'Float' | 'String' | 'Binary';
   encoding?: string | null;
@@ -60,6 +84,8 @@ export interface ParameterTypeDoc {
   dimensions?: DimensionDoc[] | null;
   members?: MemberDoc[] | null;
   dataEncoding?: DataEncodingDoc | null;
+  timeEncoding?: TimeEncodingDoc | null;
+  unitSet?: UnitDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -67,6 +93,7 @@ export interface ParameterDoc {
   name: string;
   parameterTypeRef: string;
   initialValue?: string | null;
+  properties?: ParameterPropertiesDoc | null;
   [key: string]: unknown;
 }
 

@@ -62,8 +62,9 @@ public class DataEncodingTests
             (integer.Encoding, integer.SizeInBits, integer.ChangeThreshold, integer.BitOrder, integer.ByteOrder));
         Assert.Equal(["DefaultCalibrator"], integer.Preserved!.Select(f => f.ElementName).ToList());
 
-        // The encoding element itself no longer rides in the type's preserved list.
-        Assert.Equal(["UnitSet"], types.Single(t => t.Name == "I").Preserved!.Select(f => f.ElementName).ToList());
+        // Neither the encoding nor the UnitSet rides in the type's preserved list anymore.
+        Assert.Null(types.Single(t => t.Name == "I").Preserved);
+        Assert.Empty(types.Single(t => t.Name == "I").UnitSet!);
 
         var variable = types.Single(t => t.Name == "VarStr").DataEncoding!;
         Assert.Equal(DataEncodingKind.String, variable.Kind);

@@ -319,4 +319,32 @@ public class PacketLayoutBuilderTests
         Assert.Equal([null, null], layout.Rows.Select(r => r.Note).ToList());
         Assert.Equal(19, layout.TotalSizeInBits);
     }
+
+    [Test]
+    public void TimeTypeEntries_TakeSizesFromTheModeledEncodingWrapper()
+    {
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <TelemetryMetaData>
+                <ParameterTypeSet>
+                  <AbsoluteTimeParameterType name="T_Type">
+                    <Encoding units="seconds"><IntegerDataEncoding sizeInBits="48"/></Encoding>
+                  </AbsoluteTimeParameterType>
+                </ParameterTypeSet>
+                <ParameterSet><Parameter name="T" parameterTypeRef="T_Type"/></ParameterSet>
+                <ContainerSet>
+                  <SequenceContainer name="Frame">
+                    <EntryList><ParameterRefEntry parameterRef="T"/></EntryList>
+                  </SequenceContainer>
+                </ContainerSet>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
+        var root = XtceDocumentReader.Load(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        var layout = PacketLayoutBuilder.Build(root, [], "Frame")!;
+
+        Assert.Equal(48, Assert.Single(layout.Rows).SizeInBits);
+        Assert.Equal(48, layout.TotalSizeInBits);
+    }
 }

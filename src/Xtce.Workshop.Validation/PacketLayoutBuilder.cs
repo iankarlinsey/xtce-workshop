@@ -316,8 +316,13 @@ public static class PacketLayoutBuilder
         {
             return XmlFragmentInspector.FindEncodedSize(dataEncoding);
         }
-        // The time types' Encoding wrapper is still a preserved fragment (and documents
-        // built by hand may carry a whole data encoding as one).
+        if (type.TimeEncoding is { } timeEncoding)
+        {
+            return timeEncoding.DataEncoding is { } inner
+                ? XmlFragmentInspector.FindEncodedSize(inner)
+                : (null, false);
+        }
+        // Documents built by hand (tests) may still carry a whole encoding as a fragment.
         foreach (var fragment in type.Preserved ?? [])
         {
             if (fragment.ElementName is "IntegerDataEncoding" or "FloatDataEncoding"

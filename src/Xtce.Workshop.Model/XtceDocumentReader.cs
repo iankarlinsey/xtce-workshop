@@ -1459,6 +1459,9 @@ public static class XtceDocumentReader
         var preserved = leadingComments;
         List<string>? pendingComments = null;
         DataEncoding? dataEncoding = null;
+        TimeEncoding? timeEncoding = null;
+        List<Unit>? unitSet = null;
+        List<RawXmlFragment>? preservedUnits = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1492,12 +1495,24 @@ public static class XtceDocumentReader
                 {
                     dataEncoding = ReadDataEncoding(reader, encodingKind);
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Encoding"
+                         && timeEncoding is null
+                         && kind is ParameterTypeKind.AbsoluteTime or ParameterTypeKind.RelativeTime)
+                {
+                    timeEncoding = ReadTimeEncoding(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "UnitSet" && unitSet is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    unitSet = new List<Unit>();
+                    ReadUnitSet(reader, unitSet, ref preservedUnits);
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
                     // UnitSet, alarms, ToString, ValidRange, SizeRangeInCharacters,
-                    // LongDescription, AliasSet, time-type Encoding/ReferenceTime, ... —
-                    // not modeled; preserved verbatim. (A schema-invalid second data
-                    // encoding also lands here, keeping the round trip lossless.)
+                    // LongDescription, AliasSet, time-type ReferenceTime, ... — not
+                    // modeled; preserved verbatim. (A schema-invalid second encoding
+                    // also lands here, keeping the round trip lossless.)
                     Preserve(ref preserved, reader);
                 }
                 else if (!TryCaptureComment(reader, ref pendingComments))
@@ -1524,7 +1539,91 @@ public static class XtceDocumentReader
             arrayTypeRef,
             dimensions,
             members,
-            dataEncoding);
+            dataEncoding,
+            timeEncoding,
+            unitSet,
+            preservedUnits);
+    }
+
+    private static void ReadUnitSet(XmlReader reader, List<Unit> units, ref List<RawXmlFragment>? preservedUnits)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Unit")
+            {
+                var description = reader.GetAttribute("description");
+                var power = reader.GetAttribute("power");
+                var factor = reader.GetAttribute("factor");
+                var form = reader.GetAttribute("form");
+                var preservedAttributes = CapturePreservedAttributes(reader, ["description", "power", "factor", "form"]);
+                var value = reader.ReadElementContentAsString();
+                units.Add(new Unit(value, description, power, factor, form, preservedAttributes));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                // Foreign content inside a UnitSet (schema-invalid) — preserved and
+                // re-emitted inside the written UnitSet.
+                Preserve(ref preservedUnits, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static TimeEncoding ReadTimeEncoding(XmlReader reader)
+    {
+        var units = reader.GetAttribute("units");
+        var scale = reader.GetAttribute("scale");
+        var offset = reader.GetAttribute("offset");
+        var preservedAttributes = CapturePreservedAttributes(reader, ["units", "scale", "offset"]);
+
+        DataEncoding? dataEncoding = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && dataEncoding is null
+                    && DataEncodingElementKinds.TryGetValue(reader.LocalName, out var encodingKind))
+                {
+                    dataEncoding = ReadDataEncoding(reader, encodingKind);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new TimeEncoding(units, scale, offset, dataEncoding, preserved, preservedAttributes);
     }
 
     private static DataEncoding ReadDataEncoding(XmlReader reader, DataEncodingKind kind)
@@ -1849,6 +1948,51 @@ public static class XtceDocumentReader
 
         var preserved = leadingComments;
         List<string>? pendingComments = null;
+        ParameterProperties? properties = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterProperties" && properties is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    properties = ReadParameterProperties(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // LongDescription, AliasSet, AncillaryDataSet — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new Parameter(name, parameterTypeRef, initialValue, preserved, preservedAttributes, properties);
+    }
+
+    private static ParameterProperties ReadParameterProperties(XmlReader reader)
+    {
+        var dataSource = reader.GetAttribute("dataSource");
+        var readOnly = ParseBool(reader, "readOnly");
+        var persistence = ParseBool(reader, "persistence");
+        var preservedAttributes = CapturePreservedAttributes(reader, ["dataSource", "readOnly", "persistence"]);
+
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1862,7 +2006,7 @@ public static class XtceDocumentReader
             {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // ParameterProperties, LongDescription, AliasSet, AncillaryDataSet —
+                    // SystemName, ValidityCondition, PhysicalAddressSet, TimeAssociation —
                     // preserved verbatim.
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
@@ -1877,7 +2021,7 @@ public static class XtceDocumentReader
             reader.ReadEndElement();
         }
 
-        return new Parameter(name, parameterTypeRef, initialValue, preserved, preservedAttributes);
+        return new ParameterProperties(dataSource, readOnly, persistence, preserved, preservedAttributes);
     }
 
     /// <summary>

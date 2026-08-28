@@ -408,10 +408,18 @@ describe('App', () => {
           preserved: [{ elementName: 'Header', outerXml: '<Header/>' }],
           telemetryMetaData: {
             parameterTypeSet: [
-              { name: 'Volt_Type', kind: 'Float', sizeInBits: 32, dataEncoding: { kind: 'Float', sizeInBits: 32, encoding: 'IEEE754_1985' } },
+              {
+                name: 'Volt_Type', kind: 'Float', sizeInBits: 32,
+                dataEncoding: { kind: 'Float', sizeInBits: 32, encoding: 'IEEE754_1985' },
+                unitSet: [{ value: 'V', description: 'volts' }],
+              },
               { name: 'Mode_Type', kind: 'Enumerated', enumerations: [{ value: 0, label: 'IDLE' }] },
+              { name: 'Uptime_Type', kind: 'RelativeTime', timeEncoding: { units: 'seconds', dataEncoding: { kind: 'Integer', sizeInBits: 32 } } },
             ],
-            parameterSet: [{ name: 'BusVoltage', parameterTypeRef: 'Volt_Type', initialValue: '28.5' }],
+            parameterSet: [{
+              name: 'BusVoltage', parameterTypeRef: 'Volt_Type', initialValue: '28.5',
+              properties: { dataSource: 'telemetered', readOnly: true },
+            }],
             containerSet: [{ name: 'Frame', entryList: [{ kind: 'ParameterRef', ref: 'BusVoltage' }] }],
           },
         },
@@ -629,6 +637,69 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('units render on the type form and edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Volt_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const valueInput = compiled.querySelector('input[aria-label="Unit 0 value"]') as HTMLInputElement;
+      expect(valueInput.value).toBe('V');
+      valueInput.value = 'mV';
+      valueInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[0].unitSet)
+        .toEqual([{ value: 'mV', description: 'volts' }]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('the time-encoding section renders and units edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Uptime_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect((compiled.querySelector('#time-units') as HTMLInputElement).value).toBe('seconds');
+      expect(compiled.textContent).toContain('Inner encoding: IntegerDataEncoding, 32 bits');
+
+      const unitsInput = compiled.querySelector('#time-units') as HTMLInputElement;
+      unitsInput.value = 'picoSeconds';
+      unitsInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[2].timeEncoding.units).toBe('picoSeconds');
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('parameter properties render as selects and edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'BusVoltage');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      const dataSourceSelect = compiled.querySelector('#param-datasource') as HTMLSelectElement;
+      expect(dataSourceSelect.value).toBe('telemetered');
+      expect((compiled.querySelector('#param-readonly') as HTMLSelectElement).value).toBe('true');
+
+      dataSourceSelect.value = 'constant';
+      dataSourceSelect.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterSet[0].properties)
+        .toEqual({ dataSource: 'constant', readOnly: true });
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('a type without an encoding offers the add-encoding picker and creates one', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);
@@ -673,7 +744,7 @@ describe('App', () => {
 
       fixture.componentInstance.onSaveDocument();
       const req = httpMock.expectOne('/api/xtce/save');
-      const added = req.request.body.telemetryMetaData.parameterTypeSet[2];
+      const added = req.request.body.telemetryMetaData.parameterTypeSet[3];
       expect(added).toEqual({ name: 'Flag_Type', kind: 'Boolean' });
       req.flush('<SpaceSystem/>');
     }));

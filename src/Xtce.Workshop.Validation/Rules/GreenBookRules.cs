@@ -264,9 +264,12 @@ public sealed class TelemeteredParameterRequiresEncodingRule : IValidationRule
     {
         foreach (var parameter in context.Node.TelemetryMetaData?.ParameterSet ?? [])
         {
-            var properties = (parameter.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ParameterProperties");
-            if (properties is null ||
-                XmlFragmentInspector.RootAttribute(properties.OuterXml, "dataSource") != "telemetered")
+            var propertiesFragment = (parameter.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ParameterProperties");
+            var dataSource = parameter.Properties?.DataSource
+                ?? (propertiesFragment is null
+                    ? null
+                    : XmlFragmentInspector.RootAttribute(propertiesFragment.OuterXml, "dataSource"));
+            if (dataSource != "telemetered")
             {
                 continue;
             }

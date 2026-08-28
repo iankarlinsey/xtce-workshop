@@ -77,7 +77,10 @@ public class PreservationRoundTripTests
         var loaded = LoadPreservationSample();
         var counterType = loaded.TelemetryMetaData!.ParameterTypeSet.Single(t => t.Name == "Counter_Type");
 
-        Assert.Equal(["UnitSet"], counterType.Preserved!.Select(f => f.ElementName).ToList());
+        // UnitSet is modeled since #102 — no fragment left behind.
+        Assert.Null(counterType.Preserved);
+        var unit = Assert.Single(counterType.UnitSet!);
+        Assert.Equal(("counts", "count"), (unit.Value, unit.Description));
         // The data encoding is modeled since #96 — attributes on the record, no fragment.
         Assert.Equal(
             (DataEncodingKind.Integer, "unsigned", 16L),
@@ -93,7 +96,9 @@ public class PreservationRoundTripTests
         var loaded = LoadPreservationSample();
         var counter = loaded.TelemetryMetaData!.ParameterSet.Single(p => p.Name == "Counter");
 
-        Assert.Equal(["ParameterProperties"], counter.Preserved!.Select(f => f.ElementName).ToList());
+        // ParameterProperties is modeled since #101 — attributes on the record.
+        Assert.Null(counter.Preserved);
+        Assert.Equal(("telemetered", true), (counter.Properties!.DataSource, counter.Properties.ReadOnly!.Value));
         Assert.Equal("main counter", counter.PreservedAttributes!.Single(a => a.Name == "shortDescription").Value);
     }
 

@@ -59,6 +59,10 @@ public static class FragmentEnumerator
                 {
                     yield return (fragment, $"{commandPath}/ParameterSet/{parameter.Name}");
                 }
+                foreach (var fragment in parameter.Properties?.Preserved ?? [])
+                {
+                    yield return (fragment, $"{commandPath}/ParameterSet/{parameter.Name}");
+                }
             }
             foreach (var fragment in commandMetaData.PreservedEntries ?? [])
             {
@@ -160,6 +164,10 @@ public static class FragmentEnumerator
             {
                 yield return (fragment, $"{path}/ParameterSet/{parameter.Name}");
             }
+            foreach (var fragment in parameter.Properties?.Preserved ?? [])
+            {
+                yield return (fragment, $"{path}/ParameterSet/{parameter.Name}");
+            }
         }
 
         foreach (var container in telemetry.ContainerSet ?? [])
@@ -215,6 +223,14 @@ public static class FragmentEnumerator
             yield return (fragment, typePath);
         }
         foreach (var fragment in type.DataEncoding?.Preserved ?? [])
+        {
+            yield return (fragment, typePath);
+        }
+        foreach (var fragment in type.TimeEncoding?.Preserved ?? [])
+        {
+            yield return (fragment, typePath);
+        }
+        foreach (var fragment in type.TimeEncoding?.DataEncoding?.Preserved ?? [])
         {
             yield return (fragment, typePath);
         }

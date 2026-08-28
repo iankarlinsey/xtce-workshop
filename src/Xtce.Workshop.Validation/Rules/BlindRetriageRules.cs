@@ -78,13 +78,22 @@ public sealed class ConstantDataSourceReadOnlyRule : IValidationRule
     {
         foreach (var parameter in context.Node.TelemetryMetaData?.ParameterSet ?? [])
         {
-            var properties = (parameter.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ParameterProperties");
-            if (properties is null)
+            string? dataSource;
+            string? readOnly;
+            if (parameter.Properties is { } modeled)
+            {
+                dataSource = modeled.DataSource;
+                readOnly = modeled.ReadOnly is { } value ? (value ? "true" : "false") : null;
+            }
+            else if ((parameter.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ParameterProperties") is { } properties)
+            {
+                dataSource = XmlFragmentInspector.RootAttribute(properties.OuterXml, "dataSource");
+                readOnly = XmlFragmentInspector.RootAttribute(properties.OuterXml, "readOnly");
+            }
+            else
             {
                 continue;
             }
-            var dataSource = XmlFragmentInspector.RootAttribute(properties.OuterXml, "dataSource");
-            var readOnly = XmlFragmentInspector.RootAttribute(properties.OuterXml, "readOnly");
             if (dataSource == "constant" && readOnly == "false")
             {
                 yield return new ValidationIssue(RuleId, Severity,

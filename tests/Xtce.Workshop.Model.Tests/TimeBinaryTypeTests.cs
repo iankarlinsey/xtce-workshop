@@ -33,8 +33,14 @@ public class TimeBinaryTypeTests
     {
         var types = LoadTimeBinarySample().TelemetryMetaData!.ParameterTypeSet;
 
+        // The Encoding wrapper is modeled since #100 — units on the record, the inner
+        // data encoding as a nested DataEncoding, no fragment left behind.
         var uptime = types.Single(t => t.Name == "Uptime_Type");
-        Assert.Equal(["Encoding"], uptime.Preserved!.Select(f => f.ElementName).ToList());
+        Assert.Null(uptime.Preserved);
+        Assert.Equal("seconds", uptime.TimeEncoding!.Units);
+        Assert.Equal((DataEncodingKind.Integer, 32L, "unsigned"),
+            (uptime.TimeEncoding.DataEncoding!.Kind, uptime.TimeEncoding.DataEncoding.SizeInBits!.Value,
+             uptime.TimeEncoding.DataEncoding.Encoding));
 
         var derived = types.Single(t => t.Name == "DerivedTime_Type");
         Assert.Equal("MissionTime_Type", derived.PreservedAttributes!.Single(a => a.Name == "baseType").Value);

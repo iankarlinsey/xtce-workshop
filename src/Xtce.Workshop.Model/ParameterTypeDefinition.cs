@@ -92,6 +92,78 @@ public sealed record DataEncoding(
 }
 
 /// <summary>
+/// One Unit element in a UnitSet: the unit text plus its optional attributes. Absent
+/// attributes stay null (XSD defaults power=1, factor=1, form=calibrated applied by
+/// consumers, never baked in); power/factor are kept verbatim as strings.
+/// </summary>
+public sealed record Unit(
+    string Value,
+    string? Description = null,
+    string? Power = null,
+    string? Factor = null,
+    string? Form = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(Unit? other) =>
+        other is not null
+        && Value == other.Value
+        && Description == other.Description
+        && Power == other.Power
+        && Factor == other.Factor
+        && Form == other.Form
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Value);
+        hash.Add(Description);
+        hash.Add(Power);
+        hash.Add(Factor);
+        hash.Add(Form);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
+/// The time types' Encoding wrapper (the XSD's EncodingType): units/scale/offset
+/// attributes around an inner data-encoding choice, which reuses <see cref="DataEncoding"/>.
+/// Absent attributes stay null (XSD defaults units=seconds, scale=1, offset=0 applied by
+/// consumers, never baked in); scale/offset are kept verbatim as strings so numeric
+/// formatting round-trips untouched.
+/// </summary>
+public sealed record TimeEncoding(
+    string? Units = null,
+    string? Scale = null,
+    string? Offset = null,
+    DataEncoding? DataEncoding = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(TimeEncoding? other) =>
+        other is not null
+        && Units == other.Units
+        && Scale == other.Scale
+        && Offset == other.Offset
+        && Equals(DataEncoding, other.DataEncoding)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Units);
+        hash.Add(Scale);
+        hash.Add(Offset);
+        hash.Add(DataEncoding);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
 /// One entry in a ParameterTypeSet — all ten kinds are modeled (issues #21/#28/#31):
 /// the eight scalars (Integer, Float, String, Boolean, Enumerated, Binary, RelativeTime,
 /// AbsoluteTime) plus Array (ArrayTypeRef + Dimensions) and Aggregate (Members).
@@ -122,7 +194,10 @@ public sealed record ParameterTypeDefinition(
     string? ArrayTypeRef = null,
     IReadOnlyList<Dimension>? Dimensions = null,
     IReadOnlyList<Member>? Members = null,
-    DataEncoding? DataEncoding = null)
+    DataEncoding? DataEncoding = null,
+    TimeEncoding? TimeEncoding = null,
+    IReadOnlyList<Unit>? UnitSet = null,
+    IReadOnlyList<RawXmlFragment>? PreservedUnits = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -139,7 +214,10 @@ public sealed record ParameterTypeDefinition(
         && ArrayTypeRef == other.ArrayTypeRef
         && Structural.ListEquals(Dimensions, other.Dimensions)
         && Structural.ListEquals(Members, other.Members)
-        && Equals(DataEncoding, other.DataEncoding);
+        && Equals(DataEncoding, other.DataEncoding)
+        && Equals(TimeEncoding, other.TimeEncoding)
+        && Structural.ListEquals(UnitSet, other.UnitSet)
+        && Structural.ListEquals(PreservedUnits, other.PreservedUnits);
 
     public override int GetHashCode()
     {
@@ -158,6 +236,9 @@ public sealed record ParameterTypeDefinition(
         Structural.AddList(ref hash, Dimensions);
         Structural.AddList(ref hash, Members);
         hash.Add(DataEncoding);
+        hash.Add(TimeEncoding);
+        Structural.AddList(ref hash, UnitSet);
+        Structural.AddList(ref hash, PreservedUnits);
         return hash.ToHashCode();
     }
 }
@@ -167,12 +248,46 @@ public sealed record ParameterTypeDefinition(
 /// child elements (ParameterProperties, LongDescription, AliasSet, AncillaryDataSet) and
 /// attributes (shortDescription) are preserved, not dropped.
 /// </summary>
+/// <summary>
+/// A Parameter's ParameterProperties element: dataSource/readOnly/persistence attributes
+/// modeled (absent stays null — XSD defaults readOnly=false, persistence=true applied by
+/// consumers, never baked in); children (SystemName, ValidityCondition,
+/// PhysicalAddressSet, TimeAssociation) ride in Preserved.
+/// </summary>
+public sealed record ParameterProperties(
+    string? DataSource = null,
+    bool? ReadOnly = null,
+    bool? Persistence = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(ParameterProperties? other) =>
+        other is not null
+        && DataSource == other.DataSource
+        && ReadOnly == other.ReadOnly
+        && Persistence == other.Persistence
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(DataSource);
+        hash.Add(ReadOnly);
+        hash.Add(Persistence);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
 public sealed record Parameter(
     string Name,
     string ParameterTypeRef,
     string? InitialValue = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    ParameterProperties? Properties = null)
 {
     public bool Equals(Parameter? other) =>
         other is not null
@@ -180,7 +295,8 @@ public sealed record Parameter(
         && ParameterTypeRef == other.ParameterTypeRef
         && InitialValue == other.InitialValue
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(Properties, other.Properties);
 
     public override int GetHashCode()
     {
@@ -190,6 +306,7 @@ public sealed record Parameter(
         hash.Add(InitialValue);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(Properties);
         return hash.ToHashCode();
     }
 }

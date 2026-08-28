@@ -447,6 +447,44 @@
         }
         @if (canHaveEncoding(type.kind)) {
           <div class="form-field enum-editor">
+            <label>Units</label>
+            @for (unit of type.unitSet ?? []; track $index; let i = $index) {
+              <div class="enum-row">
+                <input class="member-name" [value]="unit.value" (input)="onUnitFieldInput(i, 'value', $event)" placeholder="unit" [attr.aria-label]="'Unit ' + i + ' value'" />
+                <input class="member-typeref" [value]="unit.description ?? ''" (input)="onUnitFieldInput(i, 'description', $event)" placeholder="description" [attr.aria-label]="'Unit ' + i + ' description'" />
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveUnit(i)" aria-label="Remove unit">&times;</button>
+              </div>
+            }
+            <rux-button secondary (click)="onAddUnit()">+ Add unit</rux-button>
+          </div>
+        }
+        @if (type.kind === 'AbsoluteTime' || type.kind === 'RelativeTime') {
+          @if (type.timeEncoding; as timeEncoding) {
+            <div class="form-field enum-editor">
+              <label>Time encoding</label>
+              <div class="form-field">
+                <label for="time-units">Units <span class="hint">(XTCE default: seconds)</span></label>
+                <input id="time-units" [value]="timeEncoding.units ?? ''" (input)="onTimeEncodingFieldInput('units', $event)" />
+              </div>
+              <div class="form-field">
+                <label for="time-scale">Scale <span class="hint">(default: 1)</span></label>
+                <input id="time-scale" [value]="timeEncoding.scale ?? ''" (input)="onTimeEncodingFieldInput('scale', $event)" />
+              </div>
+              <div class="form-field">
+                <label for="time-offset">Offset <span class="hint">(default: 0)</span></label>
+                <input id="time-offset" [value]="timeEncoding.offset ?? ''" (input)="onTimeEncodingFieldInput('offset', $event)" />
+              </div>
+              @if (timeEncoding.dataEncoding; as inner) {
+                <p class="meta-text">Inner encoding: {{ inner.kind }}DataEncoding{{ inner.sizeInBits ? ', ' + inner.sizeInBits + ' bits' : '' }}{{ inner.encoding ? ', ' + inner.encoding : '' }}.</p>
+              }
+              <app-preserved-xml [item]="timeEncoding" />
+            </div>
+          } @else {
+            <p class="meta-text">No Encoding element — a time data type must have one (rule R14).</p>
+          }
+        }
+        @if (canHaveEncoding(type.kind)) {
+          <div class="form-field enum-editor">
             <label>Data encoding</label>
             @if (type.dataEncoding; as encoding) {
               <div class="enum-row">
@@ -525,6 +563,25 @@
         <div class="form-field">
           <label for="param-initial">Initial value <span class="hint">(overrides the type's)</span></label>
           <input id="param-initial" [value]="parameter.initialValue ?? ''" (input)="onItemFieldInput('initialValue', $event)" />
+        </div>
+        <div class="form-field">
+          <label for="param-datasource">Data source</label>
+          <select id="param-datasource" class="kind-select" [value]="parameter.properties?.dataSource ?? ''" (change)="onParameterPropertyChange('dataSource', $event)">
+            <option value="">(not set)</option>
+            <option value="telemetered">telemetered</option>
+            <option value="derived">derived</option>
+            <option value="constant">constant</option>
+            <option value="local">local</option>
+            <option value="ground">ground</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="param-readonly">Read only <span class="hint">(XTCE default: false)</span></label>
+          <select id="param-readonly" class="kind-select" [value]="parameter.properties?.readOnly === true ? 'true' : parameter.properties?.readOnly === false ? 'false' : ''" (change)="onParameterPropertyChange('readOnly', $event)">
+            <option value="">(not set)</option>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
         </div>
 
         <div class="usages-section">

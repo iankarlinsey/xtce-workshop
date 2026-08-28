@@ -26,6 +26,10 @@ public sealed class AmbiguousTimeUnitsRule : IValidationRule
                 continue;
             }
 
+            if (type.TimeEncoding?.Units is { } modeledUnits && AmbiguousUnits.Contains(modeledUnits))
+            {
+                yield return Flag(context, type, modeledUnits);
+            }
             foreach (var fragment in type.Preserved ?? [])
             {
                 if (fragment.ElementName != "Encoding")
@@ -36,14 +40,15 @@ public sealed class AmbiguousTimeUnitsRule : IValidationRule
                 var units = XmlFragmentInspector.RootAttribute(fragment.OuterXml, "units");
                 if (units is not null && AmbiguousUnits.Contains(units))
                 {
-                    yield return new ValidationIssue(
-                        RuleId,
-                        Severity,
-                        $"{context.Path}/ParameterTypeSet/{type.Name}",
-                        $"Encoding units '{units}' is calendar-variable and ambiguous — prefer seconds or picoSeconds.",
-                        CandidateNumber: 106);
+                    yield return Flag(context, type, units);
                 }
             }
         }
     }
+
+    private ValidationIssue Flag(SpaceSystemContext context, ParameterTypeDefinition type, string units) =>
+        new(RuleId, Severity,
+            $"{context.Path}/ParameterTypeSet/{type.Name}",
+            $"Encoding units '{units}' is calendar-variable and ambiguous — prefer seconds or picoSeconds.",
+            CandidateNumber: 106);
 }

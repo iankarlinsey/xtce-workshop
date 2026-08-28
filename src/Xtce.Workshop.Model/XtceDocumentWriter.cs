@@ -625,6 +625,28 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, parameter.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        if (parameter.Properties is { } properties)
+        {
+            slots.Add(("ParameterProperties", () =>
+            {
+                writer.WriteStartElement("ParameterProperties", XtceNamespace);
+                if (properties.DataSource is not null)
+                {
+                    writer.WriteAttributeString("dataSource", properties.DataSource);
+                }
+                if (properties.ReadOnly is { } readOnly)
+                {
+                    writer.WriteAttributeString("readOnly", XmlConvert.ToString(readOnly));
+                }
+                if (properties.Persistence is { } persistence)
+                {
+                    writer.WriteAttributeString("persistence", XmlConvert.ToString(persistence));
+                }
+                WritePreservedAttributes(writer, properties.PreservedAttributes);
+                WriteFragments(writer, properties.Preserved);
+                writer.WriteEndElement();
+            }));
+        }
         AddPreservedSlots(slots, writer, parameter.Preserved);
         EmitInSchemaOrder(ParameterChildOrder, slots);
 
@@ -692,6 +714,42 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, parameterType.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        if (parameterType.UnitSet is not null || parameterType.PreservedUnits is { Count: > 0 })
+        {
+            slots.Add(("UnitSet", () =>
+            {
+                writer.WriteStartElement("UnitSet", XtceNamespace);
+                foreach (var unit in parameterType.UnitSet ?? [])
+                {
+                    writer.WriteStartElement("Unit", XtceNamespace);
+                    if (unit.Power is not null)
+                    {
+                        writer.WriteAttributeString("power", unit.Power);
+                    }
+                    if (unit.Factor is not null)
+                    {
+                        writer.WriteAttributeString("factor", unit.Factor);
+                    }
+                    if (unit.Description is not null)
+                    {
+                        writer.WriteAttributeString("description", unit.Description);
+                    }
+                    if (unit.Form is not null)
+                    {
+                        writer.WriteAttributeString("form", unit.Form);
+                    }
+                    WritePreservedAttributes(writer, unit.PreservedAttributes);
+                    writer.WriteString(unit.Value);
+                    writer.WriteEndElement();
+                }
+                WriteFragments(writer, parameterType.PreservedUnits);
+                writer.WriteEndElement();
+            }));
+        }
+        if (parameterType.TimeEncoding is { } timeEncoding)
+        {
+            slots.Add(("Encoding", () => WriteTimeEncoding(writer, timeEncoding)));
+        }
         if (parameterType.DataEncoding is { } dataEncoding)
         {
             // Added before the preserved slots: the reader models the FIRST encoding it
@@ -772,6 +830,30 @@ public static class XtceDocumentWriter
         DataEncodingKind.Binary => "BinaryDataEncoding",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported data encoding kind."),
     };
+
+    private static void WriteTimeEncoding(XmlWriter writer, TimeEncoding encoding)
+    {
+        writer.WriteStartElement("Encoding", XtceNamespace);
+        if (encoding.Units is not null)
+        {
+            writer.WriteAttributeString("units", encoding.Units);
+        }
+        if (encoding.Scale is not null)
+        {
+            writer.WriteAttributeString("scale", encoding.Scale);
+        }
+        if (encoding.Offset is not null)
+        {
+            writer.WriteAttributeString("offset", encoding.Offset);
+        }
+        WritePreservedAttributes(writer, encoding.PreservedAttributes);
+        if (encoding.DataEncoding is { } dataEncoding)
+        {
+            WriteDataEncoding(writer, dataEncoding);
+        }
+        WriteFragments(writer, encoding.Preserved);
+        writer.WriteEndElement();
+    }
 
     private static void WriteDataEncoding(XmlWriter writer, DataEncoding encoding)
     {

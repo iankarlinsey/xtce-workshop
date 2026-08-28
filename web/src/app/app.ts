@@ -1212,6 +1212,59 @@ export class App {
     this.mutateSelectedItem((item) => ({ ...(item as ParameterTypeDoc), dataEncoding: null }));
   }
 
+  // --- Unit set editing ------------------------------------------------------------------
+
+  onUnitFieldInput(index: number, field: 'value' | 'description', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      return {
+        ...type,
+        unitSet: (type.unitSet ?? []).map((unit, i) =>
+          i === index ? { ...unit, [field]: field === 'description' && value === '' ? null : value } : unit),
+      };
+    });
+  }
+
+  onAddUnit(): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      return { ...type, unitSet: [...(type.unitSet ?? []), { value: '' }] };
+    });
+  }
+
+  onRemoveUnit(index: number): void {
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      return { ...type, unitSet: (type.unitSet ?? []).filter((_, i) => i !== index) };
+    });
+  }
+
+  // --- Time encoding editing ---------------------------------------------------------------
+
+  onTimeEncodingFieldInput(field: 'units' | 'scale' | 'offset', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const type = item as ParameterTypeDoc;
+      if (!type.timeEncoding) {
+        return type;
+      }
+      return { ...type, timeEncoding: { ...type.timeEncoding, [field]: value === '' ? null : value } };
+    });
+  }
+
+  // --- Parameter properties editing ----------------------------------------------------------
+
+  onParameterPropertyChange(field: 'dataSource' | 'readOnly', event: Event): void {
+    const raw = (event.target as HTMLSelectElement).value;
+    const value: string | boolean | null =
+      raw === '' ? null : field === 'readOnly' ? raw === 'true' : raw;
+    this.mutateSelectedItem((item) => {
+      const parameter = item as ParameterDoc;
+      return { ...parameter, properties: { ...(parameter.properties ?? {}), [field]: value } };
+    });
+  }
+
   // --- Enumeration list editing --------------------------------------------------------
 
   onAddEnumeration(): void {
