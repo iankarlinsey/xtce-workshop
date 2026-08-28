@@ -9,8 +9,8 @@ public class VerifierRuleTests
     private const string R11 = "XTCE-1.2-R11-no-dangling-name-references";
     private const string Ns = "http://www.omg.org/spec/XTCE/20180204";
 
-    private static RawXmlFragment Verifier(string kind, string value) => new(kind,
-        $"""<{kind} xmlns="{Ns}"><Comparison parameterRef="Ack" value="{value}"/><CheckWindow timeToStopChecking="PT5S"/></{kind}>""");
+    private static CommandVerifier Verifier(string kind, string value) =>
+        new(kind, Comparison: new Comparison("Ack", value), HasCheckWindow: true, TimeToStopChecking: "PT5S");
 
     private static SpaceSystem Document(params MetaCommand[] metaCommands) =>
         new("S", [], CommandMetaData: new CommandMetaData(metaCommands));
@@ -20,8 +20,8 @@ public class VerifierRuleTests
     {
         var shared = Verifier("CompleteVerifier", "1");
         var issues = XtceValidator.Validate(Document(
-            new MetaCommand("Base", CompleteVerifiers: [shared]),
-            new MetaCommand("Child", BaseMetaCommandRef: "Base", CompleteVerifiers: [shared])));
+            new MetaCommand("Base", Verifiers: [shared]),
+            new MetaCommand("Child", BaseMetaCommandRef: "Base", Verifiers: [shared])));
 
         var issue = Assert.Single(issues, i => i.RuleId == R12);
         Assert.Contains("Duplicate CompleteVerifier", issue.Message);
@@ -29,19 +29,18 @@ public class VerifierRuleTests
     }
 
     [Test]
-    public void WhitespaceDifferencesStillCountAsDuplicates()
+    public void WhitespaceDifferencesInPreservedChecks_StillCountAsDuplicates()
     {
-        var compact = new RawXmlFragment("ExecutionVerifier",
-            $"""<ExecutionVerifier xmlns="{Ns}"><Comparison parameterRef="Ack" value="1"/><CheckWindow timeToStopChecking="PT5S"/></ExecutionVerifier>""");
-        var spaced = new RawXmlFragment("ExecutionVerifier",
-            $"""
-             <ExecutionVerifier xmlns="{Ns}">
-               <Comparison parameterRef="Ack" value="1"/>
-               <CheckWindow timeToStopChecking="PT5S"/>
-             </ExecutionVerifier>
-             """);
+        var compact = new CommandVerifier("ExecutionVerifier", Preserved:
+            [new RawXmlFragment("BooleanExpression", $"""<BooleanExpression xmlns="{Ns}"><Condition><ParameterInstanceRef parameterRef="Ack"/><ComparisonOperator>==</ComparisonOperator><Value>1</Value></Condition></BooleanExpression>""")]);
+        var spaced = new CommandVerifier("ExecutionVerifier", Preserved:
+            [new RawXmlFragment("BooleanExpression", $"""
+             <BooleanExpression xmlns="{Ns}">
+               <Condition><ParameterInstanceRef parameterRef="Ack"/><ComparisonOperator>==</ComparisonOperator><Value>1</Value></Condition>
+             </BooleanExpression>
+             """)]);
         var issues = XtceValidator.Validate(Document(
-            new MetaCommand("Cmd", ExecutionVerifiers: [compact, spaced])));
+            new MetaCommand("Cmd", Verifiers: [compact, spaced])));
 
         Assert.Single(issues, i => i.RuleId == R12);
     }
@@ -50,8 +49,8 @@ public class VerifierRuleTests
     public void DistinctVerifiersAcrossInheritance_AreClean()
     {
         var issues = XtceValidator.Validate(Document(
-            new MetaCommand("Base", CompleteVerifiers: [Verifier("CompleteVerifier", "1")]),
-            new MetaCommand("Child", BaseMetaCommandRef: "Base", CompleteVerifiers: [Verifier("CompleteVerifier", "2")])));
+            new MetaCommand("Base", Verifiers: [Verifier("CompleteVerifier", "1")]),
+            new MetaCommand("Child", BaseMetaCommandRef: "Base", Verifiers: [Verifier("CompleteVerifier", "2")])));
 
         Assert.DoesNotContain(issues, i => i.RuleId == R12);
     }
@@ -60,7 +59,7 @@ public class VerifierRuleTests
     public void DuplicateWithinOwnList_IsFlaggedEvenWithoutInheritance()
     {
         var issues = XtceValidator.Validate(Document(
-            new MetaCommand("Cmd", CompleteVerifiers: [Verifier("CompleteVerifier", "1"), Verifier("CompleteVerifier", "1")])));
+            new MetaCommand("Cmd", Verifiers: [Verifier("CompleteVerifier", "1"), Verifier("CompleteVerifier", "1")])));
 
         Assert.Single(issues, i => i.RuleId == R12);
     }
@@ -70,9 +69,9 @@ public class VerifierRuleTests
     {
         var shared = Verifier("CompleteVerifier", "1");
         var issues = XtceValidator.Validate(Document(
-            new MetaCommand("GrandBase", CompleteVerifiers: [shared]),
+            new MetaCommand("GrandBase", Verifiers: [shared]),
             new MetaCommand("Mid", BaseMetaCommandRef: "GrandBase"),
-            new MetaCommand("Leaf", BaseMetaCommandRef: "Mid", CompleteVerifiers: [shared])));
+            new MetaCommand("Leaf", BaseMetaCommandRef: "Mid", Verifiers: [shared])));
 
         var issue = Assert.Single(issues, i => i.RuleId == R12);
         Assert.Contains("Leaf", issue.Location);
@@ -83,7 +82,7 @@ public class VerifierRuleTests
     {
         var shared = Verifier("CompleteVerifier", "1");
         var issues = XtceValidator.Validate(Document(
-            new MetaCommand("A", BaseMetaCommandRef: "B", CompleteVerifiers: [shared, shared]),
+            new MetaCommand("A", BaseMetaCommandRef: "B", Verifiers: [shared, shared]),
             new MetaCommand("B", BaseMetaCommandRef: "A")));
 
         Assert.Contains(issues, i => i.RuleId == R12 && i.Location.Contains("/A"));
@@ -104,9 +103,9 @@ public class VerifierRuleTests
     {
         var shared = Verifier("CompleteVerifier", "1");
         var child = new SpaceSystem("Child", [], CommandMetaData: new CommandMetaData(
-            [new MetaCommand("Leaf", BaseMetaCommandRef: "Base", CompleteVerifiers: [shared])]));
+            [new MetaCommand("Leaf", BaseMetaCommandRef: "Base", Verifiers: [shared])]));
         var root = new SpaceSystem("Root", [child], CommandMetaData: new CommandMetaData(
-            [new MetaCommand("Base", CompleteVerifiers: [shared])]));
+            [new MetaCommand("Base", Verifiers: [shared])]));
 
         var issues = XtceValidator.Validate(root);
 

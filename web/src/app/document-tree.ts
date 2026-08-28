@@ -239,6 +239,18 @@ export interface CommandContainerDoc {
   [key: string]: unknown;
 }
 
+export interface CommandVerifierDoc {
+  kind: string;
+  comparison?: ComparisonDoc | null;
+  comparisonList?: ComparisonDoc[] | null;
+  containerRef?: string | null;
+  hasCheckWindow?: boolean;
+  timeToStartChecking?: string | null;
+  timeToStopChecking?: string | null;
+  timeWindowIsRelativeTo?: string | null;
+  [key: string]: unknown;
+}
+
 export interface MetaCommandDoc {
   name: string;
   abstract?: boolean | null;
@@ -246,8 +258,7 @@ export interface MetaCommandDoc {
   arguments?: ArgumentDoc[] | null;
   argumentAssignments?: ArgumentAssignmentDoc[] | null;
   commandContainer?: CommandContainerDoc | null;
-  executionVerifiers?: unknown[] | null;
-  completeVerifiers?: unknown[] | null;
+  verifiers?: CommandVerifierDoc[] | null;
   [key: string]: unknown;
 }
 

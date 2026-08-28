@@ -208,6 +208,22 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
                 }
             }
 
+            // #88 — modeled verifier comparisons (the plain parameterRef form).
+            foreach (var verifier in metaCommand.Verifiers ?? [])
+            {
+                var modeledComparisons = (verifier.ComparisonList ?? []).Concat(
+                    verifier.Comparison is { } single ? [single] : []);
+                foreach (var entry in modeledComparisons)
+                {
+                    var error = DescribeAgainstParameter(context, entry.ParameterRef, entry.Value);
+                    if (error is not null)
+                    {
+                        yield return new ValidationIssue(RuleId, Severity, location,
+                            $"Comparison against '{entry.ParameterRef}': {error}", CandidateNumber: 88);
+                    }
+                }
+            }
+
             // #34 / #35 / #88 — comparison literals anywhere in this command's fragments.
             foreach (var fragment in ArgumentScanner.CommandFragments(metaCommand))
             {

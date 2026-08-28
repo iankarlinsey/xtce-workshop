@@ -533,9 +533,7 @@ public static class XtceDocumentReader
         List<Argument>? arguments = null;
         List<RawXmlFragment>? preservedArguments = null;
         List<ArgumentAssignment>? argumentAssignments = null;
-        List<RawXmlFragment>? executionVerifiers = null;
-        List<RawXmlFragment>? completeVerifiers = null;
-        List<RawXmlFragment>? preservedVerifiers = null;
+        List<CommandVerifier>? verifiers = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
         CommandContainer? commandContainer = null;
@@ -590,10 +588,11 @@ public static class XtceDocumentReader
                     arguments ??= new List<Argument>();
                     ReadArgumentList(reader, arguments, ref preservedArguments);
                 }
-                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "VerifierSet")
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "VerifierSet" && verifiers is null)
                 {
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
-                    ReadVerifierSet(reader, ref executionVerifiers, ref completeVerifiers, ref preservedVerifiers);
+                    verifiers = new List<CommandVerifier>();
+                    ReadVerifierSet(reader, verifiers);
                 }
                 else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CommandContainer")
                 {
@@ -622,7 +621,7 @@ public static class XtceDocumentReader
 
         return new MetaCommand(
             name, isAbstract, baseMetaCommandRef, basePreserved,
-            executionVerifiers, completeVerifiers, preservedVerifiers, preserved, preservedAttributes,
+            verifiers, preserved, preservedAttributes,
             commandContainer, arguments, preservedArguments, argumentAssignments);
     }
 
@@ -790,11 +789,13 @@ public static class XtceDocumentReader
         return new CommandContainer(name, baseContainerRef, basePreserved, preserved, preservedAttributes, entryList);
     }
 
-    private static void ReadVerifierSet(
-        XmlReader reader,
-        ref List<RawXmlFragment>? executionVerifiers,
-        ref List<RawXmlFragment>? completeVerifiers,
-        ref List<RawXmlFragment>? preservedVerifiers)
+    private static readonly string[] VerifierElementNames =
+    [
+        "TransferredToRangeVerifier", "SentFromRangeVerifier", "ReceivedVerifier",
+        "AcceptedVerifier", "QueuedVerifier", "ExecutionVerifier", "CompleteVerifier", "FailedVerifier",
+    ];
+
+    private static void ReadVerifierSet(XmlReader reader, List<CommandVerifier> verifiers)
     {
         if (reader.IsEmptyElement)
         {
@@ -804,34 +805,108 @@ public static class XtceDocumentReader
 
         reader.ReadStartElement();
 
-        List<string>? pendingComments = null;
         while (reader.NodeType != XmlNodeType.EndElement)
         {
-            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ExecutionVerifier")
+            if (reader.NodeType == XmlNodeType.Element && VerifierElementNames.Contains(reader.LocalName))
             {
-                DrainComments(ref preservedVerifiers, ref pendingComments, reader.LocalName);
-                Preserve(ref executionVerifiers, reader);
-            }
-            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CompleteVerifier")
-            {
-                DrainComments(ref preservedVerifiers, ref pendingComments, reader.LocalName);
-                Preserve(ref completeVerifiers, reader);
+                verifiers.Add(ReadCommandVerifier(reader));
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // The six 0..1 verifier kinds (TransferredToRange, SentFromRange, Received,
-                // Accepted, Queued, Failed) — preserved.
-                DrainComments(ref preservedVerifiers, ref pendingComments, reader.LocalName);
-                Preserve(ref preservedVerifiers, reader);
+                // A foreign element in verifier position — carried as an opaque verifier.
+                var elementName = reader.LocalName;
+                var outerXml = reader.ReadOuterXml();
+                verifiers.Add(new CommandVerifier(elementName,
+                    RawXml: new RawXmlFragment(elementName, outerXml)));
             }
-            else if (!TryCaptureComment(reader, ref pendingComments))
+            else
             {
                 reader.Read();
             }
         }
 
-        DrainComments(ref preservedVerifiers, ref pendingComments, null);
         reader.ReadEndElement();
+    }
+
+    private static CommandVerifier ReadCommandVerifier(XmlReader reader)
+    {
+        var kind = reader.LocalName;
+        var preservedAttributes = CapturePreservedAttributes(reader);
+
+        Comparison? comparison = null;
+        List<Comparison>? comparisonList = null;
+        string? containerRef = null;
+        var hasCheckWindow = false;
+        string? timeToStartChecking = null;
+        string? timeToStopChecking = null;
+        string? timeWindowIsRelativeTo = null;
+        IReadOnlyList<RawAttribute>? checkWindowPreserved = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Comparison"
+                    && comparison is null && reader.GetAttribute("parameterRef") is not null
+                    && reader.GetAttribute("value") is not null && reader.IsEmptyElement)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    comparison = ReadComparison(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ComparisonList"
+                         && comparisonList is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    comparisonList = ReadComparisonList(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContainerRef"
+                         && containerRef is null && reader.GetAttribute("containerRef") is not null
+                         && reader.IsEmptyElement)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    containerRef = reader.GetAttribute("containerRef");
+                    reader.Read();
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CheckWindow"
+                         && !hasCheckWindow && reader.IsEmptyElement)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    hasCheckWindow = true;
+                    timeToStartChecking = reader.GetAttribute("timeToStartChecking");
+                    timeToStopChecking = reader.GetAttribute("timeToStopChecking");
+                    timeWindowIsRelativeTo = reader.GetAttribute("timeWindowIsRelativeTo");
+                    checkWindowPreserved = CapturePreservedAttributes(
+                        reader, ["timeToStartChecking", "timeToStopChecking", "timeWindowIsRelativeTo"]);
+                    reader.Read();
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // BooleanExpression, CustomAlgorithm, ParameterValueChange,
+                    // CheckWindowAlgorithms, description children — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new CommandVerifier(kind, comparison, comparisonList, containerRef, hasCheckWindow,
+            timeToStartChecking, timeToStopChecking, timeWindowIsRelativeTo, checkWindowPreserved,
+            preserved, preservedAttributes);
     }
 
     private static TelemetryMetaData ReadTelemetryMetaData(XmlReader reader, RecoveryContext? recovery = null, string path = "")

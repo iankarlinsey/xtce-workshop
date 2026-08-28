@@ -27,8 +27,8 @@ public class CommandMetaDataTests
         var baseCmd = commandMetaData.MetaCommands[0];
         Assert.Equal(true, baseCmd.Abstract);
         Assert.Null(baseCmd.BaseMetaCommandRef);
-        Assert.Equal(1, baseCmd.CompleteVerifiers!.Count);
-        Assert.Contains("CmdAck", baseCmd.CompleteVerifiers[0].OuterXml);
+        var verifier = Assert.Single(baseCmd.Verifiers!);
+        Assert.Equal(("CompleteVerifier", "CmdAck"), (verifier.Kind, verifier.Comparison!.ParameterRef));
 
         var dupCmd = commandMetaData.MetaCommands[1];
         Assert.Equal("BaseCmd", dupCmd.BaseMetaCommandRef);

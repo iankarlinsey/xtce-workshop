@@ -103,10 +103,11 @@ public class XtceDocumentQueryTests
                 [new Parameter("Ack", "T")]),
             CommandMetaData: new CommandMetaData(
             [
-                new MetaCommand("Cmd", CompleteVerifiers:
+                new MetaCommand("Cmd", Verifiers:
                 [
-                    new RawXmlFragment("CompleteVerifier",
-                        $"""<CompleteVerifier xmlns="{Ns}"><Comparison parameterRef="Ack" value="1"/><CheckWindow timeToStopChecking="PT5S"/></CompleteVerifier>"""),
+                    new CommandVerifier("CompleteVerifier",
+                        Comparison: new Comparison("Ack", "1"),
+                        HasCheckWindow: true, TimeToStopChecking: "PT5S"),
                 ]),
             ]));
 

@@ -122,6 +122,24 @@ public static class XtceDocumentQuery
             // Everything else that can carry a parameterRef rides as preserved XML:
             // message MatchCriteria, verifier comparisons, ParameterToSets, alarms,
             // dynamic values, time associations...
+            // Modeled verifier comparisons (#106) — previously found by fragment scanning.
+            foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
+            {
+                var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}";
+                foreach (var verifier in metaCommand.Verifiers ?? [])
+                {
+                    var comparisons = (verifier.ComparisonList ?? []).Concat(
+                        verifier.Comparison is { } single ? [single] : []);
+                    foreach (var comparison in comparisons)
+                    {
+                        if (ResolvesToTarget(context, comparison.ParameterRef, systemPath, parameterName))
+                        {
+                            usages.Add(new UsageMatch("Comparison", location, comparison.ParameterRef));
+                        }
+                    }
+                }
+            }
+
             foreach (var (fragment, location) in FragmentEnumerator.EnumerateNode(context))
             {
                 if (fragment.ElementName != CommentAnchor.ElementName)

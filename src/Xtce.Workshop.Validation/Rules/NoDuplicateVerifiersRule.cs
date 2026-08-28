@@ -25,7 +25,7 @@ public sealed class NoDuplicateVerifiersRule : IValidationRule
         {
             var location = $"{context.Path}/CommandMetaData/MetaCommandSet/{metaCommand.Name}";
 
-            var mergedComplete = MergeInheritedVerifiers(context, metaCommand, m => m.CompleteVerifiers);
+            var mergedComplete = MergeInheritedVerifiers(context, metaCommand, "CompleteVerifier");
             foreach (var duplicate in FindDuplicates(mergedComplete))
             {
                 yield return new ValidationIssue(RuleId, Severity, location,
@@ -33,7 +33,7 @@ public sealed class NoDuplicateVerifiersRule : IValidationRule
                     CandidateNumber: 48);
             }
 
-            var mergedExecution = MergeInheritedVerifiers(context, metaCommand, m => m.ExecutionVerifiers);
+            var mergedExecution = MergeInheritedVerifiers(context, metaCommand, "ExecutionVerifier");
             foreach (var duplicate in FindDuplicates(mergedExecution))
             {
                 yield return new ValidationIssue(RuleId, Severity, location,
@@ -44,10 +44,10 @@ public sealed class NoDuplicateVerifiersRule : IValidationRule
     }
 
     /// <summary>Parent-first merged verifier list along the BaseMetaCommand chain.</summary>
-    private static List<string> MergeInheritedVerifiers(
+    private static List<CommandVerifier> MergeInheritedVerifiers(
         SpaceSystemContext usageContext,
         MetaCommand metaCommand,
-        Func<MetaCommand, IReadOnlyList<RawXmlFragment>?> select)
+        string kind)
     {
         var chain = new List<MetaCommand>();
         var visited = new HashSet<MetaCommand>(ReferenceEqualityComparer.Instance);
@@ -68,23 +68,56 @@ public sealed class NoDuplicateVerifiersRule : IValidationRule
 
         chain.Reverse(); // parent verifiers come first, per the XSD's append semantics
         return chain
-            .SelectMany(m => select(m) ?? [])
-            .Select(f => Normalize(f.OuterXml))
+            .SelectMany(m => (m.Verifiers ?? []).Where(v => v.Kind == kind))
             .ToList();
     }
 
-    private static IEnumerable<string> FindDuplicates(List<string> normalizedVerifiers)
+    /// <summary>Structural duplicates — the modeled records compare value-wise, with raw
+    /// fragments normalized so formatting differences don't hide a duplicate.</summary>
+    private static IEnumerable<string> FindDuplicates(List<CommandVerifier> verifiers)
     {
-        var seen = new HashSet<string>();
-        var reported = new HashSet<string>();
-        foreach (var verifier in normalizedVerifiers)
+        var seen = new HashSet<CommandVerifier>();
+        var reported = new HashSet<CommandVerifier>();
+        foreach (var verifier in verifiers)
         {
-            if (!seen.Add(verifier) && reported.Add(verifier))
+            var canonical = Canonicalize(verifier);
+            if (!seen.Add(canonical) && reported.Add(canonical))
             {
-                var summary = verifier.Length > 120 ? verifier[..120] + "…" : verifier;
-                yield return summary;
+                yield return Describe(verifier);
             }
         }
+    }
+
+    private static CommandVerifier Canonicalize(CommandVerifier verifier)
+    {
+        var preserved = verifier.Preserved is { Count: > 0 }
+            ? verifier.Preserved.Select(f => f with { OuterXml = Normalize(f.OuterXml) }).ToList()
+            : verifier.Preserved;
+        var rawXml = verifier.RawXml is { } raw ? raw with { OuterXml = Normalize(raw.OuterXml) } : null;
+        return verifier with { Preserved = preserved, RawXml = rawXml };
+    }
+
+    private static string Describe(CommandVerifier verifier)
+    {
+        if (verifier.Comparison is { } comparison)
+        {
+            return $"Comparison {comparison.ParameterRef} {comparison.ComparisonOperator ?? "=="} {comparison.Value}";
+        }
+        if (verifier.ComparisonList is { Count: > 0 } list)
+        {
+            return $"ComparisonList ({list.Count} comparison(s), first: {list[0].ParameterRef})";
+        }
+        if (verifier.ContainerRef is { } containerRef)
+        {
+            return $"ContainerRef {containerRef}";
+        }
+        var fragment = verifier.RawXml ?? verifier.Preserved?.FirstOrDefault();
+        if (fragment is not null)
+        {
+            var summary = Normalize(fragment.OuterXml);
+            return summary.Length > 120 ? summary[..120] + "…" : summary;
+        }
+        return verifier.Kind;
     }
 
     private static string Normalize(string xml) =>

@@ -438,24 +438,95 @@ public static class XtceDocumentWriter
             }));
         }
 
-        var hasVerifiers = metaCommand.ExecutionVerifiers is { Count: > 0 }
-            || metaCommand.CompleteVerifiers is { Count: > 0 }
-            || metaCommand.PreservedVerifiers is { Count: > 0 };
-        if (hasVerifiers)
+        if (metaCommand.Verifiers is { Count: > 0 } verifiers)
         {
             slots.Add(("VerifierSet", () =>
             {
                 writer.WriteStartElement("VerifierSet", XtceNamespace);
                 var verifierSlots = new List<(string Name, Action Emit)>();
-                AddPreservedSlots(verifierSlots, writer, metaCommand.PreservedVerifiers);
-                AddPreservedSlots(verifierSlots, writer, metaCommand.ExecutionVerifiers);
-                AddPreservedSlots(verifierSlots, writer, metaCommand.CompleteVerifiers);
+                foreach (var verifier in verifiers)
+                {
+                    var current = verifier;
+                    verifierSlots.Add((current.Kind, () => WriteCommandVerifier(writer, current)));
+                }
                 EmitInSchemaOrder(VerifierSetChildOrder, verifierSlots);
                 writer.WriteEndElement();
             }));
         }
 
         EmitInSchemaOrder(MetaCommandChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    // CommandVerifierType: NameDescription children, the check choice, then the window choice.
+    private static readonly string[] VerifierChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet",
+        "ComparisonList", "ContainerRef", "ParameterValueChange", "CustomAlgorithm", "BooleanExpression", "Comparison",
+        "CheckWindow", "CheckWindowAlgorithms",
+    ];
+
+    private static void WriteCommandVerifier(XmlWriter writer, CommandVerifier verifier)
+    {
+        if (verifier.RawXml is { } rawXml)
+        {
+            WriteFragmentXml(writer, rawXml.OuterXml); // an opaque (foreign) verifier entry
+            return;
+        }
+
+        writer.WriteStartElement(verifier.Kind, XtceNamespace);
+        WritePreservedAttributes(writer, verifier.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        if (verifier.Comparison is { } comparison)
+        {
+            slots.Add(("Comparison", () => WriteComparison(writer, comparison)));
+        }
+        if (verifier.ComparisonList is { } comparisonList)
+        {
+            slots.Add(("ComparisonList", () =>
+            {
+                writer.WriteStartElement("ComparisonList", XtceNamespace);
+                foreach (var entry in comparisonList)
+                {
+                    WriteComparison(writer, entry);
+                }
+                writer.WriteEndElement();
+            }));
+        }
+        if (verifier.ContainerRef is { } containerRef)
+        {
+            slots.Add(("ContainerRef", () =>
+            {
+                writer.WriteStartElement("ContainerRef", XtceNamespace);
+                writer.WriteAttributeString("containerRef", containerRef);
+                writer.WriteEndElement();
+            }));
+        }
+        if (verifier.HasCheckWindow)
+        {
+            slots.Add(("CheckWindow", () =>
+            {
+                writer.WriteStartElement("CheckWindow", XtceNamespace);
+                if (verifier.TimeToStartChecking is not null)
+                {
+                    writer.WriteAttributeString("timeToStartChecking", verifier.TimeToStartChecking);
+                }
+                if (verifier.TimeToStopChecking is not null)
+                {
+                    writer.WriteAttributeString("timeToStopChecking", verifier.TimeToStopChecking);
+                }
+                if (verifier.TimeWindowIsRelativeTo is not null)
+                {
+                    writer.WriteAttributeString("timeWindowIsRelativeTo", verifier.TimeWindowIsRelativeTo);
+                }
+                WritePreservedAttributes(writer, verifier.CheckWindowPreservedAttributes);
+                writer.WriteEndElement();
+            }));
+        }
+        AddPreservedSlots(slots, writer, verifier.Preserved);
+        EmitInSchemaOrder(VerifierChildOrder, slots);
 
         writer.WriteEndElement();
     }

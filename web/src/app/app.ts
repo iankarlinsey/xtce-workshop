@@ -22,6 +22,7 @@ import {
   RestrictionCriteriaDoc,
   MessageDoc,
   MetaCommandDoc,
+  CommandVerifierDoc,
   AlgorithmDoc,
   TelemetryItem,
   getNodeAtPath,
@@ -1597,6 +1598,23 @@ export class App {
       return;
     }
     this.mutateSelectedItem((item) => updater(item as SequenceContainerDoc));
+  }
+
+  protected verifierSummary(verifier: CommandVerifierDoc): string {
+    const parts: string[] = [];
+    if (verifier.comparison) {
+      parts.push(`${verifier.comparison.parameterRef} ${verifier.comparison.comparisonOperator ?? '=='} ${verifier.comparison.value}`);
+    }
+    if (verifier.comparisonList?.length) {
+      parts.push(`${verifier.comparisonList.length} comparison(s)`);
+    }
+    if (verifier.containerRef) {
+      parts.push(`container ${verifier.containerRef}`);
+    }
+    if (verifier.hasCheckWindow && verifier.timeToStopChecking) {
+      parts.push(`window ≤ ${verifier.timeToStopChecking}`);
+    }
+    return parts.length > 0 ? parts.join(' — ') : 'check preserved as XML';
   }
 
   protected entryLabel(entry: SequenceEntryDoc): string {

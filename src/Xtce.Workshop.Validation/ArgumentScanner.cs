@@ -137,17 +137,18 @@ public static class ArgumentScanner
         {
             yield return fragment;
         }
-        foreach (var fragment in metaCommand.ExecutionVerifiers ?? [])
+        foreach (var verifier in metaCommand.Verifiers ?? [])
         {
-            yield return fragment;
-        }
-        foreach (var fragment in metaCommand.CompleteVerifiers ?? [])
-        {
-            yield return fragment;
-        }
-        foreach (var fragment in metaCommand.PreservedVerifiers ?? [])
-        {
-            yield return fragment;
+            // Modeled verifiers keep their unmodeled check forms (BooleanExpression,
+            // CustomAlgorithm, ...) in Preserved; opaque entries ride whole.
+            if (verifier.RawXml is { } rawVerifier)
+            {
+                yield return rawVerifier;
+            }
+            foreach (var fragment in verifier.Preserved ?? [])
+            {
+                yield return fragment;
+            }
         }
         foreach (var fragment in metaCommand.CommandContainer?.Preserved ?? [])
         {

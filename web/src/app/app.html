@@ -988,10 +988,17 @@
             </div>
           </div>
         }
-        <p class="meta-text">
-          Verifiers: {{ (metaCommand.completeVerifiers ?? []).length }} complete,
-          {{ (metaCommand.executionVerifiers ?? []).length }} execution (preserved as XML).
-        </p>
+        @if ((metaCommand.verifiers ?? []).length > 0) {
+          <div class="form-field enum-editor">
+            <label>Verifiers</label>
+            @for (verifier of metaCommand.verifiers ?? []; track $index) {
+              <div class="entry-edit-row">
+                <span class="entry-kind">{{ verifier.kind }}</span>
+                <span class="meta-text">{{ verifierSummary(verifier) }}</span>
+              </div>
+            }
+          </div>
+        }
 
         <app-preserved-xml [item]="metaCommand" />
 

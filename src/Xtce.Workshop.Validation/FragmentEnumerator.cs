@@ -94,17 +94,16 @@ public static class FragmentEnumerator
                 {
                     yield return (fragment, metaCommandPath);
                 }
-                foreach (var fragment in metaCommand.ExecutionVerifiers ?? [])
+                foreach (var verifier in metaCommand.Verifiers ?? [])
                 {
-                    yield return (fragment, metaCommandPath);
-                }
-                foreach (var fragment in metaCommand.CompleteVerifiers ?? [])
-                {
-                    yield return (fragment, metaCommandPath);
-                }
-                foreach (var fragment in metaCommand.PreservedVerifiers ?? [])
-                {
-                    yield return (fragment, metaCommandPath);
+                    if (verifier.RawXml is { } rawVerifier)
+                    {
+                        yield return (rawVerifier, metaCommandPath);
+                    }
+                    foreach (var fragment in verifier.Preserved ?? [])
+                    {
+                        yield return (fragment, metaCommandPath);
+                    }
                 }
                 if (metaCommand.CommandContainer is { } inlineContainer)
                 {

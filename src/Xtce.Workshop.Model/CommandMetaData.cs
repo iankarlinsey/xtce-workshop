@@ -82,14 +82,68 @@ public sealed record ArgumentAssignment(string ArgumentName, string ArgumentValu
 /// ArgumentAssignmentList; Preserved carries every other MetaCommand child (ArgumentList,
 /// CommandContainer, constraints, significance, interlock, ParameterToSetList, ...).
 /// </summary>
+/// <summary>
+/// One VerifierSet entry (issue #106). Kind is the element name ("CompleteVerifier",
+/// "ExecutionVerifier", or one of the six 0..1 kinds). The check choice is modeled for
+/// its Comparison/ComparisonList/ContainerRef forms (reusing the shared Comparison
+/// record — the XSD uses plain ComparisonType here); BooleanExpression, CustomAlgorithm,
+/// ParameterValueChange, and CheckWindowAlgorithms ride in Preserved. CheckWindow's
+/// attributes are modeled verbatim when present.
+/// </summary>
+public sealed record CommandVerifier(
+    string Kind,
+    Comparison? Comparison = null,
+    IReadOnlyList<Comparison>? ComparisonList = null,
+    string? ContainerRef = null,
+    bool HasCheckWindow = false,
+    string? TimeToStartChecking = null,
+    string? TimeToStopChecking = null,
+    string? TimeWindowIsRelativeTo = null,
+    IReadOnlyList<RawAttribute>? CheckWindowPreservedAttributes = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    RawXmlFragment? RawXml = null)
+{
+    public bool Equals(CommandVerifier? other) =>
+        other is not null
+        && Kind == other.Kind
+        && Equals(Comparison, other.Comparison)
+        && Structural.ListEquals(ComparisonList, other.ComparisonList)
+        && ContainerRef == other.ContainerRef
+        && HasCheckWindow == other.HasCheckWindow
+        && TimeToStartChecking == other.TimeToStartChecking
+        && TimeToStopChecking == other.TimeToStopChecking
+        && TimeWindowIsRelativeTo == other.TimeWindowIsRelativeTo
+        && Structural.ListEquals(CheckWindowPreservedAttributes, other.CheckWindowPreservedAttributes)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(RawXml, other.RawXml);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Kind);
+        hash.Add(Comparison);
+        Structural.AddList(ref hash, ComparisonList);
+        hash.Add(ContainerRef);
+        hash.Add(HasCheckWindow);
+        hash.Add(TimeToStartChecking);
+        hash.Add(TimeToStopChecking);
+        hash.Add(TimeWindowIsRelativeTo);
+        Structural.AddList(ref hash, CheckWindowPreservedAttributes);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(RawXml);
+        return hash.ToHashCode();
+    }
+}
+
 public sealed record MetaCommand(
     string Name,
     bool? Abstract = null,
     string? BaseMetaCommandRef = null,
     IReadOnlyList<RawXmlFragment>? BaseMetaCommandPreserved = null,
-    IReadOnlyList<RawXmlFragment>? ExecutionVerifiers = null,
-    IReadOnlyList<RawXmlFragment>? CompleteVerifiers = null,
-    IReadOnlyList<RawXmlFragment>? PreservedVerifiers = null,
+    IReadOnlyList<CommandVerifier>? Verifiers = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
     CommandContainer? CommandContainer = null,
@@ -103,9 +157,7 @@ public sealed record MetaCommand(
         && Abstract == other.Abstract
         && BaseMetaCommandRef == other.BaseMetaCommandRef
         && Structural.ListEquals(BaseMetaCommandPreserved, other.BaseMetaCommandPreserved)
-        && Structural.ListEquals(ExecutionVerifiers, other.ExecutionVerifiers)
-        && Structural.ListEquals(CompleteVerifiers, other.CompleteVerifiers)
-        && Structural.ListEquals(PreservedVerifiers, other.PreservedVerifiers)
+        && Structural.ListEquals(Verifiers, other.Verifiers)
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
         && Equals(CommandContainer, other.CommandContainer)
@@ -120,9 +172,7 @@ public sealed record MetaCommand(
         hash.Add(Abstract);
         hash.Add(BaseMetaCommandRef);
         Structural.AddList(ref hash, BaseMetaCommandPreserved);
-        Structural.AddList(ref hash, ExecutionVerifiers);
-        Structural.AddList(ref hash, CompleteVerifiers);
-        Structural.AddList(ref hash, PreservedVerifiers);
+        Structural.AddList(ref hash, Verifiers);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
         hash.Add(CommandContainer);
