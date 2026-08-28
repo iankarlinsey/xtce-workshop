@@ -20,7 +20,8 @@ public sealed record Member(
     string TypeRef,
     string? InitialValue = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    Description? Description = null)
 {
     public bool Equals(Member? other) =>
         other is not null
@@ -28,7 +29,8 @@ public sealed record Member(
         && TypeRef == other.TypeRef
         && InitialValue == other.InitialValue
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(Description, other.Description);
 
     public override int GetHashCode()
     {
@@ -38,6 +40,7 @@ public sealed record Member(
         hash.Add(InitialValue);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(Description);
         return hash.ToHashCode();
     }
 }

@@ -1215,6 +1215,7 @@ public static class XtceDocumentReader
 
                 List<RawXmlFragment>? preserved = null;
                 List<string>? argumentPendingComments = null;
+                Description? description = null;
                 if (reader.IsEmptyElement)
                 {
                     reader.Read();
@@ -1224,7 +1225,12 @@ public static class XtceDocumentReader
                     reader.ReadStartElement();
                     while (reader.NodeType != XmlNodeType.EndElement)
                     {
-                        if (reader.NodeType == XmlNodeType.Element)
+                        if (reader.NodeType == XmlNodeType.Element
+                            && TryReadDescriptionChild(reader, ref description, ref preserved, ref argumentPendingComments))
+                        {
+                            // description-trio child handled
+                        }
+                        else if (reader.NodeType == XmlNodeType.Element)
                         {
                             DrainComments(ref preserved, ref argumentPendingComments, reader.LocalName);
                             Preserve(ref preserved, reader);
@@ -1237,7 +1243,7 @@ public static class XtceDocumentReader
                     DrainComments(ref preserved, ref argumentPendingComments, null);
                     reader.ReadEndElement();
                 }
-                arguments.Add(new Argument(name, typeRef, initialValue, preserved, preservedAttributes));
+                arguments.Add(new Argument(name, typeRef, initialValue, preserved, preservedAttributes, description));
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
@@ -1448,6 +1454,7 @@ public static class XtceDocumentReader
         IReadOnlyList<RawAttribute>? checkWindowPreserved = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
+        Description? description = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1459,7 +1466,12 @@ public static class XtceDocumentReader
 
             while (reader.NodeType != XmlNodeType.EndElement)
             {
-                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Comparison"
+                if (reader.NodeType == XmlNodeType.Element
+                    && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Comparison"
                     && comparison is null && reader.GetAttribute("parameterRef") is not null
                     && reader.GetAttribute("value") is not null && reader.IsEmptyElement)
                 {
@@ -1511,7 +1523,7 @@ public static class XtceDocumentReader
 
         return new CommandVerifier(kind, comparison, comparisonList, containerRef, hasCheckWindow,
             timeToStartChecking, timeToStopChecking, timeWindowIsRelativeTo, checkWindowPreserved,
-            preserved, preservedAttributes);
+            preserved, preservedAttributes, Description: description);
     }
 
     private static void ReadServiceSet(XmlReader reader, List<Service> services)
@@ -2040,6 +2052,9 @@ public static class XtceDocumentReader
 
         reader.ReadStartElement();
 
+        // Comments between rows drain into the preserved rows (content kept verbatim;
+        // they re-emit after the modeled rows, matching set semantics).
+        List<string>? pendingComments = null;
         while (reader.NodeType != XmlNodeType.EndElement)
         {
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == rowElementName
@@ -2049,13 +2064,15 @@ public static class XtceDocumentReader
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
+                DrainComments(ref preservedRows, ref pendingComments, reader.LocalName);
                 Preserve(ref preservedRows, reader);
             }
-            else
+            else if (!TryCaptureComment(reader, ref pendingComments))
             {
                 reader.Read();
             }
         }
+        DrainComments(ref preservedRows, ref pendingComments, null);
 
         reader.ReadEndElement();
     }
@@ -2070,6 +2087,7 @@ public static class XtceDocumentReader
         }
 
         reader.ReadStartElement();
+        List<string>? pendingComments = null;
 
         while (reader.NodeType != XmlNodeType.EndElement)
         {
@@ -2092,13 +2110,15 @@ public static class XtceDocumentReader
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {
+                DrainComments(ref preservedRows, ref pendingComments, reader.LocalName);
                 Preserve(ref preservedRows, reader);
             }
-            else
+            else if (!TryCaptureComment(reader, ref pendingComments))
             {
                 reader.Read();
             }
         }
+        DrainComments(ref preservedRows, ref pendingComments, null);
 
         reader.ReadEndElement();
     }
@@ -3651,6 +3671,7 @@ public static class XtceDocumentReader
         }
 
         reader.ReadStartElement();
+        List<string>? pendingComments = null;
 
         while (reader.NodeType != XmlNodeType.EndElement)
         {
@@ -3668,13 +3689,15 @@ public static class XtceDocumentReader
             {
                 // Foreign content inside a UnitSet (schema-invalid) — preserved and
                 // re-emitted inside the written UnitSet.
+                DrainComments(ref preservedUnits, ref pendingComments, reader.LocalName);
                 Preserve(ref preservedUnits, reader);
             }
-            else
+            else if (!TryCaptureComment(reader, ref pendingComments))
             {
                 reader.Read();
             }
         }
+        DrainComments(ref preservedUnits, ref pendingComments, null);
 
         reader.ReadEndElement();
     }
@@ -4249,6 +4272,7 @@ public static class XtceDocumentReader
 
                 List<RawXmlFragment>? preserved = null;
                 List<string>? pendingComments = null;
+                Description? description = null;
                 if (reader.IsEmptyElement)
                 {
                     reader.Read();
@@ -4258,7 +4282,12 @@ public static class XtceDocumentReader
                     reader.ReadStartElement();
                     while (reader.NodeType != XmlNodeType.EndElement)
                     {
-                        if (reader.NodeType == XmlNodeType.Element)
+                        if (reader.NodeType == XmlNodeType.Element
+                            && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                        {
+                            // description-trio child handled
+                        }
+                        else if (reader.NodeType == XmlNodeType.Element)
                         {
                             DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                             Preserve(ref preserved, reader);
@@ -4272,7 +4301,7 @@ public static class XtceDocumentReader
                     reader.ReadEndElement();
                 }
 
-                members.Add(new Member(name, typeRef, initialValue, preserved, preservedAttributes));
+                members.Add(new Member(name, typeRef, initialValue, preserved, preservedAttributes, description));
             }
             else if (reader.NodeType == XmlNodeType.Element)
             {

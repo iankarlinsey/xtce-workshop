@@ -1378,7 +1378,7 @@ describe('App', () => {
               {
                 name: 'Reboot',
                 baseMetaCommandRef: 'BaseCmd',
-                arguments: [{ name: 'delay', argumentTypeRef: 'CmdU8' }],
+                arguments: [{ name: 'delay', argumentTypeRef: 'CmdU8', description: { longDescription: 'Seconds before restart.' } }],
                 commandContainer: {
                   name: 'RebootFrame',
                   entryList: [
@@ -1386,7 +1386,7 @@ describe('App', () => {
                     { kind: 'ArgumentRef', ref: 'delay' },
                   ],
                 },
-                verifiers: [{ kind: 'CompleteVerifier', comparison: { parameterRef: 'Ack', value: '1' }, hasCheckWindow: true, timeToStopChecking: 'PT5S' }],
+                verifiers: [{ kind: 'CompleteVerifier', comparison: { parameterRef: 'Ack', value: '1' }, hasCheckWindow: true, timeToStopChecking: 'PT5S', description: { longDescription: 'Acknowledged by the FC.' } }],
                 transmissionConstraints: [{ timeOut: 'PT10S', comparison: { parameterRef: 'Mode', value: '1' } }],
                 defaultSignificance: { consequenceLevel: 'critical', reasonForWarning: 'thruster fire' },
                 contextSignificances: [
@@ -1427,6 +1427,8 @@ describe('App', () => {
       expect((compiled.querySelector('#command-baseref') as HTMLInputElement).value).toBe('BaseCmd');
       expect(compiled.textContent).toContain('CompleteVerifier');
       expect(compiled.textContent).toContain('Ack == 1');
+      expect(compiled.textContent).toContain('Acknowledged by the FC.');
+      expect(compiled.textContent).toContain('Seconds before restart.');
       expect(compiled.textContent).toContain('Mode == 1 — timeout PT10S');
       expect(compiled.textContent).toContain('Significance: critical — thruster fire');
       expect(compiled.textContent).toContain('when Mode == 1 → forbidden');
@@ -1591,7 +1593,7 @@ describe('App', () => {
       fixture.componentInstance.onSaveDocument();
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body.commandMetaData.metaCommands[1].arguments)
-        .toEqual([{ name: 'delay', argumentTypeRef: 'CmdU8', initialValue: '5' }]);
+        .toEqual([{ name: 'delay', argumentTypeRef: 'CmdU8', initialValue: '5', description: { longDescription: 'Seconds before restart.' } }]);
       req.flush('<SpaceSystem/>');
     }));
 

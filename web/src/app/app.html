@@ -1144,6 +1144,9 @@
               <input class="member-initial" [value]="argument.initialValue ?? ''" (input)="onArgumentFieldInput(i, 'initialValue', $event)" placeholder="initial" [attr.aria-label]="'Argument ' + i + ' initial value'" />
               <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveArgument(i)" aria-label="Remove argument">&times;</button>
             </div>
+            @if (argument.description?.longDescription; as argumentDescription) {
+              <p class="meta-text">{{ argumentDescription }}</p>
+            }
           }
           <rux-button secondary (click)="onAddArgument()">+ Add argument</rux-button>
         </div>
@@ -1203,6 +1206,9 @@
                 <span class="entry-kind">{{ verifier.kind }}</span>
                 <span class="meta-text">{{ verifierSummary(verifier) }}</span>
               </div>
+              @if (verifier.description?.longDescription; as verifierDescription) {
+                <p class="meta-text">{{ verifierDescription }}</p>
+              }
             }
           </div>
         }

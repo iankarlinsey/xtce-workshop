@@ -50,7 +50,8 @@ public sealed record Argument(
     string ArgumentTypeRef,
     string? InitialValue = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    Description? Description = null)
 {
     public bool Equals(Argument? other) =>
         other is not null
@@ -58,7 +59,8 @@ public sealed record Argument(
         && ArgumentTypeRef == other.ArgumentTypeRef
         && InitialValue == other.InitialValue
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(Description, other.Description);
 
     public override int GetHashCode()
     {
@@ -68,6 +70,7 @@ public sealed record Argument(
         hash.Add(InitialValue);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(Description);
         return hash.ToHashCode();
     }
 }
@@ -162,7 +165,8 @@ public sealed record CommandVerifier(
     IReadOnlyList<RawAttribute>? CheckWindowPreservedAttributes = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
-    RawXmlFragment? RawXml = null)
+    RawXmlFragment? RawXml = null,
+    Description? Description = null)
 {
     public bool Equals(CommandVerifier? other) =>
         other is not null
@@ -177,7 +181,8 @@ public sealed record CommandVerifier(
         && Structural.ListEquals(CheckWindowPreservedAttributes, other.CheckWindowPreservedAttributes)
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
-        && Equals(RawXml, other.RawXml);
+        && Equals(RawXml, other.RawXml)
+        && Equals(Description, other.Description);
 
     public override int GetHashCode()
     {
@@ -194,6 +199,7 @@ public sealed record CommandVerifier(
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
         hash.Add(RawXml);
+        hash.Add(Description);
         return hash.ToHashCode();
     }
 }

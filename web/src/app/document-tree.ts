@@ -315,6 +315,7 @@ export interface ArgumentDoc {
   name: string;
   argumentTypeRef: string;
   initialValue?: string | null;
+  description?: DescriptionDoc | null;
   [key: string]: unknown;
 }
 
@@ -333,6 +334,7 @@ export interface CommandContainerDoc {
 
 export interface CommandVerifierDoc {
   kind: string;
+  description?: DescriptionDoc | null;
   comparison?: ComparisonDoc | null;
   comparisonList?: ComparisonDoc[] | null;
   containerRef?: string | null;

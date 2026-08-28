@@ -346,6 +346,11 @@ public static class XtceDocumentWriter
         writer.WriteEndElement();
     }
 
+    private static readonly string[] NameDescriptionChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet",
+    ];
+
     private static readonly string[] BlockMetaCommandChildOrder =
     [
         "LongDescription", "AliasSet", "AncillaryDataSet", "MetaCommandStepList",
@@ -575,7 +580,10 @@ public static class XtceDocumentWriter
                         writer.WriteAttributeString("initialValue", initialValue);
                     }
                     WritePreservedAttributes(writer, argument.PreservedAttributes);
-                    WriteFragments(writer, argument.Preserved);
+                    var argumentSlots = new List<(string Name, Action Emit)>();
+                    AddDescriptionSlots(writer, argument.Description, argumentSlots);
+                    AddPreservedSlots(argumentSlots, writer, argument.Preserved);
+                    EmitInSchemaOrder(NameDescriptionChildOrder, argumentSlots);
                     writer.WriteEndElement();
                 }
                 WriteFragments(writer, metaCommand.PreservedArguments);
@@ -799,6 +807,7 @@ public static class XtceDocumentWriter
         WritePreservedAttributes(writer, verifier.PreservedAttributes);
 
         var slots = new List<(string Name, Action Emit)>();
+        AddDescriptionSlots(writer, verifier.Description, slots);
         if (verifier.Comparison is { } comparison)
         {
             slots.Add(("Comparison", () => WriteComparison(writer, comparison)));
@@ -1456,7 +1465,10 @@ public static class XtceDocumentWriter
                         writer.WriteAttributeString("initialValue", member.InitialValue);
                     }
                     WritePreservedAttributes(writer, member.PreservedAttributes);
-                    WriteFragments(writer, member.Preserved);
+                    var memberSlots = new List<(string Name, Action Emit)>();
+                    AddDescriptionSlots(writer, member.Description, memberSlots);
+                    AddPreservedSlots(memberSlots, writer, member.Preserved);
+                    EmitInSchemaOrder(NameDescriptionChildOrder, memberSlots);
                     writer.WriteEndElement();
                 }
                 writer.WriteEndElement();
