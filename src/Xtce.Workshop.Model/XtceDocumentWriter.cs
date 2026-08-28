@@ -1136,8 +1136,67 @@ public static class XtceDocumentWriter
                 writer.WriteEndElement();
             }));
         }
+        if (criteria.BooleanExpression is { } booleanExpression)
+        {
+            criteriaSlots.Add(("BooleanExpression", () =>
+            {
+                writer.WriteStartElement("BooleanExpression", XtceNamespace);
+                WriteBooleanNode(writer, booleanExpression);
+                writer.WriteEndElement();
+            }));
+        }
         AddPreservedSlots(criteriaSlots, writer, criteria.Preserved);
         EmitInSchemaOrder(MatchCriteriaChildOrder, criteriaSlots);
+        writer.WriteEndElement();
+    }
+
+    private static void WriteBooleanNode(XmlWriter writer, BooleanExpressionNode node)
+    {
+        if (node.Kind == BooleanNodeKind.Condition)
+        {
+            writer.WriteStartElement("Condition", XtceNamespace);
+            if (node.Left is { } left)
+            {
+                WriteParameterInstanceRef(writer, left);
+            }
+            writer.WriteStartElement("ComparisonOperator", XtceNamespace);
+            writer.WriteString(node.Operator);
+            writer.WriteEndElement();
+            if (node.Right is { } right)
+            {
+                WriteParameterInstanceRef(writer, right);
+            }
+            else
+            {
+                writer.WriteStartElement("Value", XtceNamespace);
+                writer.WriteString(node.Value);
+                writer.WriteEndElement();
+            }
+            writer.WriteEndElement();
+            return;
+        }
+
+        writer.WriteStartElement(node.Kind == BooleanNodeKind.And ? "ANDedConditions" : "ORedConditions", XtceNamespace);
+        foreach (var child in node.Children ?? [])
+        {
+            WriteBooleanNode(writer, child);
+        }
+        writer.WriteEndElement();
+    }
+
+    private static void WriteParameterInstanceRef(XmlWriter writer, ParameterInstanceRef instanceRef)
+    {
+        writer.WriteStartElement("ParameterInstanceRef", XtceNamespace);
+        writer.WriteAttributeString("parameterRef", instanceRef.ParameterRef);
+        if (instanceRef.Instance is { } instance)
+        {
+            writer.WriteAttributeString("instance", XmlConvert.ToString(instance));
+        }
+        if (instanceRef.UseCalibratedValue is { } useCalibrated)
+        {
+            writer.WriteAttributeString("useCalibratedValue", XmlConvert.ToString(useCalibrated));
+        }
+        WritePreservedAttributes(writer, instanceRef.PreservedAttributes);
         writer.WriteEndElement();
     }
 

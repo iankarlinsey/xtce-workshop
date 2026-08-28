@@ -137,4 +137,31 @@ public class TypedValueValidForTypeRuleTests
         Assert.DoesNotContain(withinDefault32, i => i.RuleId == RuleId);
         Assert.Contains(beyondDefault32, i => i.RuleId == RuleId);
     }
+
+    [Test]
+    public void Validate_ModeledExpressionConditionLiteral_IsChecked()
+    {
+        // #124: BooleanExpression condition values in context significances used to be
+        // caught by the command-fragment scan; the modeled tree must keep the check.
+        var telemetry = new TelemetryMetaData(
+            [new ParameterTypeDefinition("Int_Type", ParameterTypeKind.Integer, Signed: false, SizeInBits: 8)],
+            [new Parameter("Mode", "Int_Type")]);
+        var command = new CommandMetaData(
+        [
+            new MetaCommand("Thrust", ContextSignificances:
+            [
+                new ContextSignificance(
+                    new MatchCriteria(BooleanExpression: new BooleanExpressionNode(
+                        BooleanNodeKind.Condition,
+                        new ParameterInstanceRef("Mode"), "==", "not-a-number")),
+                    new Significance(ConsequenceLevel: "critical")),
+            ]),
+        ]);
+        var document = new SpaceSystem("Root", [], telemetry, CommandMetaData: command);
+
+        var issues = XtceValidator.Validate(document);
+
+        var issue = Assert.Single(issues, i => i.RuleId == RuleId);
+        Assert.Contains("Condition against 'Mode'", issue.Message);
+    }
 }

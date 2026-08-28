@@ -208,7 +208,9 @@ public class NonNumericAlarmTests
             .NonNumericDefaultAlarm!.Conditions!;
 
         Assert.Null(conditions.Warning!.Comparison);
-        Assert.Equal("BooleanExpression", Assert.Single(conditions.Warning.Preserved!).ElementName);
+        // Modeled as a tree since #124 — no fragment left behind.
+        Assert.Null(conditions.Warning.Preserved);
+        Assert.Equal("1", conditions.Warning.BooleanExpression!.Value);
 
         RoundTrip(loaded, out var reloaded);
         Assert.Equal(loaded, reloaded);

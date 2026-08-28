@@ -736,6 +736,13 @@ describe('App', () => {
                   context: { comparisonList: [{ parameterRef: 'Mode', value: '2' }, { parameterRef: 'Mode', value: '3' }] },
                 },
                 { alarm: {}, context: {} },
+                {
+                  alarm: { defaultAlarmLevel: 'normal' },
+                  context: { booleanExpression: { kind: 'And', children: [
+                    { kind: 'Condition', left: { parameterRef: 'Mode' }, operator: '==', value: '1' },
+                    { kind: 'Condition', left: { parameterRef: 'Apid' }, operator: '!=', right: { parameterRef: 'Mode' } },
+                  ] } },
+                },
                 { rawXml: { elementName: 'ContextAlarm', outerXml: '<ContextAlarm/>' } },
               ],
             }],
@@ -751,6 +758,7 @@ describe('App', () => {
       expect(compiled.textContent).toContain('when Mode == 1: FAILED → warning');
       expect(compiled.textContent).toContain('when 2 comparison(s): default level watch');
       expect(compiled.textContent).toContain('when match preserved as XML: alarm details preserved as XML');
+      expect(compiled.textContent).toContain('when (Mode == 1 and Apid != Mode): default level normal');
       expect(compiled.textContent).toContain('entry preserved as XML');
     });
 

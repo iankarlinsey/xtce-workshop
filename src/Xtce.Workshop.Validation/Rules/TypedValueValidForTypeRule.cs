@@ -214,6 +214,25 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
                 .Concat((metaCommand.TransmissionConstraints ?? []).Select(c => ((IReadOnlyList<Comparison>?)c.ComparisonList, c.Comparison)))
                 .Concat((metaCommand.ContextSignificances ?? []).Select(s =>
                     ((IReadOnlyList<Comparison>?)s.Context?.ComparisonList, s.Context?.Comparison)));
+
+            // #88 — modeled BooleanExpression condition literals (#124) in context
+            // significances; previously found by the command-fragment scan.
+            foreach (var contextSignificance in metaCommand.ContextSignificances ?? [])
+            {
+                foreach (var leaf in contextSignificance.Context?.BooleanExpression?.Leaves() ?? [])
+                {
+                    if (leaf.Left is not { } leafRef || leaf.Value is null)
+                    {
+                        continue;
+                    }
+                    var error = DescribeAgainstParameter(context, leafRef.ParameterRef, leaf.Value);
+                    if (error is not null)
+                    {
+                        yield return new ValidationIssue(RuleId, Severity, location,
+                            $"Condition against '{leafRef.ParameterRef}': {error}", CandidateNumber: 88);
+                    }
+                }
+            }
             foreach (var (list, singleComparison) in modeledComparisonSources)
             {
                 var modeledComparisons = (list ?? []).Concat(

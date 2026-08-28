@@ -31,6 +31,8 @@ import {
   ContextNonNumericAlarmDoc,
   ContextSignificanceDoc,
   ReferenceTimeDoc,
+  MatchCriteriaDoc,
+  BooleanExpressionNodeDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -1758,17 +1760,38 @@ export class App {
       .join(', ');
   }
 
+
+  /** "Apid != 101", "(A and B)", "(A or B or C)" for a modeled expression tree. */
+  protected expressionText(node: BooleanExpressionNodeDoc): string {
+    if (node.kind === 'Condition') {
+      const rhs = node.right ? node.right.parameterRef : node.value;
+      return `${node.left?.parameterRef} ${node.operator} ${rhs}`;
+    }
+    const joiner = node.kind === 'And' ? ' and ' : ' or ';
+    return '(' + (node.children ?? []).map((child) => this.expressionText(child)).join(joiner) + ')';
+  }
+
+  /** The condition half of a context summary: comparison, list, expression, or preserved. */
+  private matchConditionText(criteria: MatchCriteriaDoc | null | undefined): string {
+    const match = criteria?.comparison;
+    if (match) {
+      return `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`;
+    }
+    if (criteria?.comparisonList?.length) {
+      return `${criteria.comparisonList.length} comparison(s)`;
+    }
+    if (criteria?.booleanExpression) {
+      return this.expressionText(criteria.booleanExpression);
+    }
+    return 'match preserved as XML';
+  }
+
   /** "when Mode == 1 → PolynomialCalibrator (2 terms)" for one context-calibrator entry. */
   protected contextCalibratorSummary(entry: ContextCalibratorDoc): string {
     if (entry.rawXml) {
       return 'entry preserved as XML';
     }
-    const match = entry.context?.comparison;
-    const condition = match
-      ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
-      : entry.context?.comparisonList?.length
-        ? `${entry.context.comparisonList.length} comparison(s)`
-        : 'match preserved as XML';
+    const condition = this.matchConditionText(entry.context);
     const calibrator = entry.calibrator
       ? entry.calibrator.kind === 'Polynomial'
         ? `PolynomialCalibrator (${(entry.calibrator.terms ?? []).length} term(s))`
@@ -1782,12 +1805,7 @@ export class App {
     if (entry.rawXml) {
       return 'entry preserved as XML';
     }
-    const match = entry.context?.comparison;
-    const condition = match
-      ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
-      : entry.context?.comparisonList?.length
-        ? `${entry.context.comparisonList.length} comparison(s)`
-        : 'match preserved as XML';
+    const condition = this.matchConditionText(entry.context);
     const alarm = entry.alarm;
     const levels = (['watch', 'warning', 'distress', 'critical', 'severe'] as const)
       .filter((level) => alarm?.[`${level}Range`]);
@@ -1837,12 +1855,7 @@ export class App {
     if (entry.rawXml) {
       return 'entry preserved as XML';
     }
-    const match = entry.context?.comparison;
-    const condition = match
-      ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
-      : entry.context?.comparisonList?.length
-        ? `${entry.context.comparisonList.length} comparison(s)`
-        : 'match preserved as XML';
+    const condition = this.matchConditionText(entry.context);
     const body = entry.alarm ? this.nonNumericAlarmSummary(entry.alarm).join('; ') : '';
     return `when ${condition}: ${body}`;
   }
@@ -1852,12 +1865,7 @@ export class App {
     if (entry.rawXml) {
       return 'entry preserved as XML';
     }
-    const match = entry.context?.comparison;
-    const condition = match
-      ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
-      : entry.context?.comparisonList?.length
-        ? `${entry.context.comparisonList.length} comparison(s)`
-        : 'match preserved as XML';
+    const condition = this.matchConditionText(entry.context);
     const significance = entry.significance;
     const level = significance?.consequenceLevel ?? 'normal';
     const reason = significance?.reasonForWarning ? ` — ${significance.reasonForWarning}` : '';

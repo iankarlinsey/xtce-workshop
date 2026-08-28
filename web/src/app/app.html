@@ -929,6 +929,8 @@
             <label for="message-matchvalue">Match value</label>
             <input id="message-matchvalue" [value]="match.value" (input)="onMessageMatchInput('value', $event)" />
           </div>
+        } @else if (message.matchCriteria?.booleanExpression; as messageExpression) {
+          <p class="meta-text">Match expression: {{ expressionText(messageExpression) }}</p>
         } @else if (message.matchCriteria) {
           <p class="meta-text">Match criteria uses a form beyond a single comparison (preserved as XML).</p>
         }

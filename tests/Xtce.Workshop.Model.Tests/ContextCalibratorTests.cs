@@ -189,7 +189,9 @@ public class ContextCalibratorTests
 
         Assert.Null(entry.RawXml);
         Assert.Null(entry.Context!.Comparison);
-        Assert.Equal("BooleanExpression", Assert.Single(entry.Context.Preserved!).ElementName);
+        // Modeled as a tree since #124 — no fragment left behind.
+        Assert.Null(entry.Context.Preserved);
+        Assert.Equal("Mode", entry.Context.BooleanExpression!.Left!.ParameterRef);
 
         RoundTrip(loaded, out var reloaded);
         Assert.Equal(loaded, reloaded);

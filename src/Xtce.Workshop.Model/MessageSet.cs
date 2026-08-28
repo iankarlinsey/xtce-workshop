@@ -7,23 +7,25 @@ namespace Xtce.Workshop.Model;
 /// ContainerRef child element — the target of validation rule R09.
 /// </summary>
 /// <summary>
-/// A Message's MatchCriteria (issue #108): the Comparison/ComparisonList forms modeled
-/// with the shared Comparison record; BooleanExpression and CustomAlgorithm ride in
-/// Preserved — same policy as RestrictionCriteria (an expression tree is not worth
-/// decomposing until something needs to edit it).
+/// A MatchCriteria (issue #108): the Comparison/ComparisonList forms modeled with the
+/// shared Comparison record, and (since #124) BooleanExpression trees whose shape the
+/// recursive model can represent. CustomAlgorithm and unmodelable expression shapes ride
+/// in Preserved. RestrictionCriteria keeps its own fragment-based policy.
 /// </summary>
 public sealed record MatchCriteria(
     Comparison? Comparison = null,
     IReadOnlyList<Comparison>? ComparisonList = null,
     IReadOnlyList<RawXmlFragment>? Preserved = null,
-    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    BooleanExpressionNode? BooleanExpression = null)
 {
     public bool Equals(MatchCriteria? other) =>
         other is not null
         && Equals(Comparison, other.Comparison)
         && Structural.ListEquals(ComparisonList, other.ComparisonList)
         && Structural.ListEquals(Preserved, other.Preserved)
-        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(BooleanExpression, other.BooleanExpression);
 
     public override int GetHashCode()
     {
@@ -32,6 +34,7 @@ public sealed record MatchCriteria(
         Structural.AddList(ref hash, ComparisonList);
         Structural.AddList(ref hash, Preserved);
         Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(BooleanExpression);
         return hash.ToHashCode();
     }
 }

@@ -163,7 +163,9 @@ public class ContextSignificanceTests
         var entry = Assert.Single(loaded.CommandMetaData!.MetaCommands.Single().ContextSignificances!);
 
         Assert.Null(entry.RawXml);
-        Assert.Equal("BooleanExpression", Assert.Single(entry.Context!.Preserved!).ElementName);
+        // Modeled as a tree since #124 — no fragment left behind.
+        Assert.Null(entry.Context!.Preserved);
+        Assert.Equal("==", entry.Context.BooleanExpression!.Operator);
 
         RoundTrip(loaded, out var reloaded);
         Assert.Equal(loaded, reloaded);

@@ -221,6 +221,36 @@ public class XtceDocumentQueryTests
     }
 
     [Test]
+    public void FindParameterUsages_SeesModeledExpressionRefs()
+    {
+        var expression = new BooleanExpressionNode(BooleanNodeKind.And, Children:
+        [
+            new BooleanExpressionNode(BooleanNodeKind.Condition,
+                new ParameterInstanceRef("Mode"), "==", "1"),
+            new BooleanExpressionNode(BooleanNodeKind.Condition,
+                new ParameterInstanceRef("Apid"), "==", Right: new ParameterInstanceRef("Mode")),
+        ]);
+        var tree = new SpaceSystem("Root", [], new TelemetryMetaData(
+            [
+                new ParameterTypeDefinition("U8", ParameterTypeKind.Integer),
+                new ParameterTypeDefinition("TempType", ParameterTypeKind.Integer,
+                    ContextAlarms:
+                    [
+                        new ContextNumericAlarm(
+                            new NumericAlarm(WarningRange: new AlarmRange(MinInclusive: "1"), HasStaticRanges: true),
+                            new MatchCriteria(BooleanExpression: expression)),
+                    ]),
+            ],
+            [new Parameter("Mode", "U8"), new Parameter("Apid", "U8")]));
+
+        var usages = XtceDocumentQuery.FindParameterUsages(tree, "Root", "Mode");
+
+        // Two Mode refs: the first leaf's LHS and the second leaf's RHS.
+        Assert.Equal(2, usages.Count);
+        Assert.All(usages, u => Assert.Equal("ParameterInstanceRef", u.Kind));
+    }
+
+    [Test]
     public void FindParameterUsages_DoesNotMatchASameNamedParameterElsewhere()
     {
         var tree = new SpaceSystem("Root",

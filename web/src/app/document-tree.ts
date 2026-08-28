@@ -255,9 +255,20 @@ export interface SequenceContainerDoc {
   [key: string]: unknown;
 }
 
+export interface BooleanExpressionNodeDoc {
+  kind: 'Condition' | 'And' | 'Or';
+  left?: { parameterRef: string; [key: string]: unknown } | null;
+  operator?: string | null;
+  value?: string | null;
+  right?: { parameterRef: string; [key: string]: unknown } | null;
+  children?: BooleanExpressionNodeDoc[] | null;
+  [key: string]: unknown;
+}
+
 export interface MatchCriteriaDoc {
   comparison?: ComparisonDoc | null;
   comparisonList?: ComparisonDoc[] | null;
+  booleanExpression?: BooleanExpressionNodeDoc | null;
   [key: string]: unknown;
 }
 

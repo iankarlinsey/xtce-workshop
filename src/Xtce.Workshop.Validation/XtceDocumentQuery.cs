@@ -139,6 +139,18 @@ public static class XtceDocumentQuery
                         usages.Add(new UsageMatch("RestrictionComparison", location, comparison.ParameterRef));
                     }
                 }
+
+                foreach (var entry in container.EntryList)
+                {
+                    AddExpressionUsages(usages, context, entry.IncludeCondition, location,
+                        systemPath, parameterName);
+                }
+            }
+
+            foreach (var message in telemetry?.MessageSet?.Messages ?? [])
+            {
+                AddExpressionUsages(usages, context, message.MatchCriteria,
+                    $"{context.Path}/MessageSet/{message.Name}", systemPath, parameterName);
             }
 
             // Everything else that can carry a parameterRef rides as preserved XML:
@@ -152,6 +164,11 @@ public static class XtceDocumentQuery
                     .Select(v => (v.ComparisonList, v.Comparison))
                     .Concat((metaCommand.ContextSignificances ?? [])
                         .Select(s => (s.Context?.ComparisonList, s.Context?.Comparison)));
+                foreach (var contextSignificance in metaCommand.ContextSignificances ?? [])
+                {
+                    AddExpressionUsages(usages, context, contextSignificance.Context, location,
+                        systemPath, parameterName);
+                }
                 foreach (var (list, singleComparison) in comparisonSources)
                 {
                     var comparisons = (list ?? []).Concat(
@@ -192,6 +209,7 @@ public static class XtceDocumentQuery
                             usages.Add(new UsageMatch("Comparison", typeLocation, comparison.ParameterRef));
                         }
                     }
+                    AddExpressionUsages(usages, context, match, typeLocation, systemPath, parameterName);
                 }
                 if (type.ReferenceTime?.OffsetFromParameterRef is { } offsetRef
                     && ResolvesToTarget(context, offsetRef, systemPath, parameterName))
@@ -213,6 +231,35 @@ public static class XtceDocumentQuery
     }
 
     // ---- internals ------------------------------------------------------------------------
+
+    /// <summary>Both instance refs of every Condition leaf in a modeled expression tree.</summary>
+    private static IEnumerable<string> ExpressionRefs(MatchCriteria? criteria)
+    {
+        foreach (var leaf in criteria?.BooleanExpression?.Leaves() ?? [])
+        {
+            if (leaf.Left is { } left)
+            {
+                yield return left.ParameterRef;
+            }
+            if (leaf.Right is { } right)
+            {
+                yield return right.ParameterRef;
+            }
+        }
+    }
+
+    private static void AddExpressionUsages(
+        List<UsageMatch> usages, SpaceSystemContext context, MatchCriteria? criteria,
+        string location, string systemPath, string parameterName)
+    {
+        foreach (var reference in ExpressionRefs(criteria))
+        {
+            if (ResolvesToTarget(context, reference, systemPath, parameterName))
+            {
+                usages.Add(new UsageMatch("ParameterInstanceRef", location, reference));
+            }
+        }
+    }
 
     private static IEnumerable<(ParameterTypeDefinition Type, string Location)> TypeSetsWithLocations(
         SpaceSystemContext context)

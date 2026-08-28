@@ -2352,6 +2352,7 @@ public static class XtceDocumentReader
         List<Comparison>? comparisonList = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
+        BooleanExpressionNode? booleanExpression = null;
 
         if (reader.IsEmptyElement)
         {
@@ -2376,9 +2377,24 @@ public static class XtceDocumentReader
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     comparisonList = ReadComparisonList(reader);
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "BooleanExpression"
+                         && booleanExpression is null && HasOnlyAttributes(reader))
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseBooleanExpression(outerXml, out booleanExpression))
+                    {
+                        // modeled recursive tree
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("BooleanExpression", outerXml));
+                    }
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
-                    // BooleanExpression, CustomAlgorithm — preserved verbatim.
+                    // CustomAlgorithm (and unmodelable shapes) — preserved verbatim.
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     Preserve(ref preserved, reader);
                 }
@@ -2392,7 +2408,193 @@ public static class XtceDocumentReader
             reader.ReadEndElement();
         }
 
-        return new MatchCriteria(comparison, comparisonList, preserved, preservedAttributes);
+        return new MatchCriteria(comparison, comparisonList, preserved, preservedAttributes, booleanExpression);
+    }
+
+    /// <summary>
+    /// Strict recursive parse of a BooleanExpression; false means the caller preserves the
+    /// whole element (comments, argument-instance refs, junctions with fewer than two
+    /// children, or any foreign shape).
+    /// </summary>
+    private static bool TryParseBooleanExpression(string outerXml, out BooleanExpressionNode? root)
+    {
+        root = null;
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (reader.IsEmptyElement)
+            {
+                return false; // the XSD requires the choice
+            }
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && root is null
+                    && TryParseBooleanNode(reader, out root))
+                {
+                    // parsed the single choice child
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            return root is not null;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryParseBooleanNode(XmlReader reader, out BooleanExpressionNode? node)
+    {
+        node = null;
+        switch (reader.LocalName)
+        {
+            case "Condition":
+                return TryParseConditionLeaf(reader, out node);
+            case "ANDedConditions":
+                return TryParseJunction(reader, BooleanNodeKind.And, out node);
+            case "ORedConditions":
+                return TryParseJunction(reader, BooleanNodeKind.Or, out node);
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryParseJunction(XmlReader reader, BooleanNodeKind kind, out BooleanExpressionNode? node)
+    {
+        node = null;
+        if (!HasOnlyAttributes(reader) || reader.IsEmptyElement)
+        {
+            return false;
+        }
+        reader.ReadStartElement();
+
+        var children = new List<BooleanExpressionNode>();
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element)
+            {
+                // The XSD forbids a junction directly inside itself.
+                if (reader.LocalName == (kind == BooleanNodeKind.And ? "ANDedConditions" : "ORedConditions")
+                    || !TryParseBooleanNode(reader, out var child) || child is null)
+                {
+                    return false;
+                }
+                children.Add(child);
+            }
+            else if (reader.NodeType is XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+            {
+                return false;
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+        reader.ReadEndElement();
+
+        if (children.Count < 2)
+        {
+            return false; // the XSD requires two or more
+        }
+        node = new BooleanExpressionNode(kind, Children: children);
+        return true;
+    }
+
+    private static bool TryParseConditionLeaf(XmlReader reader, out BooleanExpressionNode? node)
+    {
+        node = null;
+        if (!HasOnlyAttributes(reader) || reader.IsEmptyElement)
+        {
+            return false;
+        }
+        reader.ReadStartElement();
+
+        ParameterInstanceRef? left = null;
+        string? comparisonOperator = null;
+        string? value = null;
+        ParameterInstanceRef? right = null;
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterInstanceRef"
+                && reader.IsEmptyElement && reader.GetAttribute("parameterRef") is { } parameterRef)
+            {
+                var instanceRef = new ParameterInstanceRef(
+                    parameterRef,
+                    ParseLong(reader, "instance"),
+                    ParseBool(reader, "useCalibratedValue"),
+                    CapturePreservedAttributes(reader, ["parameterRef", "instance", "useCalibratedValue"]));
+                if (left is null && comparisonOperator is null)
+                {
+                    left = instanceRef;
+                }
+                else if (comparisonOperator is not null && right is null && value is null)
+                {
+                    right = instanceRef;
+                }
+                else
+                {
+                    return false;
+                }
+                reader.Read();
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ComparisonOperator"
+                     && comparisonOperator is null && left is not null
+                     && !reader.IsEmptyElement && reader.AttributeCount == 0)
+            {
+                if (!TryReadTextOnlyElement(reader.ReadOuterXml(), out var operatorText))
+                {
+                    return false;
+                }
+                comparisonOperator = operatorText.Trim();
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Value"
+                     && comparisonOperator is not null && value is null && right is null
+                     && reader.AttributeCount == 0)
+            {
+                if (reader.IsEmptyElement)
+                {
+                    value = "";
+                    reader.Read();
+                }
+                else if (TryReadTextOnlyElement(reader.ReadOuterXml(), out var valueText))
+                {
+                    value = valueText;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+            {
+                return false; // ArgumentInstanceRef and anything else — preserved instead
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+        reader.ReadEndElement();
+
+        if (left is null || comparisonOperator is null || (value is null) == (right is null))
+        {
+            return false; // exactly one RHS form is required
+        }
+        node = new BooleanExpressionNode(BooleanNodeKind.Condition, left, comparisonOperator, value, right);
+        return true;
     }
 
     private static List<SequenceContainer> ReadContainerSet(
