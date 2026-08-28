@@ -26,7 +26,7 @@ public class XtceReportEndpointTests
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(body.GetProperty("schemaValid").GetBoolean());
         Assert.Equal(109, body.GetProperty("candidates").GetArrayLength());
-        Assert.Equal(23, body.GetProperty("rules").GetArrayLength());
+        Assert.Equal(24, body.GetProperty("rules").GetArrayLength());
     }
 
     [Test]

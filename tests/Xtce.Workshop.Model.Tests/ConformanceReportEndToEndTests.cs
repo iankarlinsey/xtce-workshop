@@ -300,8 +300,8 @@ public class ConformanceReportEndToEndTests
         Assert.Equal(71, report.Candidates.Count(c => c.Disposition == "NON_NORMATIVE"));
         Assert.Equal(2, report.Candidates.Count(c => c.Disposition == "FLAGGED"));
 
-        // All 23 rules executed.
-        Assert.Equal(23, report.Rules.Count);
+        // All 24 rules executed (R24 stack-sanity joined in #126).
+        Assert.Equal(24, report.Rules.Count);
         Assert.All(report.Rules, r => Assert.True(r.Executed));
     }
 

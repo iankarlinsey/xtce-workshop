@@ -24,6 +24,7 @@ public static class XtceValidator
         new DimensionOrderMustAscendRule(),
         new SplineOrderRequiresMinPointsRule(),
         new ChecksumCustomRequiresInputAlgorithmRule(),
+        new MathOperationStackSanityRule(),
         new NoDuplicateVerifiersRule(),
         new NoInheritanceCyclesRule(),
         new StringLengthSpecConflictsRule(),
