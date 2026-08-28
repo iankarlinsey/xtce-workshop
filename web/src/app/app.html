@@ -65,7 +65,20 @@
             </li>
           }
         </ul>
-        <rux-button secondary class="loading-cancel" (click)="onCancelLoading()">Cancel</rux-button>
+        @if (sessionFallbackPrompt()) {
+          <div class="fallback-prompt">
+            <p class="fallback-title">This document is too large to open in the browser.</p>
+            <p class="meta-text">It parsed and validated successfully on the server. You can continue with the
+              document held server-side: the tree loads as you expand it, forms edit one item at a time on the
+              server, and Save streams the XML back down. Source view is unavailable in that mode.</p>
+            <div class="fallback-actions">
+              <rux-button (click)="onConfirmSessionFallback()">Continue on the server</rux-button>
+              <rux-button secondary (click)="onDeclineSessionFallback()">Cancel</rux-button>
+            </div>
+          </div>
+        } @else {
+          <rux-button secondary class="loading-cancel" (click)="onCancelLoading()">Cancel</rux-button>
+        }
       </div>
     </div>
   }

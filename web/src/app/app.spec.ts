@@ -213,7 +213,7 @@ describe('App', () => {
         .validationIssues().length).toBe(0);
     }));
 
-    it('an unholdable document response falls back to a server-held session automatically', () => {
+    it('an unholdable document response pauses on an explicit Continue/Cancel prompt', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<big/>'], 'big.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
@@ -221,7 +221,16 @@ describe('App', () => {
       httpMock.expectOne('/api/xtce/jobs').flush({ jobId: 'job1' });
       httpMock.expectOne('/api/xtce/jobs/job1').flush({ state: 'done', stage: 'done', percent: 100 });
       httpMock.expectOne('/api/xtce/jobs/job1/result').flush(null);
-      // The client immediately retries as a session — no error surfaced.
+      fixture.detectChanges();
+
+      // The switch is a decision, not a notification: nothing proceeds until Continue.
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('too large to open in the browser');
+      (Array.from(compiled.querySelectorAll('rux-button')).find(
+        (b) => b.textContent?.trim() === 'Continue on the server'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
       httpMock.expectOne((r) => r.url === '/api/xtce/jobs/job1/result'
         && r.params.get('as') === 'session').flush({
           name: 'Sat', largeDocument: true, documentSessionId: 'sess9',
@@ -232,9 +241,29 @@ describe('App', () => {
       });
       fixture.detectChanges();
 
-      const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.textContent).toContain('Server-held document (300 MB)');
       expect((fixture.componentInstance as unknown as { loadError: () => string | null }).loadError()).toBeNull();
+    });
+
+    it('declining the server-held fallback cancels the load with an honest message', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<big/>'], 'big.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      httpMock.expectOne('/api/xtce/jobs').flush({ jobId: 'job2' });
+      httpMock.expectOne('/api/xtce/jobs/job2').flush({ state: 'done', stage: 'done', percent: 100 });
+      httpMock.expectOne('/api/xtce/jobs/job2/result').flush(null);
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      (Array.from(compiled.querySelectorAll('rux-button')).find(
+        (b) => b.textContent?.trim() === 'Cancel'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      httpMock.expectOne('/api/xtce/jobs/job2').flush(null); // DELETE frees the job
+      expect((fixture.componentInstance as unknown as { loadError: () => string | null }).loadError())
+        .toContain('Load cancelled');
+      expect(compiled.querySelector('.loading-overlay')).toBeNull();
     });
 
     it('Save streams the server-held XML as a blob download', () => {
@@ -2347,17 +2376,23 @@ describe('App', () => {
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
     }
 
-    it('a 200 response without a document falls back to a session, and surfaces an error only if that also fails', () => {
+    it('a 200 response without a document offers the session prompt; a failed Continue surfaces the error', () => {
       const fixture = createAppAndFlushHealth();
       postFile(fixture);
       // e.g. an intermediary (proxy/auth layer) swallowing the API response shape
       flushLoadJob({ unexpected: 'shape' });
-      // The client first assumes the could-not-hold-it case and retries as a session.
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('too large to open in the browser');
+      (Array.from(compiled.querySelectorAll('rux-button')).find(
+        (b) => b.textContent?.trim() === 'Continue on the server'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
       httpMock.expectOne((r) => r.url.endsWith('/result') && r.params.get('as') === 'session')
         .flush({ error: 'Unknown or expired job.' }, { status: 404, statusText: 'Not Found' });
       fixture.detectChanges();
 
-      const compiled = fixture.nativeElement as HTMLElement;
       expect(compiled.textContent).toContain('Unknown or expired job.');
       expect(compiled.querySelector('.tree-container')).toBeNull();
     });

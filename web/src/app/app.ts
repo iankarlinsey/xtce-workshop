@@ -198,6 +198,11 @@ export class App {
   protected readonly expandedSessionGroups = signal<ReadonlySet<string>>(new Set());
   /** The real coordinates of the item open in the form panel, for PUT-backed edits. */
   private sessionItemRef: { path: string; kind: string; index: number } | null = null;
+  /** Set when the browser could not hold a load response: the mode switch awaits Ian's OK. */
+  protected readonly sessionFallbackPrompt = signal<{ jobId: string } | null>(null);
+  private sessionFallbackHandlers: {
+    onSuccess: (result: LoadResult) => void; onFailure: (err: unknown) => void;
+  } | null = null;
   protected readonly loadDiagnostics = signal<LoadDiagnostic[]>([]);
   protected readonly loadSchemaErrors = signal<SchemaError[]>([]);
   /** Reader's element-position index for the loaded text, by validator location. */
@@ -626,9 +631,9 @@ export class App {
         const body = event.body as LoadResult | null;
         if (!body?.document && !body?.largeDocument) {
           // The pipeline succeeded but the browser could not hold the response (an
-          // empty/unparseable body on a 200 — the giant-JSON failure). Fall back to a
-          // server-held session: the outcome is still on the server, no re-parse.
-          this.fetchJobResultAsSession(jobId, onSuccess, onFailure);
+          // empty/unparseable body on a 200 — the giant-JSON failure). Offer the
+          // server-held session; the switch is an explicit decision, never silent.
+          this.offerSessionFallback(jobId, onSuccess, onFailure);
           return;
         }
         this.advanceTo('render');
@@ -637,15 +642,47 @@ export class App {
       },
       error: (err) => {
         // A JSON parse failure on an OK status is the same could-not-hold-it case —
-        // fall back. A genuine HTTP failure keeps its rich error payload instead.
+        // offer the fallback. A genuine HTTP failure keeps its rich error payload.
         if ((err as { status?: number })?.status === 200) {
-          this.fetchJobResultAsSession(jobId, onSuccess, onFailure);
+          this.offerSessionFallback(jobId, onSuccess, onFailure);
           return;
         }
         this.closeLoading();
         onFailure(err);
       },
     });
+  }
+
+  /** Pauses the load on an explicit Continue/Cancel — the mode switch is Ian's call. */
+  private offerSessionFallback(
+    jobId: string, onSuccess: (result: LoadResult) => void, onFailure: (err: unknown) => void
+  ): void {
+    this.patchStage('download', { detail: 'The document is too large for the browser' });
+    this.sessionFallbackHandlers = { onSuccess, onFailure };
+    this.sessionFallbackPrompt.set({ jobId });
+  }
+
+  onConfirmSessionFallback(): void {
+    const prompt = this.sessionFallbackPrompt();
+    const handlers = this.sessionFallbackHandlers;
+    if (!prompt || !handlers) {
+      return;
+    }
+    this.sessionFallbackPrompt.set(null);
+    this.sessionFallbackHandlers = null;
+    this.fetchJobResultAsSession(prompt.jobId, handlers.onSuccess, handlers.onFailure);
+  }
+
+  onDeclineSessionFallback(): void {
+    const prompt = this.sessionFallbackPrompt();
+    this.sessionFallbackPrompt.set(null);
+    this.sessionFallbackHandlers = null;
+    if (prompt) {
+      this.http.delete(`/api/xtce/jobs/${prompt.jobId}`).subscribe({ next: () => {}, error: () => {} });
+    }
+    this.closeLoading();
+    this.loadError.set('Load cancelled: the document is too large to edit in the browser. '
+      + 'Reload it and choose "Continue on the server" to browse and edit it server-held.');
   }
 
   private fetchJobResultAsSession(

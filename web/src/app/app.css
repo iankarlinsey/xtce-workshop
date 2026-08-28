@@ -1093,3 +1093,8 @@
 .session-count { margin-left: auto; font-size: 11px; color: var(--text-faint, #7a8894); border: 1px solid var(--text-faint, #7a8894); border-radius: 8px; padding: 0 6px; }
 .session-item .label { color: var(--text, inherit); }
 .session-more { background: none; border: none; color: var(--accent, #4da6ff); font-size: 12px; cursor: pointer; padding: 3px 8px; text-align: left; }
+
+/* --- Session fallback prompt (#129) --- */
+.fallback-prompt { margin-top: 12px; border-top: 1px solid var(--border, #2a3a4a); padding-top: 12px; }
+.fallback-title { font-weight: 600; margin: 0 0 6px; }
+.fallback-actions { display: flex; gap: 10px; margin-top: 10px; }
