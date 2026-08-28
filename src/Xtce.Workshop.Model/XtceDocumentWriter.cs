@@ -1313,6 +1313,28 @@ public static class XtceDocumentWriter
             // come back out first for the round trip to hold.
             slots.Add((DataEncodingElementName(dataEncoding.Kind), () => WriteDataEncoding(writer, dataEncoding)));
         }
+        if (parameterType.ContextAlarms is { } contextAlarms)
+        {
+            // Added before the preserved slots: the reader models the first
+            // ContextAlarmList it meets, so a (schema-invalid) second one that rides
+            // preserved must come back out after the modeled one.
+            slots.Add(("ContextAlarmList", () =>
+            {
+                writer.WriteStartElement("ContextAlarmList", XtceNamespace);
+                foreach (var entry in contextAlarms)
+                {
+                    if (entry.RawXml is { } raw)
+                    {
+                        WriteFragmentXml(writer, raw.OuterXml);
+                    }
+                    else if (entry.Alarm is { } alarm)
+                    {
+                        WriteNumericAlarmElement(writer, "ContextAlarm", alarm, entry.Context);
+                    }
+                }
+                writer.WriteEndElement();
+            }));
+        }
         AddPreservedSlots(slots, writer, parameterType.Preserved);
         if (parameterType.DefaultAlarm is { } defaultAlarm)
         {
@@ -1629,16 +1651,22 @@ public static class XtceDocumentWriter
         "SizeInBits", "Variable", "FromBinaryTransformAlgorithm", "ToBinaryTransformAlgorithm",
     ];
 
-    // AlarmType choice first, then NumericAlarmType's sequence.
+    // AlarmType choice first, then NumericAlarmType's sequence; ContextMatch is
+    // NumericContextAlarmType's extension and therefore sorts last.
     private static readonly string[] NumericAlarmChildOrder =
     [
         "AncillaryDataSet", "AlarmConditions", "CustomAlarm",
         "StaticAlarmRanges", "ChangeAlarmRanges", "AlarmMultiRanges",
+        "ContextMatch",
     ];
 
-    private static void WriteNumericAlarm(XmlWriter writer, NumericAlarm alarm)
+    private static void WriteNumericAlarm(XmlWriter writer, NumericAlarm alarm) =>
+        WriteNumericAlarmElement(writer, "DefaultAlarm", alarm, null);
+
+    private static void WriteNumericAlarmElement(
+        XmlWriter writer, string elementName, NumericAlarm alarm, MatchCriteria? contextMatch)
     {
-        writer.WriteStartElement("DefaultAlarm", XtceNamespace);
+        writer.WriteStartElement(elementName, XtceNamespace);
         if (alarm.MinViolations is { } minViolations)
         {
             writer.WriteAttributeString("minViolations", XmlConvert.ToString(minViolations));
@@ -1663,6 +1691,10 @@ public static class XtceDocumentWriter
                 WriteAlarmRange(writer, "SevereRange", alarm.SevereRange);
                 writer.WriteEndElement();
             }));
+        }
+        if (contextMatch is { } match)
+        {
+            slots.Add(("ContextMatch", () => WriteMatchCriteriaElement(writer, "ContextMatch", match)));
         }
         AddPreservedSlots(slots, writer, alarm.Preserved);
         EmitInSchemaOrder(NumericAlarmChildOrder, slots);

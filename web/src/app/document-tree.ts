@@ -122,6 +122,13 @@ export interface NumericAlarmDoc {
   [key: string]: unknown;
 }
 
+export interface ContextNumericAlarmDoc {
+  alarm?: NumericAlarmDoc | null;
+  context?: MatchCriteriaDoc | null;
+  rawXml?: { elementName: string; outerXml: string } | null;
+  [key: string]: unknown;
+}
+
 export interface DescriptionDoc {
   longDescription?: string | null;
   aliases?: { nameSpace: string; alias: string; [key: string]: unknown }[] | null;
@@ -145,6 +152,7 @@ export interface ParameterTypeDoc {
   timeEncoding?: TimeEncodingDoc | null;
   unitSet?: UnitDoc[] | null;
   defaultAlarm?: NumericAlarmDoc | null;
+  contextAlarms?: ContextNumericAlarmDoc[] | null;
   description?: DescriptionDoc | null;
   [key: string]: unknown;
 }

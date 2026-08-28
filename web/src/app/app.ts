@@ -26,6 +26,7 @@ import {
   BlockMetaCommandDoc,
   MetaCommandStepDoc,
   ContextCalibratorDoc,
+  ContextNumericAlarmDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -1770,6 +1771,25 @@ export class App {
         : `SplineCalibrator (${(entry.calibrator.points ?? []).length} point(s))`
       : '';
     return `when ${condition} → ${calibrator}`;
+  }
+
+  /** "when Mode == 1 → warning, critical (min violations 3)" for one context-alarm entry. */
+  protected contextAlarmSummary(entry: ContextNumericAlarmDoc): string {
+    if (entry.rawXml) {
+      return 'entry preserved as XML';
+    }
+    const match = entry.context?.comparison;
+    const condition = match
+      ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
+      : entry.context?.comparisonList?.length
+        ? `${entry.context.comparisonList.length} comparison(s)`
+        : 'match preserved as XML';
+    const alarm = entry.alarm;
+    const levels = (['watch', 'warning', 'distress', 'critical', 'severe'] as const)
+      .filter((level) => alarm?.[`${level}Range`]);
+    const ranges = alarm?.hasStaticRanges ? levels.join(', ') : 'ranges preserved as XML';
+    const violations = alarm?.minViolations ? ` (min violations ${alarm.minViolations})` : '';
+    return `when ${condition} → ${ranges}${violations}`;
   }
 
   /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */

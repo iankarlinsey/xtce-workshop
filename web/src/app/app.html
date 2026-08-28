@@ -644,6 +644,14 @@
               <rux-button secondary (click)="onAddAlarm()">+ Add alarm</rux-button>
             }
           </div>
+          @if ((type.contextAlarms ?? []).length > 0) {
+            <div class="form-field">
+              <label>Context alarms <span class="hint">(first matching context wins; override the default)</span></label>
+              @for (contextAlarm of type.contextAlarms ?? []; track $index) {
+                <p class="meta-text">{{ contextAlarmSummary(contextAlarm) }}</p>
+              }
+            </div>
+          }
         }
         @if (type.kind === 'Enumerated') {
           <div class="form-field enum-editor">

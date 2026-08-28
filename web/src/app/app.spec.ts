@@ -677,6 +677,36 @@ describe('App', () => {
       expect(compiled.textContent).toContain('entry preserved as XML');
     });
 
+    it('context alarms render as read-only summaries on the numeric type form', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'ctxalarm.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      flushLoadIntoTree(fixture, {
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [{
+              name: 'Volt_Type', kind: 'Float',
+              contextAlarms: [
+                {
+                  alarm: { hasStaticRanges: true, minViolations: 3, warningRange: { minInclusive: '6.5' }, criticalRange: { minInclusive: '5.0' } },
+                  context: { comparison: { parameterRef: 'Mode', value: '1' } },
+                },
+              ],
+            }],
+            parameterSet: [],
+          },
+        },
+      });
+      clickTreeRowByText(fixture, 'Volt_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('Context alarms');
+      expect(compiled.textContent).toContain('when Mode == 1 → warning, critical (min violations 3)');
+    });
+
     it('units render on the type form and edits flow into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

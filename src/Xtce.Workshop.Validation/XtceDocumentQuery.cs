@@ -162,21 +162,23 @@ public static class XtceDocumentQuery
                 }
             }
 
-            // Modeled context-calibrator matches (#117) — previously found by fragment scanning.
+            // Modeled context matches on types (#117 calibrators, #118 alarms) —
+            // previously found by fragment scanning.
             foreach (var (type, typeLocation) in TypeSetsWithLocations(context))
             {
-                foreach (var encoding in new[] { type.DataEncoding, type.TimeEncoding?.DataEncoding })
+                var contexts = (type.DataEncoding?.ContextCalibrators ?? [])
+                    .Concat(type.TimeEncoding?.DataEncoding?.ContextCalibrators ?? [])
+                    .Select(c => c.Context)
+                    .Concat((type.ContextAlarms ?? []).Select(a => a.Context));
+                foreach (var match in contexts)
                 {
-                    foreach (var contextCalibrator in encoding?.ContextCalibrators ?? [])
+                    var comparisons = (match?.ComparisonList ?? []).Concat(
+                        match?.Comparison is { } single ? [single] : []);
+                    foreach (var comparison in comparisons)
                     {
-                        var comparisons = (contextCalibrator.Context?.ComparisonList ?? []).Concat(
-                            contextCalibrator.Context?.Comparison is { } single ? [single] : []);
-                        foreach (var comparison in comparisons)
+                        if (ResolvesToTarget(context, comparison.ParameterRef, systemPath, parameterName))
                         {
-                            if (ResolvesToTarget(context, comparison.ParameterRef, systemPath, parameterName))
-                            {
-                                usages.Add(new UsageMatch("Comparison", typeLocation, comparison.ParameterRef));
-                            }
+                            usages.Add(new UsageMatch("Comparison", typeLocation, comparison.ParameterRef));
                         }
                     }
                 }

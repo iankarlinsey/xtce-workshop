@@ -223,6 +223,17 @@ public sealed record NumericAlarm(
     }
 }
 
+/// <summary>
+/// One ContextAlarmList entry on an Integer/Float parameter type (issue #118): a full
+/// NumericAlarm body plus the ContextMatch that puts it in effect. Contexts are
+/// evaluated in list order (first match wins), so entries stay IN POSITION; an entry the
+/// model can't represent rides whole as RawXml at its slot.
+/// </summary>
+public sealed record ContextNumericAlarm(
+    NumericAlarm? Alarm = null,
+    MatchCriteria? Context = null,
+    RawXmlFragment? RawXml = null);
+
 /// <summary>The four DataEncoding element kinds of the XSD's BaseDataType choice.</summary>
 public enum DataEncodingKind
 {
@@ -392,7 +403,8 @@ public sealed record ParameterTypeDefinition(
     IReadOnlyList<Unit>? UnitSet = null,
     IReadOnlyList<RawXmlFragment>? PreservedUnits = null,
     NumericAlarm? DefaultAlarm = null,
-    Description? Description = null)
+    Description? Description = null,
+    IReadOnlyList<ContextNumericAlarm>? ContextAlarms = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -414,7 +426,8 @@ public sealed record ParameterTypeDefinition(
         && Structural.ListEquals(UnitSet, other.UnitSet)
         && Structural.ListEquals(PreservedUnits, other.PreservedUnits)
         && Equals(DefaultAlarm, other.DefaultAlarm)
-        && Equals(Description, other.Description);
+        && Equals(Description, other.Description)
+        && Structural.ListEquals(ContextAlarms, other.ContextAlarms);
 
     public override int GetHashCode()
     {
@@ -438,6 +451,7 @@ public sealed record ParameterTypeDefinition(
         Structural.AddList(ref hash, PreservedUnits);
         hash.Add(DefaultAlarm);
         hash.Add(Description);
+        Structural.AddList(ref hash, ContextAlarms);
         return hash.ToHashCode();
     }
 }

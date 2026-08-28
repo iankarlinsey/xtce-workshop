@@ -2915,6 +2915,7 @@ public static class XtceDocumentReader
         List<Unit>? unitSet = null;
         List<RawXmlFragment>? preservedUnits = null;
         NumericAlarm? defaultAlarm = null;
+        List<ContextNumericAlarm>? contextAlarms = null;
         Description? description = null;
 
         if (reader.IsEmptyElement)
@@ -2968,6 +2969,22 @@ public static class XtceDocumentReader
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                     defaultAlarm = ReadNumericAlarm(reader);
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextAlarmList"
+                         && contextAlarms is null && HasOnlyAttributes(reader)
+                         && kind is ParameterTypeKind.Integer or ParameterTypeKind.Float)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseContextAlarmList(outerXml, out var parsedAlarms))
+                    {
+                        contextAlarms = parsedAlarms;
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("ContextAlarmList", outerXml));
+                    }
+                }
                 else if (reader.NodeType == XmlNodeType.Element
                          && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
                 {
@@ -3010,11 +3027,17 @@ public static class XtceDocumentReader
             unitSet,
             preservedUnits,
             defaultAlarm,
-            description);
+            description,
+            contextAlarms);
     }
 
-    private static NumericAlarm ReadNumericAlarm(XmlReader reader)
+    private static NumericAlarm ReadNumericAlarm(XmlReader reader) =>
+        ReadNumericAlarmCore(reader, modelContextMatch: false, out _);
+
+    private static NumericAlarm ReadNumericAlarmCore(
+        XmlReader reader, bool modelContextMatch, out MatchCriteria? contextMatch)
     {
+        contextMatch = null;
         var minViolations = ParseLong(reader, "minViolations");
         var preservedAttributes = CapturePreservedAttributes(reader, ["minViolations"]);
 
@@ -3051,6 +3074,12 @@ public static class XtceDocumentReader
                         (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("StaticAlarmRanges", outerXml));
                     }
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextMatch"
+                         && modelContextMatch && contextMatch is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    contextMatch = ReadMatchCriteria(reader);
+                }
                 else if (reader.NodeType == XmlNodeType.Element)
                 {
                     // ChangeAlarmRanges, AlarmMultiRanges, AlarmConditions, CustomAlarm,
@@ -3080,6 +3109,53 @@ public static class XtceDocumentReader
             staticPreservedAttributes,
             preserved,
             preservedAttributes);
+    }
+
+    /// <summary>
+    /// Strict parse of a numeric ContextAlarmList; false means the caller preserves the
+    /// whole list verbatim (comments or foreign elements between entries). Entry content
+    /// itself never fails — unmodelable alarm children stay preserved INSIDE the entry —
+    /// so entries keep their list position (first matching context wins).
+    /// </summary>
+    private static bool TryParseContextAlarmList(string outerXml, out List<ContextNumericAlarm> entries)
+    {
+        entries = new List<ContextNumericAlarm>();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (reader.IsEmptyElement)
+            {
+                return true;
+            }
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContextAlarm")
+                {
+                    // Unknown attributes and unmodelable children stay preserved on the
+                    // alarm record itself, so this never loses anything.
+                    var alarm = ReadNumericAlarmCore(reader, modelContextMatch: true, out var contextMatch);
+                    entries.Add(new ContextNumericAlarm(alarm, contextMatch));
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
     }
 
     private static bool TryParseStaticAlarmRanges(

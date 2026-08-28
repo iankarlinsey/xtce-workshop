@@ -114,6 +114,29 @@ public class XtceDocumentQueryTests
     }
 
     [Test]
+    public void FindParameterUsages_SeesModeledContextAlarmMatches()
+    {
+        var tree = new SpaceSystem("Root", [], new TelemetryMetaData(
+            [
+                new ParameterTypeDefinition("ModeType", ParameterTypeKind.Integer),
+                new ParameterTypeDefinition("VoltType", ParameterTypeKind.Float,
+                    ContextAlarms:
+                    [
+                        new ContextNumericAlarm(
+                            new NumericAlarm(WarningRange: new AlarmRange(MinInclusive: "1"), HasStaticRanges: true),
+                            new MatchCriteria(new Comparison("Mode", "1"))),
+                    ]),
+            ],
+            [new Parameter("Mode", "ModeType")]));
+
+        var usages = XtceDocumentQuery.FindParameterUsages(tree, "Root", "Mode");
+
+        var usage = Assert.Single(usages);
+        Assert.Equal("Comparison", usage.Kind);
+        Assert.Contains("VoltType", usage.Location);
+    }
+
+    [Test]
     public void FindParameterUsages_DoesNotMatchASameNamedParameterElsewhere()
     {
         var tree = new SpaceSystem("Root",
