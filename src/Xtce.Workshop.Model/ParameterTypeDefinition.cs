@@ -354,6 +354,18 @@ public sealed record NonNumericAlarm(
     }
 }
 
+/// <summary>
+/// One entry of a non-numeric context-alarm list (issue #120): a full NonNumericAlarm
+/// body plus the ContextMatch that puts it in effect. First matching context wins, so
+/// entries stay IN POSITION; an entry the model can't represent rides whole as RawXml.
+/// The list element is "ContextAlarmList" on Enumerated/Boolean/String types and
+/// "BinaryContextAlarmList" on Binary.
+/// </summary>
+public sealed record ContextNonNumericAlarm(
+    NonNumericAlarm? Alarm = null,
+    MatchCriteria? Context = null,
+    RawXmlFragment? RawXml = null);
+
 /// <summary>The four DataEncoding element kinds of the XSD's BaseDataType choice.</summary>
 public enum DataEncodingKind
 {
@@ -525,7 +537,8 @@ public sealed record ParameterTypeDefinition(
     NumericAlarm? DefaultAlarm = null,
     Description? Description = null,
     IReadOnlyList<ContextNumericAlarm>? ContextAlarms = null,
-    NonNumericAlarm? NonNumericDefaultAlarm = null)
+    NonNumericAlarm? NonNumericDefaultAlarm = null,
+    IReadOnlyList<ContextNonNumericAlarm>? NonNumericContextAlarms = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -549,7 +562,8 @@ public sealed record ParameterTypeDefinition(
         && Equals(DefaultAlarm, other.DefaultAlarm)
         && Equals(Description, other.Description)
         && Structural.ListEquals(ContextAlarms, other.ContextAlarms)
-        && Equals(NonNumericDefaultAlarm, other.NonNumericDefaultAlarm);
+        && Equals(NonNumericDefaultAlarm, other.NonNumericDefaultAlarm)
+        && Structural.ListEquals(NonNumericContextAlarms, other.NonNumericContextAlarms);
 
     public override int GetHashCode()
     {
@@ -575,6 +589,7 @@ public sealed record ParameterTypeDefinition(
         hash.Add(Description);
         Structural.AddList(ref hash, ContextAlarms);
         hash.Add(NonNumericDefaultAlarm);
+        Structural.AddList(ref hash, NonNumericContextAlarms);
         return hash.ToHashCode();
     }
 }

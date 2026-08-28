@@ -416,6 +416,28 @@ public static class FragmentEnumerator
                 yield return (fragment, typePath);
             }
         }
+        foreach (var contextAlarm in type.NonNumericContextAlarms ?? [])
+        {
+            if (contextAlarm.RawXml is { } raw)
+            {
+                yield return (raw, typePath);
+            }
+            foreach (var fragment in contextAlarm.Alarm?.Preserved ?? [])
+            {
+                yield return (fragment, typePath);
+            }
+            foreach (var criteria in AlarmConditionCriteria(contextAlarm.Alarm?.Conditions))
+            {
+                foreach (var fragment in criteria.Preserved ?? [])
+                {
+                    yield return (fragment, typePath);
+                }
+            }
+            foreach (var fragment in contextAlarm.Context?.Preserved ?? [])
+            {
+                yield return (fragment, typePath);
+            }
+        }
         foreach (var fragment in type.NonNumericDefaultAlarm?.Preserved ?? [])
         {
             yield return (fragment, typePath);

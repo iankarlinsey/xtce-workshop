@@ -725,6 +725,18 @@ describe('App', () => {
                 defaultAlarmLevel: 'watch',
                 enumerationAlarms: [{ alarmLevel: 'critical', enumerationLabel: 'FAILED' }],
               },
+              nonNumericContextAlarms: [
+                {
+                  alarm: { enumerationAlarms: [{ alarmLevel: 'warning', enumerationLabel: 'FAILED' }] },
+                  context: { comparison: { parameterRef: 'Mode', value: '1' } },
+                },
+                {
+                  alarm: { defaultAlarmLevel: 'watch' },
+                  context: { comparisonList: [{ parameterRef: 'Mode', value: '2' }, { parameterRef: 'Mode', value: '3' }] },
+                },
+                { alarm: {}, context: {} },
+                { rawXml: { elementName: 'ContextAlarm', outerXml: '<ContextAlarm/>' } },
+              ],
             }],
             parameterSet: [],
           },
@@ -735,6 +747,10 @@ describe('App', () => {
 
       expect(compiled.textContent).toContain('FAILED → critical');
       expect(compiled.textContent).toContain('default level watch, min violations 2');
+      expect(compiled.textContent).toContain('when Mode == 1: FAILED → warning');
+      expect(compiled.textContent).toContain('when 2 comparison(s): default level watch');
+      expect(compiled.textContent).toContain('when match preserved as XML: alarm details preserved as XML');
+      expect(compiled.textContent).toContain('entry preserved as XML');
     });
 
     it('units render on the type form and edits flow into Save', fakeAsync(() => {

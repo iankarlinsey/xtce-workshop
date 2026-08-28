@@ -1344,6 +1344,28 @@ public static class XtceDocumentWriter
         {
             slots.Add(("DefaultAlarm", () => WriteNonNumericAlarm(writer, nonNumericAlarm)));
         }
+        if (parameterType.NonNumericContextAlarms is { } nonNumericContextAlarms)
+        {
+            var listElementName = parameterType.Kind == ParameterTypeKind.Binary
+                ? "BinaryContextAlarmList"
+                : "ContextAlarmList";
+            slots.Add((listElementName, () =>
+            {
+                writer.WriteStartElement(listElementName, XtceNamespace);
+                foreach (var entry in nonNumericContextAlarms)
+                {
+                    if (entry.RawXml is { } raw)
+                    {
+                        WriteFragmentXml(writer, raw.OuterXml);
+                    }
+                    else if (entry.Alarm is { } entryAlarm)
+                    {
+                        WriteNonNumericAlarmElement(writer, "ContextAlarm", entryAlarm, entry.Context);
+                    }
+                }
+                writer.WriteEndElement();
+            }));
+        }
         if (parameterType.Kind == ParameterTypeKind.Array)
         {
             slots.Add(("DimensionList", () =>
@@ -1706,11 +1728,13 @@ public static class XtceDocumentWriter
         writer.WriteEndElement();
     }
 
-    // AlarmType choice first, then the Enumeration/String extensions' lists.
+    // AlarmType choice first, then the Enumeration/String extensions' lists;
+    // ContextMatch is the context-alarm extension and therefore sorts last.
     private static readonly string[] NonNumericAlarmChildOrder =
     [
         "AncillaryDataSet", "AlarmConditions", "CustomAlarm",
         "EnumerationAlarmList", "StringAlarmList",
+        "ContextMatch",
     ];
 
     private static readonly string[] AlarmConditionsChildOrder =
@@ -1718,9 +1742,13 @@ public static class XtceDocumentWriter
         "WatchAlarm", "WarningAlarm", "DistressAlarm", "CriticalAlarm", "SevereAlarm",
     ];
 
-    private static void WriteNonNumericAlarm(XmlWriter writer, NonNumericAlarm alarm)
+    private static void WriteNonNumericAlarm(XmlWriter writer, NonNumericAlarm alarm) =>
+        WriteNonNumericAlarmElement(writer, "DefaultAlarm", alarm, null);
+
+    private static void WriteNonNumericAlarmElement(
+        XmlWriter writer, string elementName, NonNumericAlarm alarm, MatchCriteria? contextMatch)
     {
-        writer.WriteStartElement("DefaultAlarm", XtceNamespace);
+        writer.WriteStartElement(elementName, XtceNamespace);
         if (alarm.MinViolations is { } minViolations)
         {
             writer.WriteAttributeString("minViolations", XmlConvert.ToString(minViolations));
@@ -1794,6 +1822,10 @@ public static class XtceDocumentWriter
                 }
                 writer.WriteEndElement();
             }));
+        }
+        if (contextMatch is { } match)
+        {
+            slots.Add(("ContextMatch", () => WriteMatchCriteriaElement(writer, "ContextMatch", match)));
         }
         AddPreservedSlots(slots, writer, alarm.Preserved);
         EmitInSchemaOrder(NonNumericAlarmChildOrder, slots);

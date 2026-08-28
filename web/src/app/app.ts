@@ -28,6 +28,7 @@ import {
   ContextCalibratorDoc,
   ContextNumericAlarmDoc,
   NonNumericAlarmDoc,
+  ContextNonNumericAlarmDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -1827,6 +1828,21 @@ export class App {
       lines.push(attributes.join(', '));
     }
     return lines.length > 0 ? lines : ['alarm details preserved as XML'];
+  }
+
+  /** "when Mode == 1: FAILED → warning; default level watch" for one non-numeric context alarm. */
+  protected nonNumericContextAlarmSummary(entry: ContextNonNumericAlarmDoc): string {
+    if (entry.rawXml) {
+      return 'entry preserved as XML';
+    }
+    const match = entry.context?.comparison;
+    const condition = match
+      ? `${match.parameterRef} ${match.comparisonOperator ?? '=='} ${match.value}`
+      : entry.context?.comparisonList?.length
+        ? `${entry.context.comparisonList.length} comparison(s)`
+        : 'match preserved as XML';
+    const body = entry.alarm ? this.nonNumericAlarmSummary(entry.alarm).join('; ') : '';
+    return `when ${condition}: ${body}`;
   }
 
   /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */

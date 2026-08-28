@@ -149,10 +149,10 @@ public class ContextAlarmTests
     }
 
     [Test]
-    public void Load_ContextAlarmListOnNonNumericType_StaysPreserved()
+    public void Load_ContextAlarmListOnNonNumericType_IsNotClaimedByTheNumericModel()
     {
-        // EnumerationContextAlarmList shares the element name but not the shape (#119
-        // territory) — the numeric model must not claim it.
+        // Shares the element name but not the shape — since #120 it lands in the
+        // non-numeric context list, never in the numeric one.
         var loaded = Load($"""
             <SpaceSystem xmlns="{Ns}" name="S">
               <TelemetryMetaData>
@@ -175,7 +175,7 @@ public class ContextAlarmTests
         var type = loaded.TelemetryMetaData!.ParameterTypeSet.Single();
 
         Assert.Null(type.ContextAlarms);
-        Assert.Equal("ContextAlarmList", Assert.Single(type.Preserved!).ElementName);
+        Assert.NotNull(type.NonNumericContextAlarms);
 
         RoundTrip(loaded, out var reloaded);
         Assert.Equal(loaded, reloaded);

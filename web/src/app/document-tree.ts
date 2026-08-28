@@ -140,6 +140,13 @@ export interface NonNumericAlarmDoc {
   [key: string]: unknown;
 }
 
+export interface ContextNonNumericAlarmDoc {
+  alarm?: NonNumericAlarmDoc | null;
+  context?: MatchCriteriaDoc | null;
+  rawXml?: { elementName: string; outerXml: string } | null;
+  [key: string]: unknown;
+}
+
 export interface ContextNumericAlarmDoc {
   alarm?: NumericAlarmDoc | null;
   context?: MatchCriteriaDoc | null;
@@ -172,6 +179,7 @@ export interface ParameterTypeDoc {
   defaultAlarm?: NumericAlarmDoc | null;
   contextAlarms?: ContextNumericAlarmDoc[] | null;
   nonNumericDefaultAlarm?: NonNumericAlarmDoc | null;
+  nonNumericContextAlarms?: ContextNonNumericAlarmDoc[] | null;
   description?: DescriptionDoc | null;
   [key: string]: unknown;
 }
