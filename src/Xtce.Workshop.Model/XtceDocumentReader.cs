@@ -281,13 +281,14 @@ public static class XtceDocumentReader
         TelemetryMetaData? telemetryMetaData = null;
         CommandMetaData? commandMetaData = null;
         Header? header = null;
+        List<Service>? services = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
 
         if (reader.IsEmptyElement)
         {
             reader.Read();
-            return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData, header);
+            return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData, header, services);
         }
 
         reader.ReadStartElement();
@@ -311,6 +312,12 @@ public static class XtceDocumentReader
             {
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                 header = ReadHeader(reader);
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ServiceSet" && services is null)
+            {
+                DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                services = new List<Service>();
+                ReadServiceSet(reader, services);
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "TelemetryMetaData")
             {
@@ -354,7 +361,7 @@ public static class XtceDocumentReader
         DrainComments(ref preserved, ref pendingComments, null);
         reader.ReadEndElement();
 
-        return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData, header);
+        return new SpaceSystem(name, children, telemetryMetaData, preserved, preservedAttributes, commandMetaData, header, services);
     }
 
     private static CommandMetaData ReadCommandMetaData(XmlReader reader, RecoveryContext? recovery = null, string path = "")
@@ -1182,6 +1189,112 @@ public static class XtceDocumentReader
         return new CommandVerifier(kind, comparison, comparisonList, containerRef, hasCheckWindow,
             timeToStartChecking, timeToStopChecking, timeWindowIsRelativeTo, checkWindowPreserved,
             preserved, preservedAttributes);
+    }
+
+    private static void ReadServiceSet(XmlReader reader, List<Service> services)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Service"
+                && reader.GetAttribute("name") is { } name)
+            {
+                services.Add(ReadService(reader, name));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                var elementName = reader.LocalName;
+                services.Add(new Service(elementName, RawXml: new RawXmlFragment(elementName, reader.ReadOuterXml())));
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static Service ReadService(XmlReader reader, string name)
+    {
+        var preservedAttributes = CapturePreservedAttributes(reader, "name");
+
+        List<string>? containerRefs = null;
+        List<string>? messageRefs = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+        Description? description = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element
+                    && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContainerRefSet"
+                         && containerRefs is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    containerRefs = new List<string>();
+                    var refs = containerRefs;
+                    ReadSetOfRows(reader, "ContainerRef", element =>
+                    {
+                        if (element.GetAttribute("containerRef") is not { } reference)
+                        {
+                            return false;
+                        }
+                        refs.Add(reference);
+                        return true;
+                    }, ref preserved);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MessageRefSet"
+                         && messageRefs is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    messageRefs = new List<string>();
+                    var refs = messageRefs;
+                    ReadSetOfRows(reader, "MessageRef", element =>
+                    {
+                        if (element.GetAttribute("messageRef") is not { } reference)
+                        {
+                            return false;
+                        }
+                        refs.Add(reference);
+                        return true;
+                    }, ref preserved);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new Service(name, containerRefs, messageRefs, preserved, preservedAttributes, description);
     }
 
     private static Header ReadHeader(XmlReader reader)

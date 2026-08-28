@@ -59,7 +59,8 @@ public sealed record SpaceSystem(
     IReadOnlyList<RawXmlFragment>? Preserved = null,
     IReadOnlyList<RawAttribute>? PreservedAttributes = null,
     CommandMetaData? CommandMetaData = null,
-    Header? Header = null)
+    Header? Header = null,
+    IReadOnlyList<Service>? ServiceSet = null)
 {
     public bool Equals(SpaceSystem? other) =>
         other is not null
@@ -69,7 +70,8 @@ public sealed record SpaceSystem(
         && Structural.ListEquals(Preserved, other.Preserved)
         && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
         && Equals(CommandMetaData, other.CommandMetaData)
-        && Equals(Header, other.Header);
+        && Equals(Header, other.Header)
+        && Structural.ListEquals(ServiceSet, other.ServiceSet);
 
     public override int GetHashCode()
     {
@@ -82,6 +84,7 @@ public sealed record SpaceSystem(
         Structural.AddList(ref hash, PreservedAttributes);
         hash.Add(CommandMetaData);
         hash.Add(Header);
+        Structural.AddList(ref hash, ServiceSet);
         return hash.ToHashCode();
     }
 }

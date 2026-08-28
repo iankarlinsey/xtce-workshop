@@ -900,6 +900,25 @@
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
+      } @else if (selectedService(); as service) {
+        <div class="node-title">
+          <span>{{ service.name }}</span>
+          <span class="type-badge">Service</span>
+        </div>
+        <div class="form-field">
+          <label for="service-name">Name</label>
+          <input id="service-name" [value]="service.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        @if ((service.containerRefs ?? []).length > 0) {
+          <p class="meta-text">Containers: {{ (service.containerRefs ?? []).join(', ') }}</p>
+        }
+        @if ((service.messageRefs ?? []).length > 0) {
+          <p class="meta-text">Messages: {{ (service.messageRefs ?? []).join(', ') }}</p>
+        }
+        <app-preserved-xml [item]="service" />
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
       } @else if (selectedStream(); as stream) {
         <div class="node-title">
           <span>{{ stream.name }}</span>

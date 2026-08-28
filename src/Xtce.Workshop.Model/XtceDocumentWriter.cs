@@ -115,6 +115,59 @@ public static class XtceDocumentWriter
             slots.Add(("TelemetryMetaData", () => WriteTelemetryMetaData(writer, telemetryMetaData)));
         }
 
+        if (spaceSystem.ServiceSet is { } services)
+        {
+            slots.Add(("ServiceSet", () =>
+            {
+                writer.WriteStartElement("ServiceSet", XtceNamespace);
+                foreach (var service in services)
+                {
+                    if (service.RawXml is { } rawService)
+                    {
+                        WriteFragmentXml(writer, rawService.OuterXml);
+                        continue;
+                    }
+                    writer.WriteStartElement("Service", XtceNamespace);
+                    writer.WriteAttributeString("name", service.Name);
+                    WritePreservedAttributes(writer, service.PreservedAttributes);
+                    var serviceSlots = new List<(string Name, Action Emit)>();
+                    AddDescriptionSlots(writer, service.Description, serviceSlots);
+                    if (service.MessageRefs is { } messageRefs)
+                    {
+                        serviceSlots.Add(("MessageRefSet", () =>
+                        {
+                            writer.WriteStartElement("MessageRefSet", XtceNamespace);
+                            foreach (var reference in messageRefs)
+                            {
+                                writer.WriteStartElement("MessageRef", XtceNamespace);
+                                writer.WriteAttributeString("messageRef", reference);
+                                writer.WriteEndElement();
+                            }
+                            writer.WriteEndElement();
+                        }));
+                    }
+                    if (service.ContainerRefs is { } containerRefs)
+                    {
+                        serviceSlots.Add(("ContainerRefSet", () =>
+                        {
+                            writer.WriteStartElement("ContainerRefSet", XtceNamespace);
+                            foreach (var reference in containerRefs)
+                            {
+                                writer.WriteStartElement("ContainerRef", XtceNamespace);
+                                writer.WriteAttributeString("containerRef", reference);
+                                writer.WriteEndElement();
+                            }
+                            writer.WriteEndElement();
+                        }));
+                    }
+                    AddPreservedSlots(serviceSlots, writer, service.Preserved);
+                    EmitInSchemaOrder(ServiceChildOrder, serviceSlots);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }));
+        }
+
         if (spaceSystem.Header is { } header)
         {
             slots.Add(("Header", () =>
@@ -162,6 +215,11 @@ public static class XtceDocumentWriter
         // Trailing comments follow the end tag: document epilog for the root.
         WriteTrailingComments(writer, spaceSystem.Preserved);
     }
+
+    private static readonly string[] ServiceChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet", "MessageRefSet", "ContainerRefSet",
+    ];
 
     private static void WriteTelemetryMetaData(XmlWriter writer, TelemetryMetaData telemetryMetaData)
     {

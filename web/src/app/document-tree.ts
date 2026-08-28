@@ -342,12 +342,20 @@ export interface HeaderDoc {
   [key: string]: unknown;
 }
 
+export interface ServiceDoc {
+  name: string;
+  containerRefs?: string[] | null;
+  messageRefs?: string[] | null;
+  [key: string]: unknown;
+}
+
 export interface SpaceSystemDocument {
   name: string;
   children: SpaceSystemDocument[];
   telemetryMetaData?: TelemetryMetaDataDoc | null;
   commandMetaData?: CommandMetaDataDoc | null;
   header?: HeaderDoc | null;
+  serviceSet?: ServiceDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -357,7 +365,7 @@ export type NodePath = number[];
 export type ItemKind =
   | 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand'
   | 'argumentType' | 'commandParameterType' | 'commandParameter'
-  | 'algorithm' | 'commandAlgorithm' | 'commandContainer' | 'stream';
+  | 'algorithm' | 'commandAlgorithm' | 'commandContainer' | 'stream' | 'service';
 
 /**
  * What the user has selected: a SpaceSystem (item undefined), or one telemetry item
@@ -456,6 +464,8 @@ function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly Telemetr
       return system.commandMetaData?.commandContainerSet ?? [];
     case 'stream':
       return system.telemetryMetaData?.streamSet ?? [];
+    case 'service':
+      return system.serviceSet ?? [];
   }
 }
 
@@ -516,6 +526,8 @@ function withUpdatedList(
     }
     case 'stream':
       return { ...system, telemetryMetaData: { ...telemetry, streamSet: update(telemetry.streamSet ?? []) as StreamDoc[] } };
+    case 'service':
+      return { ...system, serviceSet: update(system.serviceSet ?? []) as ServiceDoc[] };
   }
 }
 
@@ -635,6 +647,7 @@ export function selectionForLocation(doc: SpaceSystemDocument, location: string)
       MessageSet: { kind: 'message', items: node.telemetryMetaData?.messageSet?.messages ?? [] },
       AlgorithmSet: { kind: 'algorithm', items: node.telemetryMetaData?.algorithmSet ?? [] },
       StreamSet: { kind: 'stream', items: node.telemetryMetaData?.streamSet ?? [] },
+      ServiceSet: { kind: 'service', items: node.serviceSet ?? [] },
     };
     let kind: ItemKind | null = null;
     let items: { name: string }[] = [];

@@ -78,6 +78,13 @@ public static class XtceDocumentQuery
             {
                 AddIfMatched(matches, matcher, "CommandContainer", context.Path, container.Name, container.Preserved, container.Description);
             }
+            foreach (var service in context.Node.ServiceSet ?? [])
+            {
+                if (service.RawXml is null)
+                {
+                    AddIfMatched(matches, matcher, "Service", context.Path, service.Name, service.Preserved, service.Description);
+                }
+            }
             foreach (var stream in (telemetry?.StreamSet ?? []).Concat(context.Node.CommandMetaData?.StreamSet ?? []))
             {
                 if (stream.RawXml is null)

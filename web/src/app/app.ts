@@ -25,6 +25,7 @@ import {
   MetaCommandDoc,
   CommandContainerDoc,
   StreamDoc,
+  ServiceDoc,
   CommandVerifierDoc,
   TransmissionConstraintDoc,
   AlgorithmDoc,
@@ -313,6 +314,15 @@ export class App {
     return getItemAtSelection(doc, selection) as StreamDoc | null;
   });
 
+  protected readonly selectedService = computed(() => {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection || selection.item?.kind !== 'service') {
+      return null;
+    }
+    return getItemAtSelection(doc, selection) as ServiceDoc | null;
+  });
+
   protected readonly selectedCommandContainer = computed(() => {
     const doc = this.currentDocument();
     const selection = this.selection();
@@ -388,6 +398,7 @@ export class App {
       case 'commandContainer':
         return XTCE_REFERENCE['SequenceContainer'] ?? null;
       case 'stream':
+      case 'service':
         return null;
       case 'algorithm':
       case 'commandAlgorithm': {
@@ -1891,6 +1902,7 @@ export class App {
       CommandAlgorithm: { kind: 'commandAlgorithm', items: node.commandMetaData?.algorithmSet ?? undefined },
       CommandContainer: { kind: 'commandContainer', items: node.commandMetaData?.commandContainerSet ?? undefined },
       Stream: { kind: 'stream', items: node.telemetryMetaData?.streamSet ?? undefined },
+      Service: { kind: 'service', items: node.serviceSet ?? undefined },
     };
     const target = lists[match.kind];
     const itemIndex = target.items?.findIndex((item) => item.name === match.name) ?? -1;
