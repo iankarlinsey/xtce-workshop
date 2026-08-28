@@ -53,8 +53,14 @@ public sealed class LoadJobsController : ControllerBase
         return snapshot is null ? NotFound(new { error = "Unknown or expired job." }) : Ok(snapshot);
     }
 
+    /// <summary>
+    /// The finished result. Default (as=document): the full document response, left
+    /// re-fetchable so a browser that could not hold it can come back. as=session: the
+    /// already-parsed outcome moves into a server-held document session instead — the
+    /// browser-failure fallback (#129), costing no re-parse.
+    /// </summary>
     [HttpGet("{id}/result")]
-    public IActionResult Result(string id)
+    public IActionResult Result(string id, [FromQuery] string? @as = null)
     {
         var snapshot = _jobs.GetSnapshot(id);
         if (snapshot is null)
@@ -69,7 +75,14 @@ public sealed class LoadJobsController : ControllerBase
         {
             return Conflict(new { error = $"The job is {snapshot.State}." });
         }
-        var outcome = _jobs.TakeOutcome(id);
+        if (@as == "session")
+        {
+            var taken = _jobs.TakeOutcome(id);
+            return taken is null
+                ? NotFound(new { error = "The result was already collected." })
+                : LoadPipeline.ToActionResult(taken, _sessions, largeDocumentThresholdBytes: 0);
+        }
+        var outcome = _jobs.PeekOutcome(id);
         return outcome is null
             ? NotFound(new { error = "The result was already collected." })
             : LoadPipeline.ToActionResult(outcome, _sessions, _largeDocumentThresholdBytes);

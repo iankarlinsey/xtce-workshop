@@ -213,6 +213,30 @@ describe('App', () => {
         .validationIssues().length).toBe(0);
     }));
 
+    it('an unholdable document response falls back to a server-held session automatically', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<big/>'], 'big.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      // The job runs; the result body comes back empty (the giant-JSON failure).
+      httpMock.expectOne('/api/xtce/jobs').flush({ jobId: 'job1' });
+      httpMock.expectOne('/api/xtce/jobs/job1').flush({ state: 'done', stage: 'done', percent: 100 });
+      httpMock.expectOne('/api/xtce/jobs/job1/result').flush(null);
+      // The client immediately retries as a session — no error surfaced.
+      httpMock.expectOne((r) => r.url === '/api/xtce/jobs/job1/result'
+        && r.params.get('as') === 'session').flush({
+          name: 'Sat', largeDocument: true, documentSessionId: 'sess9',
+          inputByteCount: 314572800, validationIssues: [],
+        });
+      httpMock.expectOne((r) => r.url === '/api/xtce/sessions/sess9/node').flush({
+        name: 'Sat', childSystems: [], groups: { parameter: 3 },
+      });
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.textContent).toContain('Server-held document (300 MB)');
+      expect((fixture.componentInstance as unknown as { loadError: () => string | null }).loadError()).toBeNull();
+    });
+
     it('Save streams the server-held XML as a blob download', () => {
       const fixture = createAppAndFlushHealth();
       openSession(fixture);
@@ -2323,15 +2347,18 @@ describe('App', () => {
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
     }
 
-    it('a 200 response without a document surfaces an error instead of silence', () => {
+    it('a 200 response without a document falls back to a session, and surfaces an error only if that also fails', () => {
       const fixture = createAppAndFlushHealth();
       postFile(fixture);
       // e.g. an intermediary (proxy/auth layer) swallowing the API response shape
       flushLoadJob({ unexpected: 'shape' });
+      // The client first assumes the could-not-hold-it case and retries as a session.
+      httpMock.expectOne((r) => r.url.endsWith('/result') && r.params.get('as') === 'session')
+        .flush({ error: 'Unknown or expired job.' }, { status: 404, statusText: 'Not Found' });
       fixture.detectChanges();
 
       const compiled = fixture.nativeElement as HTMLElement;
-      expect(compiled.textContent).toContain('response did not contain a document');
+      expect(compiled.textContent).toContain('Unknown or expired job.');
       expect(compiled.querySelector('.tree-container')).toBeNull();
     });
 

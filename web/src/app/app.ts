@@ -623,9 +623,42 @@ export class App {
         if (event.type !== HttpEventType.Response) {
           return;
         }
+        const body = event.body as LoadResult | null;
+        if (!body?.document && !body?.largeDocument) {
+          // The pipeline succeeded but the browser could not hold the response (an
+          // empty/unparseable body on a 200 — the giant-JSON failure). Fall back to a
+          // server-held session: the outcome is still on the server, no re-parse.
+          this.fetchJobResultAsSession(jobId, onSuccess, onFailure);
+          return;
+        }
         this.advanceTo('render');
         this.closeLoading();
-        onSuccess(event.body as LoadResult);
+        onSuccess(body);
+      },
+      error: (err) => {
+        // A JSON parse failure on an OK status is the same could-not-hold-it case —
+        // fall back. A genuine HTTP failure keeps its rich error payload instead.
+        if ((err as { status?: number })?.status === 200) {
+          this.fetchJobResultAsSession(jobId, onSuccess, onFailure);
+          return;
+        }
+        this.closeLoading();
+        onFailure(err);
+      },
+    });
+  }
+
+  private fetchJobResultAsSession(
+    jobId: string, onSuccess: (result: LoadResult) => void, onFailure: (err: unknown) => void
+  ): void {
+    this.patchStage('download', { detail: 'Too large for the browser — switching to a server-held session' });
+    this.loadSubscription = this.http.get<LoadResult>(`/api/xtce/jobs/${jobId}/result`, {
+      params: { as: 'session' },
+    }).subscribe({
+      next: (result) => {
+        this.advanceTo('render');
+        this.closeLoading();
+        onSuccess(result);
       },
       error: (err) => {
         this.closeLoading();
@@ -676,20 +709,19 @@ export class App {
 
     // Source-first: the file's own text is visible immediately, before (and regardless
     // of) anything the server says. Markers land on this exact text when the parse
-    // response arrives. Above the large-document threshold the text never becomes a
-    // browser string at all — the load lands in the server-held session's lazy tree.
+    // response arrives. The read is optimistic at any size — if the browser cannot
+    // hold the text, the load simply proceeds without a preview (and a document too
+    // large for the browser falls back to a server-held session downstream).
     this.viewMode.set('source');
     this.startLoading(`Loading ${file.name}`, file.size);
     this.advanceTo('read');
-    if (file.size < 25_000_000) {
-      file.text().then((fileText) => {
-        this.sourceText.set(fileText);
-        this.patchStage('read', { state: 'done' });
-      });
-    } else {
+    file.text().then((fileText) => {
+      this.sourceText.set(fileText);
+      this.patchStage('read', { state: 'done' });
+    }).catch(() => {
       this.sourceText.set('');
       this.patchStage('read', { state: 'done' });
-    }
+    });
     this.saveError.set(null);
     this.validationIssues.set([]);
     this.treeSearchTerm.set('');

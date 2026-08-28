@@ -1,13 +1,15 @@
 namespace Xtce.Workshop.Api;
 
 /// <summary>
-/// The input-size threshold above which loads answer in large mode (#129): the document
-/// stays server-held and the response carries a documentSessionId instead of document
-/// JSON. Configurable via Xtce:LargeDocumentThresholdBytes; default 25 MB.
+/// Optional input-size short-circuit for large mode (#129). By default it is OFF: every
+/// load first answers with the full document, and the browser falls back to a
+/// server-held session only when it demonstrably cannot hold the response
+/// (result?as=session). Set Xtce:LargeDocumentThresholdBytes to pre-empt the failed
+/// attempt for known-huge deployments.
 /// </summary>
 public static class LargeDocumentOptions
 {
-    public const long DefaultThresholdBytes = 25_000_000;
+    public const long DefaultThresholdBytes = long.MaxValue;
 
     public static long ThresholdBytes(IConfiguration configuration) =>
         configuration.GetValue<long?>("Xtce:LargeDocumentThresholdBytes") ?? DefaultThresholdBytes;

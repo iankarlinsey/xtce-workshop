@@ -70,9 +70,27 @@ public class LoadJobEndpointTests
         Assert.False(body.TryGetProperty("positions", out _));
         Assert.False(body.TryGetProperty("tree", out _));
 
-        // The result is served exactly once.
+        // The result stays re-fetchable — a browser that could not hold it comes back
+        // for the session form; converting to a session is what evicts the job.
         var again = await client.GetAsync($"/api/xtce/jobs/{jobId}/result");
-        Assert.Equal(HttpStatusCode.NotFound, again.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, again.StatusCode);
+
+        var asSession = await client.GetAsync($"/api/xtce/jobs/{jobId}/result?as=session");
+        Assert.Equal(HttpStatusCode.OK, asSession.StatusCode);
+        var sessionBody = await asSession.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(sessionBody.GetProperty("largeDocument").GetBoolean());
+        Assert.False(sessionBody.TryGetProperty("document", out _));
+        var sessionId = sessionBody.GetProperty("documentSessionId").GetString()!;
+        // Findings keep their server-resolved positions in the session form too.
+        var sessionIssue = sessionBody.GetProperty("validationIssues").EnumerateArray()
+            .First(i => i.GetProperty("location").GetString()!.EndsWith("Dangling"));
+        Assert.True(sessionIssue.GetProperty("line").GetInt32() > 0);
+
+        // The session is live and the job copy is gone.
+        var node = await client.GetAsync($"/api/xtce/sessions/{sessionId}/node");
+        Assert.Equal(HttpStatusCode.OK, node.StatusCode);
+        var gone = await client.GetAsync($"/api/xtce/jobs/{jobId}/result");
+        Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
     }
 
     [Test]

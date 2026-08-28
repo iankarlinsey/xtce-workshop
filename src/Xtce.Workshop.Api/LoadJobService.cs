@@ -55,7 +55,13 @@ public sealed class LoadJobService
     public LoadJobSnapshot? GetSnapshot(string id) =>
         _jobs.TryGetValue(id, out var job) ? job.Snapshot : null;
 
-    /// <summary>The finished outcome, served once; the job is evicted with it.</summary>
+    /// <summary>The finished outcome, left in place — a failed browser-side load can
+    /// come back for it (the sweep reclaims it after MaxAge).</summary>
+    public LoadPipelineOutcome? PeekOutcome(string id) =>
+        _jobs.TryGetValue(id, out var job) ? job.Outcome : null;
+
+    /// <summary>The finished outcome, evicting the job — used when it moves into a
+    /// document session and the job copy would be redundant.</summary>
     public LoadPipelineOutcome? TakeOutcome(string id)
     {
         if (_jobs.TryGetValue(id, out var job) && job.Outcome is not null)
