@@ -570,6 +570,25 @@
                     }
                     <rux-button secondary (click)="onAddCalibratorRow('terms')">+ Add term</rux-button>
                   } @else if (calibrator.kind === 'MathOperation') {
+                    @for (term of calibrator.mathTerms ?? []; track $index; let i = $index) {
+                      <div class="enum-row">
+                        <select class="kind-select" (change)="onCalibratorMathTermKind(i, $event)" [attr.aria-label]="'Math term ' + i + ' kind'">
+                          <option value="Value" [selected]="term.kind === 'Value'">Value</option>
+                          <option value="ThisParameter" [selected]="term.kind === 'ThisParameter'">this</option>
+                          <option value="Operator" [selected]="term.kind === 'Operator'">Operator</option>
+                          <option value="ParameterInstanceRef" [selected]="term.kind === 'ParameterInstanceRef'">Parameter</option>
+                        </select>
+                        @if (term.kind === 'ParameterInstanceRef') {
+                          <input class="enum-value" list="known-parameter-names" [value]="term.instanceRef?.parameterRef ?? ''" (input)="onCalibratorMathTermValue(i, $event)" [attr.aria-label]="'Math term ' + i + ' parameter ref'" />
+                        } @else if (term.kind !== 'ThisParameter') {
+                          <input class="enum-value" [value]="term.text ?? ''" (input)="onCalibratorMathTermValue(i, $event)" [attr.aria-label]="'Math term ' + i + ' text'" />
+                        }
+                        <button type="button" class="btn enum-remove" (click)="onMoveCalibratorMathTerm(i, -1)" [disabled]="i === 0" [attr.aria-label]="'Move math term ' + i + ' up'">↑</button>
+                        <button type="button" class="btn enum-remove" (click)="onMoveCalibratorMathTerm(i, 1)" [disabled]="i === (calibrator.mathTerms ?? []).length - 1" [attr.aria-label]="'Move math term ' + i + ' down'">↓</button>
+                        <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveCalibratorMathTerm(i)" aria-label="Remove math term">&times;</button>
+                      </div>
+                    }
+                    <rux-button secondary (click)="onAddCalibratorMathTerm()">+ Add term</rux-button>
                     <p class="meta-text">Postfix: {{ mathTermsText(calibrator.mathTerms) }}</p>
                   } @else {
                     <div class="form-field">
@@ -1056,9 +1075,32 @@
           <input id="algo-name" [value]="algorithm.name" (input)="onItemFieldInput('name', $event)" />
         </div>
         @if (algorithm.mathOperation; as mathOperation) {
-          <div class="form-field">
-            <label>Math operation <span class="hint">(postfix / RPN)</span></label>
-            <p class="meta-text">{{ mathTermsText(mathOperation.terms) }} → {{ mathOperation.outputParameterRef }}</p>
+          <div class="form-field enum-editor">
+            <label>Math operation <span class="hint">(postfix / RPN — order is the program)</span></label>
+            @for (term of mathOperation.terms ?? []; track $index; let i = $index) {
+              <div class="enum-row">
+                <select class="kind-select" (change)="onAlgorithmMathTermKind(i, $event)" [attr.aria-label]="'Algorithm math term ' + i + ' kind'">
+                  <option value="Value" [selected]="term.kind === 'Value'">Value</option>
+                  <option value="ThisParameter" [selected]="term.kind === 'ThisParameter'">this</option>
+                  <option value="Operator" [selected]="term.kind === 'Operator'">Operator</option>
+                  <option value="ParameterInstanceRef" [selected]="term.kind === 'ParameterInstanceRef'">Parameter</option>
+                </select>
+                @if (term.kind === 'ParameterInstanceRef') {
+                  <input class="enum-value" list="known-parameter-names" [value]="term.instanceRef?.parameterRef ?? ''" (input)="onAlgorithmMathTermValue(i, $event)" [attr.aria-label]="'Algorithm math term ' + i + ' parameter ref'" />
+                } @else if (term.kind !== 'ThisParameter') {
+                  <input class="enum-value" [value]="term.text ?? ''" (input)="onAlgorithmMathTermValue(i, $event)" [attr.aria-label]="'Algorithm math term ' + i + ' text'" />
+                }
+                <button type="button" class="btn enum-remove" (click)="onMoveAlgorithmMathTerm(i, -1)" [disabled]="i === 0" [attr.aria-label]="'Move algorithm math term ' + i + ' up'">↑</button>
+                <button type="button" class="btn enum-remove" (click)="onMoveAlgorithmMathTerm(i, 1)" [disabled]="i === (mathOperation.terms ?? []).length - 1" [attr.aria-label]="'Move algorithm math term ' + i + ' down'">↓</button>
+                <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveAlgorithmMathTerm(i)" aria-label="Remove algorithm math term">&times;</button>
+              </div>
+            }
+            <rux-button secondary (click)="onAddAlgorithmMathTerm()">+ Add term</rux-button>
+            <div class="form-field">
+              <label for="math-output">Output parameter ref</label>
+              <input id="math-output" list="known-parameter-names" [value]="mathOperation.outputParameterRef" (input)="onAlgorithmMathOutputInput($event)" />
+            </div>
+            <p class="meta-text">Postfix: {{ mathTermsText(mathOperation.terms) }} → {{ mathOperation.outputParameterRef }}</p>
           </div>
         }
         @if (algorithm.kind === 'Custom') {

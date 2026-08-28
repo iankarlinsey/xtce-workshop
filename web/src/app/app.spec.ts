@@ -906,6 +906,92 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('postfix math terms are editable, movable, and flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Doubler');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      // Edit the Value term's text.
+      const valueInput = compiled.querySelector('input[aria-label="Algorithm math term 1 text"]') as HTMLInputElement;
+      expect(valueInput.value).toBe('2');
+      valueInput.value = '3';
+      valueInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      // Move the operator up (swap with the Value term).
+      (compiled.querySelector('button[aria-label="Move algorithm math term 2 up"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      // Remove the trailing ThisParameter term.
+      (Array.from(compiled.querySelectorAll('button[aria-label="Remove algorithm math term"]'))[3] as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      // Change the output ref.
+      const output = compiled.querySelector('#math-output') as HTMLInputElement;
+      output.value = 'BusVoltage';
+      output.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const operation = req.request.body.telemetryMetaData.algorithmSet[1].mathOperation;
+      expect(operation.outputParameterRef).toBe('BusVoltage');
+      expect(operation.terms).toEqual([
+        { kind: 'ParameterInstanceRef', instanceRef: { parameterRef: 'BusVoltage' } },
+        { kind: 'Operator', text: '*' },
+        { kind: 'Value', text: '3' },
+      ]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('calibrator math terms support kind changes and adding terms', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'mathcal.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      flushLoadIntoTree(fixture, {
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [{
+              name: 'Temp_Type', kind: 'Integer',
+              dataEncoding: {
+                kind: 'Integer',
+                defaultCalibrator: { kind: 'MathOperation', mathTerms: [{ kind: 'ThisParameter' }] },
+              },
+            }],
+            parameterSet: [],
+          },
+        },
+      });
+      clickTreeRowByText(fixture, 'Temp_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
+        (b) => b.textContent?.trim() === '+ Add term'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const kindSelect = compiled.querySelector('select[aria-label="Math term 1 kind"]') as HTMLSelectElement;
+      kindSelect.value = 'Operator';
+      kindSelect.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      const textInput = compiled.querySelector('input[aria-label="Math term 1 text"]') as HTMLInputElement;
+      textInput.value = 'abs';
+      textInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[0].dataEncoding.defaultCalibrator.mathTerms)
+        .toEqual([{ kind: 'ThisParameter' }, { kind: 'Operator', text: 'abs' }]);
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('algorithms render in the tree and text edits flow into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

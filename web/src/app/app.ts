@@ -1343,6 +1343,117 @@ export class App {
     });
   }
 
+  // --- MathOperation postfix editing (#127) ---------------------------------------------
+
+  private static defaultMathTerm(kind: MathOperationTermDoc['kind']): MathOperationTermDoc {
+    switch (kind) {
+      case 'ThisParameter':
+        return { kind };
+      case 'ParameterInstanceRef':
+        return { kind, instanceRef: { parameterRef: '' } };
+      default:
+        return { kind, text: '' };
+    }
+  }
+
+  private static editMathTerm(
+    terms: MathOperationTermDoc[], index: number, value: string
+  ): MathOperationTermDoc[] {
+    const next = [...terms];
+    const term = next[index];
+    next[index] = term.kind === 'ParameterInstanceRef'
+      ? { ...term, instanceRef: { ...(term.instanceRef ?? { parameterRef: '' }), parameterRef: value } }
+      : { ...term, text: value };
+    return next;
+  }
+
+  private static moveMathTerm(
+    terms: MathOperationTermDoc[], index: number, delta: number
+  ): MathOperationTermDoc[] {
+    const target = index + delta;
+    if (target < 0 || target >= terms.length) {
+      return terms;
+    }
+    const next = [...terms];
+    const [term] = next.splice(index, 1);
+    next.splice(target, 0, term);
+    return next;
+  }
+
+  private mutateCalibratorMathTerms(update: (terms: MathOperationTermDoc[]) => MathOperationTermDoc[]): void {
+    this.mutateCalibrator((calibrator) => ({ ...calibrator, mathTerms: update(calibrator.mathTerms ?? []) }));
+  }
+
+  onCalibratorMathTermKind(index: number, event: Event): void {
+    const kind = (event.target as HTMLSelectElement).value as MathOperationTermDoc['kind'];
+    this.mutateCalibratorMathTerms((terms) =>
+      terms.map((term, i) => (i === index ? App.defaultMathTerm(kind) : term)));
+  }
+
+  onCalibratorMathTermValue(index: number, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateCalibratorMathTerms((terms) => App.editMathTerm(terms, index, value));
+  }
+
+  onAddCalibratorMathTerm(): void {
+    this.mutateCalibratorMathTerms((terms) => [...terms, App.defaultMathTerm('Value')]);
+  }
+
+  onRemoveCalibratorMathTerm(index: number): void {
+    this.mutateCalibratorMathTerms((terms) => terms.filter((_, i) => i !== index));
+  }
+
+  onMoveCalibratorMathTerm(index: number, delta: number): void {
+    this.mutateCalibratorMathTerms((terms) => App.moveMathTerm(terms, index, delta));
+  }
+
+  private mutateAlgorithmMathTerms(update: (terms: MathOperationTermDoc[]) => MathOperationTermDoc[]): void {
+    this.mutateSelectedItem((item) => {
+      const algorithm = item as AlgorithmDoc;
+      if (!algorithm.mathOperation) {
+        return algorithm;
+      }
+      return {
+        ...algorithm,
+        mathOperation: { ...algorithm.mathOperation, terms: update(algorithm.mathOperation.terms ?? []) },
+      };
+    });
+  }
+
+  onAlgorithmMathTermKind(index: number, event: Event): void {
+    const kind = (event.target as HTMLSelectElement).value as MathOperationTermDoc['kind'];
+    this.mutateAlgorithmMathTerms((terms) =>
+      terms.map((term, i) => (i === index ? App.defaultMathTerm(kind) : term)));
+  }
+
+  onAlgorithmMathTermValue(index: number, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateAlgorithmMathTerms((terms) => App.editMathTerm(terms, index, value));
+  }
+
+  onAddAlgorithmMathTerm(): void {
+    this.mutateAlgorithmMathTerms((terms) => [...terms, App.defaultMathTerm('Value')]);
+  }
+
+  onRemoveAlgorithmMathTerm(index: number): void {
+    this.mutateAlgorithmMathTerms((terms) => terms.filter((_, i) => i !== index));
+  }
+
+  onMoveAlgorithmMathTerm(index: number, delta: number): void {
+    this.mutateAlgorithmMathTerms((terms) => App.moveMathTerm(terms, index, delta));
+  }
+
+  onAlgorithmMathOutputInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const algorithm = item as AlgorithmDoc;
+      if (!algorithm.mathOperation) {
+        return algorithm;
+      }
+      return { ...algorithm, mathOperation: { ...algorithm.mathOperation, outputParameterRef: value } };
+    });
+  }
+
   private mutateCalibrator(update: (calibrator: CalibratorDoc) => CalibratorDoc | null): void {
     this.mutateSelectedItem((item) => {
       const type = item as ParameterTypeDoc;
