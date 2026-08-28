@@ -999,6 +999,26 @@
             }
           </div>
         }
+        @if ((metaCommand.transmissionConstraints ?? []).length > 0) {
+          <div class="form-field enum-editor">
+            <label>Transmission constraints</label>
+            @for (constraint of metaCommand.transmissionConstraints ?? []; track $index) {
+              <div class="entry-edit-row">
+                <span class="meta-text">{{ constraintSummary(constraint) }}</span>
+              </div>
+            }
+          </div>
+        }
+        @if ((metaCommand.parameterToSets ?? []).length > 0) {
+          <div class="form-field enum-editor">
+            <label>Parameters to set</label>
+            @for (parameterToSet of metaCommand.parameterToSets ?? []; track $index) {
+              <div class="entry-edit-row">
+                <span class="meta-text">{{ parameterToSet.parameterRef }}{{ parameterToSet.newValue != null ? ' = ' + parameterToSet.newValue : ' (derived)' }}{{ parameterToSet.setOnVerification ? ' on ' + parameterToSet.setOnVerification : '' }}</span>
+              </div>
+            }
+          </div>
+        }
 
         <app-preserved-xml [item]="metaCommand" />
 

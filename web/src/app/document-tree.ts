@@ -251,6 +251,21 @@ export interface CommandVerifierDoc {
   [key: string]: unknown;
 }
 
+export interface TransmissionConstraintDoc {
+  timeOut?: string | null;
+  suspendable?: boolean | null;
+  comparison?: ComparisonDoc | null;
+  comparisonList?: ComparisonDoc[] | null;
+  [key: string]: unknown;
+}
+
+export interface ParameterToSetDoc {
+  parameterRef?: string | null;
+  newValue?: string | null;
+  setOnVerification?: string | null;
+  [key: string]: unknown;
+}
+
 export interface MetaCommandDoc {
   name: string;
   abstract?: boolean | null;
@@ -259,6 +274,8 @@ export interface MetaCommandDoc {
   argumentAssignments?: ArgumentAssignmentDoc[] | null;
   commandContainer?: CommandContainerDoc | null;
   verifiers?: CommandVerifierDoc[] | null;
+  transmissionConstraints?: TransmissionConstraintDoc[] | null;
+  parameterToSets?: ParameterToSetDoc[] | null;
   [key: string]: unknown;
 }
 

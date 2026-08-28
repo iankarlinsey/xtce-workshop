@@ -438,6 +438,32 @@ public static class XtceDocumentWriter
             }));
         }
 
+        if (metaCommand.TransmissionConstraints is { } transmissionConstraints)
+        {
+            slots.Add(("TransmissionConstraintList", () =>
+            {
+                writer.WriteStartElement("TransmissionConstraintList", XtceNamespace);
+                foreach (var constraint in transmissionConstraints)
+                {
+                    WriteTransmissionConstraint(writer, constraint);
+                }
+                writer.WriteEndElement();
+            }));
+        }
+
+        if (metaCommand.ParameterToSets is { } parameterToSets)
+        {
+            slots.Add(("ParameterToSetList", () =>
+            {
+                writer.WriteStartElement("ParameterToSetList", XtceNamespace);
+                foreach (var parameterToSet in parameterToSets)
+                {
+                    WriteParameterToSet(writer, parameterToSet);
+                }
+                writer.WriteEndElement();
+            }));
+        }
+
         if (metaCommand.Verifiers is { Count: > 0 } verifiers)
         {
             slots.Add(("VerifierSet", () =>
@@ -458,6 +484,91 @@ public static class XtceDocumentWriter
 
         writer.WriteEndElement();
     }
+
+    // MatchCriteriaType choice order (Comparison last, mirroring the verifier table).
+    private static readonly string[] MatchCriteriaChildOrder =
+    [
+        "ComparisonList", "BooleanExpression", "CustomAlgorithm", "Comparison",
+    ];
+
+    private static void WriteTransmissionConstraint(XmlWriter writer, TransmissionConstraint constraint)
+    {
+        if (constraint.RawXml is { } rawXml)
+        {
+            WriteFragmentXml(writer, rawXml.OuterXml);
+            return;
+        }
+
+        writer.WriteStartElement("TransmissionConstraint", XtceNamespace);
+        if (constraint.TimeOut is not null)
+        {
+            writer.WriteAttributeString("timeOut", constraint.TimeOut);
+        }
+        if (constraint.Suspendable is { } suspendable)
+        {
+            writer.WriteAttributeString("suspendable", XmlConvert.ToString(suspendable));
+        }
+        WritePreservedAttributes(writer, constraint.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        if (constraint.Comparison is { } comparison)
+        {
+            slots.Add(("Comparison", () => WriteComparison(writer, comparison)));
+        }
+        if (constraint.ComparisonList is { } comparisonList)
+        {
+            slots.Add(("ComparisonList", () =>
+            {
+                writer.WriteStartElement("ComparisonList", XtceNamespace);
+                foreach (var entry in comparisonList)
+                {
+                    WriteComparison(writer, entry);
+                }
+                writer.WriteEndElement();
+            }));
+        }
+        AddPreservedSlots(slots, writer, constraint.Preserved);
+        EmitInSchemaOrder(MatchCriteriaChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteParameterToSet(XmlWriter writer, ParameterToSet parameterToSet)
+    {
+        if (parameterToSet.RawXml is { } rawXml)
+        {
+            WriteFragmentXml(writer, rawXml.OuterXml);
+            return;
+        }
+
+        writer.WriteStartElement("ParameterToSet", XtceNamespace);
+        if (parameterToSet.ParameterRef is not null)
+        {
+            writer.WriteAttributeString("parameterRef", parameterToSet.ParameterRef);
+        }
+        if (parameterToSet.SetOnVerification is not null)
+        {
+            writer.WriteAttributeString("setOnVerification", parameterToSet.SetOnVerification);
+        }
+        WritePreservedAttributes(writer, parameterToSet.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        if (parameterToSet.NewValue is { } newValue)
+        {
+            slots.Add(("NewValue", () =>
+            {
+                writer.WriteStartElement("NewValue", XtceNamespace);
+                writer.WriteString(newValue);
+                writer.WriteEndElement();
+            }));
+        }
+        AddPreservedSlots(slots, writer, parameterToSet.Preserved);
+        EmitInSchemaOrder(ParameterToSetChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    private static readonly string[] ParameterToSetChildOrder = ["Derivation", "NewValue"];
 
     // CommandVerifierType: NameDescription children, the check choice, then the window choice.
     private static readonly string[] VerifierChildOrder =

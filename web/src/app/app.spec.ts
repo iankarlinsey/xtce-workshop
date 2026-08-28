@@ -1197,6 +1197,8 @@ describe('App', () => {
                   ],
                 },
                 verifiers: [{ kind: 'CompleteVerifier', comparison: { parameterRef: 'Ack', value: '1' }, hasCheckWindow: true, timeToStopChecking: 'PT5S' }],
+                transmissionConstraints: [{ timeOut: 'PT10S', comparison: { parameterRef: 'Mode', value: '1' } }],
+                parameterToSets: [{ parameterRef: 'CmdCount', newValue: '0' }],
               },
             ],
           },
@@ -1221,6 +1223,8 @@ describe('App', () => {
       expect((compiled.querySelector('#command-baseref') as HTMLInputElement).value).toBe('BaseCmd');
       expect(compiled.textContent).toContain('CompleteVerifier');
       expect(compiled.textContent).toContain('Ack == 1');
+      expect(compiled.textContent).toContain('Mode == 1 — timeout PT10S');
+      expect(compiled.textContent).toContain('CmdCount = 0');
       expect((compiled.querySelector('input[aria-label="Argument 0 type ref"]') as HTMLInputElement).value).toBe('CmdU8');
     });
 

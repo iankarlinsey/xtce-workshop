@@ -129,4 +129,42 @@ public class CommandMetaDataTests
         Assert.True(indexes.All(i => i >= 0) && indexes.SequenceEqual(indexes.OrderBy(i => i)),
             "CommandMetaData children out of schema order: " + string.Join(", ", indexes));
     }
+
+    [Test]
+    public void Load_ModelsTransmissionConstraints_AndRoundTripsThem()
+    {
+        var xml = """
+            <SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="S">
+              <CommandMetaData>
+                <MetaCommandSet>
+                  <MetaCommand name="Cmd">
+                    <TransmissionConstraintList>
+                      <TransmissionConstraint timeOut="PT10S" suspendable="true">
+                        <Comparison parameterRef="Mode" value="1"/>
+                      </TransmissionConstraint>
+                      <TransmissionConstraint>
+                        <BooleanExpression>
+                          <Condition><ParameterInstanceRef parameterRef="Mode"/><ComparisonOperator>==</ComparisonOperator><Value>2</Value></Condition>
+                        </BooleanExpression>
+                      </TransmissionConstraint>
+                    </TransmissionConstraintList>
+                  </MetaCommand>
+                </MetaCommandSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """;
+        var loaded = XtceDocumentReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(xml)));
+
+        var constraints = loaded.CommandMetaData!.MetaCommands.Single().TransmissionConstraints!;
+        Assert.Equal(2, constraints.Count);
+        Assert.Equal(("PT10S", true, "Mode", "1"),
+            (constraints[0].TimeOut, constraints[0].Suspendable!.Value,
+             constraints[0].Comparison!.ParameterRef, constraints[0].Comparison.Value));
+        Assert.Equal(["BooleanExpression"], constraints[1].Preserved!.Select(f => f.ElementName).ToList());
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, XtceDocumentReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(written))));
+        var errors = XsdValidation.Validate(written);
+        Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
+    }
 }

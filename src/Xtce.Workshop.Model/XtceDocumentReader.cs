@@ -534,6 +534,8 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preservedArguments = null;
         List<ArgumentAssignment>? argumentAssignments = null;
         List<CommandVerifier>? verifiers = null;
+        List<TransmissionConstraint>? transmissionConstraints = null;
+        List<ParameterToSet>? parameterToSets = null;
         var preserved = leadingComments;
         List<string>? pendingComments = null;
         CommandContainer? commandContainer = null;
@@ -594,6 +596,20 @@ public static class XtceDocumentReader
                     verifiers = new List<CommandVerifier>();
                     ReadVerifierSet(reader, verifiers);
                 }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "TransmissionConstraintList"
+                         && transmissionConstraints is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    transmissionConstraints = new List<TransmissionConstraint>();
+                    ReadTransmissionConstraintList(reader, transmissionConstraints);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterToSetList"
+                         && parameterToSets is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    parameterToSets = new List<ParameterToSet>();
+                    ReadParameterToSetList(reader, parameterToSets);
+                }
                 else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CommandContainer")
                 {
                     DrainComments(ref preserved, ref pendingComments, reader.LocalName);
@@ -622,7 +638,176 @@ public static class XtceDocumentReader
         return new MetaCommand(
             name, isAbstract, baseMetaCommandRef, basePreserved,
             verifiers, preserved, preservedAttributes,
-            commandContainer, arguments, preservedArguments, argumentAssignments);
+            commandContainer, arguments, preservedArguments, argumentAssignments,
+            transmissionConstraints, parameterToSets);
+    }
+
+    private static void ReadTransmissionConstraintList(XmlReader reader, List<TransmissionConstraint> constraints)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "TransmissionConstraint")
+            {
+                constraints.Add(ReadTransmissionConstraint(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                var elementName = reader.LocalName;
+                constraints.Add(new TransmissionConstraint(
+                    RawXml: new RawXmlFragment(elementName, reader.ReadOuterXml())));
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static TransmissionConstraint ReadTransmissionConstraint(XmlReader reader)
+    {
+        var timeOut = reader.GetAttribute("timeOut");
+        var suspendable = ParseBool(reader, "suspendable");
+        var preservedAttributes = CapturePreservedAttributes(reader, ["timeOut", "suspendable"]);
+
+        Comparison? comparison = null;
+        List<Comparison>? comparisonList = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Comparison"
+                    && comparison is null && reader.GetAttribute("parameterRef") is not null
+                    && reader.GetAttribute("value") is not null && reader.IsEmptyElement)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    comparison = ReadComparison(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ComparisonList"
+                         && comparisonList is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    comparisonList = ReadComparisonList(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // BooleanExpression, CustomAlgorithm — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new TransmissionConstraint(timeOut, suspendable, comparison, comparisonList, preserved, preservedAttributes);
+    }
+
+    private static void ReadParameterToSetList(XmlReader reader, List<ParameterToSet> parameterToSets)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterToSet"
+                && reader.GetAttribute("parameterRef") is not null)
+            {
+                parameterToSets.Add(ReadParameterToSet(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                var elementName = reader.LocalName;
+                parameterToSets.Add(new ParameterToSet(
+                    RawXml: new RawXmlFragment(elementName, reader.ReadOuterXml())));
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static ParameterToSet ReadParameterToSet(XmlReader reader)
+    {
+        var parameterRef = reader.GetAttribute("parameterRef");
+        var setOnVerification = reader.GetAttribute("setOnVerification");
+        var preservedAttributes = CapturePreservedAttributes(reader, ["parameterRef", "setOnVerification"]);
+
+        string? newValue = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "NewValue" && newValue is null)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryReadTextOnlyElement(outerXml, out var text))
+                    {
+                        newValue = text;
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("NewValue", outerXml));
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // Derivation — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new ParameterToSet(parameterRef, newValue, setOnVerification, preserved, preservedAttributes);
     }
 
     private static void ReadArgumentList(XmlReader reader, List<Argument> arguments, ref List<RawXmlFragment>? preservedArguments)

@@ -94,6 +94,28 @@ public static class FragmentEnumerator
                 {
                     yield return (fragment, metaCommandPath);
                 }
+                foreach (var constraint in metaCommand.TransmissionConstraints ?? [])
+                {
+                    if (constraint.RawXml is { } rawConstraint)
+                    {
+                        yield return (rawConstraint, metaCommandPath);
+                    }
+                    foreach (var fragment in constraint.Preserved ?? [])
+                    {
+                        yield return (fragment, metaCommandPath);
+                    }
+                }
+                foreach (var parameterToSet in metaCommand.ParameterToSets ?? [])
+                {
+                    if (parameterToSet.RawXml is { } rawEntry)
+                    {
+                        yield return (rawEntry, metaCommandPath);
+                    }
+                    foreach (var fragment in parameterToSet.Preserved ?? [])
+                    {
+                        yield return (fragment, metaCommandPath);
+                    }
+                }
                 foreach (var verifier in metaCommand.Verifiers ?? [])
                 {
                     if (verifier.RawXml is { } rawVerifier)

@@ -12,20 +12,31 @@ public class ArgumentScannerTests
     private const string Ns = "http://www.omg.org/spec/XTCE/20180204";
 
     [Test]
-    public void ScanParameterToSets_ReadsLiteralAndDerivationEntries()
+    public void ParameterToSets_LoadModeled_WithLiteralAndDerivationEntries()
     {
-        var metaCommand = new MetaCommand("Cmd",
-            Preserved:
-            [
-                new RawXmlFragment("ParameterToSetList",
-                    $"""<ParameterToSetList xmlns="{Ns}"><ParameterToSet parameterRef="P"><NewValue>7</NewValue></ParameterToSet><ParameterToSet parameterRef="Q"><Derivation><TriggeredMathOperation outputParameterRef="Q"/></Derivation></ParameterToSet></ParameterToSetList>"""),
-            ]);
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <CommandMetaData>
+                <MetaCommandSet>
+                  <MetaCommand name="Cmd">
+                    <ParameterToSetList>
+                      <ParameterToSet parameterRef="P" setOnVerification="execution"><NewValue>7</NewValue></ParameterToSet>
+                      <ParameterToSet parameterRef="Q"><Derivation><ParameterInstanceRefOperand parameterRef="Q"/><ValueOperand>1</ValueOperand><Operator>+</Operator></Derivation></ParameterToSet>
+                    </ParameterToSetList>
+                  </MetaCommand>
+                </MetaCommandSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """;
+        var document = Xtce.Workshop.Model.XtceDocumentReader.Load(
+            new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
 
-        var parameterToSets = ArgumentScanner.ScanParameterToSets(metaCommand);
-
+        var parameterToSets = document.CommandMetaData!.MetaCommands.Single().ParameterToSets!;
         Assert.Equal(2, parameterToSets.Count);
-        Assert.Equal("7", parameterToSets[0].NewValue);
+        Assert.Equal(("P", "7", "execution"),
+            (parameterToSets[0].ParameterRef, parameterToSets[0].NewValue, parameterToSets[0].SetOnVerification));
         Assert.Null(parameterToSets[1].NewValue); // Derivation-based — no literal
+        Assert.Equal(["Derivation"], parameterToSets[1].Preserved!.Select(f => f.ElementName).ToList());
     }
 
     [Test]

@@ -12,8 +12,6 @@ namespace Xtce.Workshop.Validation;
 /// </summary>
 public static class ArgumentScanner
 {
-    public sealed record ParameterToSetInfo(string ParameterRef, string? NewValue);
-
     public enum ComparisonForm
     {
         /// <summary>ComparisonType: parameterRef + value attributes, no children (candidate #88's family).</summary>
@@ -30,39 +28,6 @@ public static class ArgumentScanner
 
     // ---- ParameterToSetList -------------------------------------
 
-    public static IReadOnlyList<ParameterToSetInfo> ScanParameterToSets(MetaCommand metaCommand)
-    {
-        var list = (metaCommand.Preserved ?? []).FirstOrDefault(f => f.ElementName == "ParameterToSetList");
-        if (list is null)
-        {
-            return [];
-        }
-
-        var results = new List<ParameterToSetInfo>();
-        foreach (var (elementName, outerXml) in ChildElements(list.OuterXml))
-        {
-            if (elementName != "ParameterToSet")
-            {
-                continue;
-            }
-            var parameterRef = XmlFragmentInspector.RootAttribute(outerXml, "parameterRef");
-            if (parameterRef is not null)
-            {
-                results.Add(new ParameterToSetInfo(parameterRef, ChildElementText(outerXml, "NewValue")));
-            }
-        }
-        return results;
-    }
-
-    // ---- Comparison forms -----------------------------------------------------------------
-
-    /// <summary>
-    /// Every value-carrying comparison in a fragment, in all three XSD shapes: plain
-    /// ComparisonType (parameterRef/value attributes), ArgumentComparisonType (value
-    /// attribute + instance-ref child), and (Argument)ComparisonCheckType Conditions
-    /// (instance-ref LHS + Value child). Conditions whose right-hand side is another
-    /// instance ref carry no literal and are skipped.
-    /// </summary>
     public static IReadOnlyList<ComparisonInfo> ScanComparisons(string outerXml)
     {
         var comparisons = new List<ComparisonInfo>();
@@ -136,6 +101,28 @@ public static class ArgumentScanner
         foreach (var fragment in metaCommand.BaseMetaCommandPreserved ?? [])
         {
             yield return fragment;
+        }
+        foreach (var constraint in metaCommand.TransmissionConstraints ?? [])
+        {
+            if (constraint.RawXml is { } rawConstraint)
+            {
+                yield return rawConstraint;
+            }
+            foreach (var fragment in constraint.Preserved ?? [])
+            {
+                yield return fragment;
+            }
+        }
+        foreach (var parameterToSet in metaCommand.ParameterToSets ?? [])
+        {
+            if (parameterToSet.RawXml is { } rawEntry)
+            {
+                yield return rawEntry;
+            }
+            foreach (var fragment in parameterToSet.Preserved ?? [])
+            {
+                yield return fragment;
+            }
         }
         foreach (var verifier in metaCommand.Verifiers ?? [])
         {

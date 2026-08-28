@@ -138,6 +138,80 @@ public sealed record CommandVerifier(
     }
 }
 
+/// <summary>
+/// One TransmissionConstraintList entry (issue #107): timeOut/suspendable attributes and
+/// the match-criteria choice's Comparison/ComparisonList forms modeled (plain
+/// MatchCriteriaType — the shared Comparison record); BooleanExpression/CustomAlgorithm
+/// ride in Preserved. A foreign element in constraint position rides whole as RawXml.
+/// </summary>
+public sealed record TransmissionConstraint(
+    string? TimeOut = null,
+    bool? Suspendable = null,
+    Comparison? Comparison = null,
+    IReadOnlyList<Comparison>? ComparisonList = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    RawXmlFragment? RawXml = null)
+{
+    public bool Equals(TransmissionConstraint? other) =>
+        other is not null
+        && TimeOut == other.TimeOut
+        && Suspendable == other.Suspendable
+        && Equals(Comparison, other.Comparison)
+        && Structural.ListEquals(ComparisonList, other.ComparisonList)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(RawXml, other.RawXml);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(TimeOut);
+        hash.Add(Suspendable);
+        hash.Add(Comparison);
+        Structural.AddList(ref hash, ComparisonList);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(RawXml);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
+/// One ParameterToSetList entry (issue #107): parameterRef/setOnVerification attributes
+/// and the literal NewValue modeled; Derivation (and an unmodelable NewValue) ride in
+/// Preserved. A foreign element in list position rides whole as RawXml.
+/// </summary>
+public sealed record ParameterToSet(
+    string? ParameterRef = null,
+    string? NewValue = null,
+    string? SetOnVerification = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    RawXmlFragment? RawXml = null)
+{
+    public bool Equals(ParameterToSet? other) =>
+        other is not null
+        && ParameterRef == other.ParameterRef
+        && NewValue == other.NewValue
+        && SetOnVerification == other.SetOnVerification
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(RawXml, other.RawXml);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(ParameterRef);
+        hash.Add(NewValue);
+        hash.Add(SetOnVerification);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(RawXml);
+        return hash.ToHashCode();
+    }
+}
+
 public sealed record MetaCommand(
     string Name,
     bool? Abstract = null,
@@ -149,7 +223,9 @@ public sealed record MetaCommand(
     CommandContainer? CommandContainer = null,
     IReadOnlyList<Argument>? Arguments = null,
     IReadOnlyList<RawXmlFragment>? PreservedArguments = null,
-    IReadOnlyList<ArgumentAssignment>? ArgumentAssignments = null)
+    IReadOnlyList<ArgumentAssignment>? ArgumentAssignments = null,
+    IReadOnlyList<TransmissionConstraint>? TransmissionConstraints = null,
+    IReadOnlyList<ParameterToSet>? ParameterToSets = null)
 {
     public bool Equals(MetaCommand? other) =>
         other is not null
@@ -163,7 +239,9 @@ public sealed record MetaCommand(
         && Equals(CommandContainer, other.CommandContainer)
         && Structural.ListEquals(Arguments, other.Arguments)
         && Structural.ListEquals(PreservedArguments, other.PreservedArguments)
-        && Structural.ListEquals(ArgumentAssignments, other.ArgumentAssignments);
+        && Structural.ListEquals(ArgumentAssignments, other.ArgumentAssignments)
+        && Structural.ListEquals(TransmissionConstraints, other.TransmissionConstraints)
+        && Structural.ListEquals(ParameterToSets, other.ParameterToSets);
 
     public override int GetHashCode()
     {
@@ -179,6 +257,8 @@ public sealed record MetaCommand(
         Structural.AddList(ref hash, Arguments);
         Structural.AddList(ref hash, PreservedArguments);
         Structural.AddList(ref hash, ArgumentAssignments);
+        Structural.AddList(ref hash, TransmissionConstraints);
+        Structural.AddList(ref hash, ParameterToSets);
         return hash.ToHashCode();
     }
 }

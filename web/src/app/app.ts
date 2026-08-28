@@ -23,6 +23,7 @@ import {
   MessageDoc,
   MetaCommandDoc,
   CommandVerifierDoc,
+  TransmissionConstraintDoc,
   AlgorithmDoc,
   TelemetryItem,
   getNodeAtPath,
@@ -1598,6 +1599,20 @@ export class App {
       return;
     }
     this.mutateSelectedItem((item) => updater(item as SequenceContainerDoc));
+  }
+
+  protected constraintSummary(constraint: TransmissionConstraintDoc): string {
+    const parts: string[] = [];
+    if (constraint.comparison) {
+      parts.push(`${constraint.comparison.parameterRef} ${constraint.comparison.comparisonOperator ?? '=='} ${constraint.comparison.value}`);
+    }
+    if (constraint.comparisonList?.length) {
+      parts.push(`${constraint.comparisonList.length} comparison(s)`);
+    }
+    if (constraint.timeOut) {
+      parts.push(`timeout ${constraint.timeOut}`);
+    }
+    return parts.length > 0 ? parts.join(' — ') : 'criteria preserved as XML';
   }
 
   protected verifierSummary(verifier: CommandVerifierDoc): string {

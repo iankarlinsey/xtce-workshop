@@ -194,9 +194,9 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
 
             // #45 — ParameterToSet NewValue must fit the target parameter's type
             // (Derivation-based sets carry no literal and are skipped).
-            foreach (var parameterToSet in ArgumentScanner.ScanParameterToSets(metaCommand))
+            foreach (var parameterToSet in metaCommand.ParameterToSets ?? [])
             {
-                if (parameterToSet.NewValue is null)
+                if (parameterToSet.ParameterRef is null || parameterToSet.NewValue is null)
                 {
                     continue;
                 }
@@ -208,11 +208,14 @@ public sealed class TypedValueValidForTypeRule : IValidationRule
                 }
             }
 
-            // #88 — modeled verifier comparisons (the plain parameterRef form).
-            foreach (var verifier in metaCommand.Verifiers ?? [])
+            // #88 — modeled verifier and constraint comparisons (the plain parameterRef form).
+            var modeledComparisonSources =
+                (metaCommand.Verifiers ?? []).Select(v => ((IReadOnlyList<Comparison>?)v.ComparisonList, v.Comparison))
+                .Concat((metaCommand.TransmissionConstraints ?? []).Select(c => ((IReadOnlyList<Comparison>?)c.ComparisonList, c.Comparison)));
+            foreach (var (list, singleComparison) in modeledComparisonSources)
             {
-                var modeledComparisons = (verifier.ComparisonList ?? []).Concat(
-                    verifier.Comparison is { } single ? [single] : []);
+                var modeledComparisons = (list ?? []).Concat(
+                    singleComparison is { } single ? [single] : []);
                 foreach (var entry in modeledComparisons)
                 {
                     var error = DescribeAgainstParameter(context, entry.ParameterRef, entry.Value);
