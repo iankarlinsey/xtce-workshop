@@ -12,8 +12,17 @@ public sealed record LoadPipelineOutcome(
     string? DetectedVersion,
     XtceLoadResult Load,
     IReadOnlyList<SchemaError> SchemaErrors,
-    IReadOnlyList<ValidationIssue> ValidationIssues,
-    TreeNode? Tree);
+    IReadOnlyList<ValidationIssue> ValidationIssues);
+
+/// <summary>A validation issue with its source position resolved at load time (#90 item 2).</summary>
+public sealed record PositionedValidationIssue(
+    string RuleId,
+    ValidationSeverity Severity,
+    string Location,
+    string Message,
+    int? CandidateNumber,
+    int? Line,
+    int? Column);
 
 /// <summary>
 /// The load pipeline shared by the synchronous endpoints and background jobs:
@@ -51,7 +60,6 @@ public static class LoadPipeline
         cancellationToken.ThrowIfCancellationRequested();
 
         IReadOnlyList<ValidationIssue> validationIssues = [];
-        TreeNode? tree = null;
         if (load.Document is not null)
         {
             validationIssues = XtceValidator.Validate(
@@ -59,13 +67,18 @@ public static class LoadPipeline
                 progress is null ? null : new SynchronousProgress<(int RuleIndex, int RuleCount, string RuleId)>(r =>
                     progress(new LoadJobProgress("rules", 0, r.RuleIndex, r.RuleCount, r.RuleId))),
                 cancellationToken);
-            tree = TreeNode.FromSpaceSystem(load.Document);
         }
 
-        return new LoadPipelineOutcome(rootNamespace, detectedVersion, load, schemaErrors, validationIssues, tree);
+        return new LoadPipelineOutcome(rootNamespace, detectedVersion, load, schemaErrors, validationIssues);
     }
 
-    /// <summary>Maps an outcome to the standard load response (identical for sync and job paths).</summary>
+    /// <summary>
+    /// Maps an outcome to the standard load response (identical for sync and job paths).
+    /// Findings carry their source line/column directly (#90 item 2 — resolved here via
+    /// the longest recorded ancestor path); the response ships neither the per-element
+    /// positions map nor the redundant tree (#90 item 1) — for large files those
+    /// dominated a payload the browser could not hold.
+    /// </summary>
     public static IActionResult ToActionResult(LoadPipelineOutcome outcome)
     {
         if (outcome.Load.Document is null)
@@ -77,21 +90,56 @@ public static class LoadPipeline
                 schemaErrors = outcome.SchemaErrors,
                 rootNamespace = outcome.RootNamespace,
                 detectedVersion = outcome.DetectedVersion,
-                positions = outcome.Load.Positions,
             });
         }
         return new OkObjectResult(new
         {
             name = outcome.Load.Document.Name,
-            tree = outcome.Tree,
             document = outcome.Load.Document,
-            validationIssues = outcome.ValidationIssues,
+            validationIssues = PositionIssues(outcome),
             diagnostics = outcome.Load.Diagnostics,
             schemaErrors = outcome.SchemaErrors,
             rootNamespace = outcome.RootNamespace,
             detectedVersion = outcome.DetectedVersion,
-            positions = outcome.Load.Positions,
         });
+    }
+
+    private static IReadOnlyList<PositionedValidationIssue> PositionIssues(LoadPipelineOutcome outcome) =>
+        outcome.ValidationIssues
+            .Select(issue =>
+            {
+                var position = ResolveLocation(issue.Location, outcome.Load.Positions);
+                return new PositionedValidationIssue(
+                    issue.RuleId, issue.Severity, issue.Location, issue.Message, issue.CandidateNumber,
+                    position?.Line, position?.Column);
+            })
+            .ToList();
+
+    /// <summary>
+    /// Resolves a validator location ("Sat/ContainerSet/Frame") to a source position,
+    /// falling back to the longest recorded ancestor path so a deeper citation still
+    /// lands near its owner. (Previously done per-marker in the browser.)
+    /// </summary>
+    private static LoadPosition? ResolveLocation(string location, IReadOnlyDictionary<string, LoadPosition>? positions)
+    {
+        if (positions is null)
+        {
+            return null;
+        }
+        var candidate = location;
+        while (true)
+        {
+            if (positions.TryGetValue(candidate, out var position))
+            {
+                return position;
+            }
+            var cut = candidate.LastIndexOf('/');
+            if (cut < 0)
+            {
+                return null;
+            }
+            candidate = candidate[..cut];
+        }
     }
 
     /// <summary>Progress<T> posts to a sync context; the pipeline wants inline delivery.</summary>

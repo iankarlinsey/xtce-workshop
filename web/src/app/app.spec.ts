@@ -2772,7 +2772,7 @@ describe('App', () => {
       expect(treeButton.disabled).toBeFalsy();
     });
 
-    it('maps validation issues onto source lines through the position index', () => {
+    it('maps validation issues onto source lines via their server-resolved positions', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<x/>'], 'findings.xml', { type: 'application/xml' });
       fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
@@ -2780,14 +2780,11 @@ describe('App', () => {
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [
-          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/ITEM6', message: 'dangling ref' },
-          { ruleId: 'R05', severity: 'Warning', location: 'Sat/ContainerSet/Frame/EntryList/Deep', message: 'subset' },
-          { ruleId: 'R99', severity: 'Error', location: 'Elsewhere/Unknown', message: 'unmapped' },
+          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/ITEM6', message: 'dangling ref', line: 42, column: 7 },
+          // Server resolved a deeper citation to its longest recorded ancestor (#90).
+          { ruleId: 'R05', severity: 'Warning', location: 'Sat/ContainerSet/Frame/EntryList/Deep', message: 'subset', line: 90, column: 5 },
+          { ruleId: 'R99', severity: 'Error', location: 'Elsewhere/Unknown', message: 'unmapped', line: null, column: null },
         ],
-        positions: {
-          'Sat/ParameterSet/ITEM6': { line: 42, column: 7 },
-          'Sat/ContainerSet/Frame': { line: 90, column: 5 },
-        },
       });
       fixture.detectChanges();
 
@@ -2802,6 +2799,28 @@ describe('App', () => {
       expect(byMessage('unmapped').line).toBeNull();
     });
 
+    it('clicking an unpositioned validation issue does not move the editor', () => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<x/>'], 'findings.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      flushLoadJob({
+        name: 'Sat',
+        document: { name: 'Sat', children: [] },
+        validationIssues: [
+          { ruleId: 'R99', severity: 'Error', location: 'Elsewhere/Unknown', message: 'unmapped' },
+        ],
+      });
+      fixture.detectChanges();
+
+      ((fixture.nativeElement as HTMLElement).querySelector('.validation-issue') as HTMLElement).click();
+      fixture.detectChanges();
+
+      const target = (fixture.componentInstance as unknown as {
+        revealTarget: () => { line: number } | null;
+      }).revealTarget();
+      expect(target).toBeNull();
+    });
+
     it('clicking a validation issue reveals its source line', () => {
       const fixture = createAppAndFlushHealth();
       const file = new File(['<x/>'], 'findings.xml', { type: 'application/xml' });
@@ -2810,9 +2829,8 @@ describe('App', () => {
         name: 'Sat',
         document: { name: 'Sat', children: [] },
         validationIssues: [
-          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/ITEM6', message: 'dangling ref' },
+          { ruleId: 'R11', severity: 'Error', location: 'Sat/ParameterSet/ITEM6', message: 'dangling ref', line: 42, column: 7 },
         ],
-        positions: { 'Sat/ParameterSet/ITEM6': { line: 42, column: 7 } },
       });
       fixture.detectChanges();
 

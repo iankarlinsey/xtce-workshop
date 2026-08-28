@@ -62,7 +62,13 @@ public class LoadJobEndpointTests
         Assert.Equal("Sat", body.GetProperty("name").GetString());
         Assert.Equal("1.2", body.GetProperty("detectedVersion").GetString());
         Assert.True(body.GetProperty("validationIssues").GetArrayLength() > 0);
-        Assert.True(body.GetProperty("positions").GetProperty("Sat/ParameterSet/Good").GetProperty("line").GetInt32() > 0);
+        // #90 items 1+2: findings carry their own line/column; the response ships
+        // neither the per-element positions map nor the redundant tree.
+        var danglingIssue = body.GetProperty("validationIssues").EnumerateArray()
+            .First(i => i.GetProperty("location").GetString()!.EndsWith("Dangling"));
+        Assert.True(danglingIssue.GetProperty("line").GetInt32() > 0);
+        Assert.False(body.TryGetProperty("positions", out _));
+        Assert.False(body.TryGetProperty("tree", out _));
 
         // The result is served exactly once.
         var again = await client.GetAsync($"/api/xtce/jobs/{jobId}/result");

@@ -58,8 +58,7 @@ import {
 } from './document-tree';
 import {
   ValidationIssue, PacketLayout, ConformanceReport, CandidateStatus, DocumentMetrics,
-  SearchMatch, UsageMatch, LoadDiagnostic, SchemaError, LoadPosition, SourceMarker,
-  resolveLocation,
+  SearchMatch, UsageMatch, LoadDiagnostic, SchemaError, SourceMarker,
 } from './validation';
 import { XTCE_REFERENCE, ReferenceEntry } from './xtce-reference';
 
@@ -112,7 +111,6 @@ interface LoadResult {
   schemaErrors?: SchemaError[];
   rootNamespace?: string | null;
   detectedVersion?: string | null;
-  positions?: Record<string, LoadPosition> | null;
 }
 
 @Component({
@@ -164,14 +162,12 @@ export class App {
   protected readonly loadDiagnostics = signal<LoadDiagnostic[]>([]);
   protected readonly loadSchemaErrors = signal<SchemaError[]>([]);
   /** Reader's element-position index for the loaded text, by validator location. */
-  protected readonly loadPositions = signal<Record<string, LoadPosition> | null>(null);
   /** Line the source editor should scroll to; nonce lets the same line re-trigger. */
   protected readonly revealTarget = signal<{ line: number; column: number | null; nonce: number } | null>(null);
   private revealNonce = 0;
 
   /** Every finding class merged into positioned source markers. */
   protected readonly sourceMarkers = computed<SourceMarker[]>(() => {
-    const positions = this.loadPositions();
     const markers: SourceMarker[] = [];
     for (const diagnostic of this.loadDiagnostics()) {
       markers.push({
@@ -186,9 +182,8 @@ export class App {
       });
     }
     for (const issue of this.validationIssues()) {
-      const position = resolveLocation(issue.location, positions);
       markers.push({
-        line: position?.line ?? null, column: position?.column ?? null,
+        line: issue.line ?? null, column: issue.column ?? null,
         message: `${issue.location}: ${issue.message}`,
         severity: issue.severity === 'Warning' ? 'warning' : 'error',
       });
@@ -639,7 +634,6 @@ export class App {
     this.loadSchemaErrors.set([]);
     this.rootNamespace.set(null);
     this.detectedVersion.set(null);
-    this.loadPositions.set(null);
 
     // Source-first: the file's own text is visible immediately, before (and regardless
     // of) anything the server says. Markers land on this exact text when the parse
@@ -676,13 +670,12 @@ export class App {
     };
     const failInitial = (err: unknown) => {
       const e = err as { error?: { error?: string; diagnostics?: LoadDiagnostic[]; schemaErrors?: SchemaError[];
-        rootNamespace?: string | null; detectedVersion?: string | null; positions?: Record<string, LoadPosition> | null } };
+        rootNamespace?: string | null; detectedVersion?: string | null } };
       this.loadError.set(e?.error?.error ?? 'Failed to load file.');
       this.loadDiagnostics.set(e?.error?.diagnostics ?? []);
       this.loadSchemaErrors.set(e?.error?.schemaErrors ?? []);
       this.rootNamespace.set(e?.error?.rootNamespace ?? null);
       this.detectedVersion.set(e?.error?.detectedVersion ?? null);
-      this.loadPositions.set(e?.error?.positions ?? null);
     };
     this.loadSubscription = this.http.post<{ jobId: string }>('/api/xtce/jobs', formData, {
       reportProgress: true,
@@ -711,7 +704,6 @@ export class App {
     this.loadSchemaErrors.set(result.schemaErrors ?? []);
     this.rootNamespace.set(result.rootNamespace ?? null);
     this.detectedVersion.set(result.detectedVersion ?? null);
-    this.loadPositions.set(result.positions ?? null);
   }
 
   /** Scrolls the source editor to a finding's line, entering source view if needed. */
@@ -738,15 +730,13 @@ export class App {
     if (this.viewMode() !== 'source') {
       this.onShowSource();
     }
-    const position = resolveLocation(issue.location, this.loadPositions());
-    if (position) {
-      this.revealTarget.set({ line: position.line, column: position.column, nonce: ++this.revealNonce });
+    if (issue.line != null) {
+      this.revealTarget.set({ line: issue.line, column: issue.column ?? 1, nonce: ++this.revealNonce });
     }
   }
 
   protected onRevealIssue(issue: ValidationIssue): void {
-    const position = resolveLocation(issue.location, this.loadPositions());
-    this.onRevealLine(position?.line ?? null, position?.column ?? null);
+    this.onRevealLine(issue.line ?? null, issue.column ?? null);
   }
 
   // --- Tree/Source view toggle -----------------------------------------------------------
@@ -845,12 +835,10 @@ export class App {
       }
     };
     const failRescan = (err: unknown) => {
-      const e = err as { error?: { error?: string; diagnostics?: LoadDiagnostic[]; schemaErrors?: SchemaError[];
-        positions?: Record<string, LoadPosition> | null } };
+      const e = err as { error?: { error?: string; diagnostics?: LoadDiagnostic[]; schemaErrors?: SchemaError[] } };
       this.loadError.set(e?.error?.error ?? 'The source text could not be parsed.');
       this.loadDiagnostics.set(e?.error?.diagnostics ?? []);
       this.loadSchemaErrors.set(e?.error?.schemaErrors ?? []);
-      this.loadPositions.set(e?.error?.positions ?? null);
       // A failed re-scan means the current text has no parseable document.
       this.currentDocument.set(null);
       this.validationIssues.set([]);
@@ -884,7 +872,6 @@ export class App {
     this.loadSchemaErrors.set([]);
     this.rootNamespace.set(null);
     this.detectedVersion.set(null);
-    this.loadPositions.set(null);
     this.currentDocument.set(null);
     this.validationIssues.set([]);
     this.viewMode.set('source');

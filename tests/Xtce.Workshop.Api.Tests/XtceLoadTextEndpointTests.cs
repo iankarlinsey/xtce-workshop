@@ -34,7 +34,7 @@ public class XtceLoadTextEndpointTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Sat", body.GetProperty("name").GetString());
-        Assert.Equal("Sat", body.GetProperty("tree").GetProperty("label").GetString());
+        Assert.False(body.TryGetProperty("tree", out _)); // #90 item 1
         Assert.Equal("Sat", body.GetProperty("document").GetProperty("name").GetString());
         Assert.Equal(0, body.GetProperty("diagnostics").GetArrayLength());
         Assert.Equal(0, body.GetProperty("validationIssues").GetArrayLength());

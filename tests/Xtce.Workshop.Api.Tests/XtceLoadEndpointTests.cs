@@ -18,7 +18,7 @@ public class XtceLoadEndpointTests
     public void DisposeFactory() => _factory.Dispose();
 
     [Test]
-    public async Task PostLoad_MinimalValidFile_Returns200WithNameAndTree()
+    public async Task PostLoad_MinimalValidFile_Returns200WithNameAndDocument()
     {
         var client = _factory.CreateClient();
         var repoRoot = FindRepoRoot();
@@ -34,10 +34,8 @@ public class XtceLoadEndpointTests
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Minimal", body.GetProperty("name").GetString());
 
-        var tree = body.GetProperty("tree");
-        Assert.Equal("Minimal", tree.GetProperty("label").GetString());
-        Assert.Equal("SpaceSystem", tree.GetProperty("nodeType").GetString());
-        Assert.Equal(0, tree.GetProperty("children").GetArrayLength());
+        // #90 item 1: the redundant tree is gone — the sidebar renders from document.
+        Assert.False(body.TryGetProperty("tree", out _));
 
         var document = body.GetProperty("document");
         Assert.Equal("Minimal", document.GetProperty("name").GetString());
@@ -70,7 +68,7 @@ public class XtceLoadEndpointTests
     }
 
     [Test]
-    public async Task PostLoad_NestedValidFile_ReturnsFullTreeStructure()
+    public async Task PostLoad_NestedValidFile_ReturnsFullDocumentStructure()
     {
         var client = _factory.CreateClient();
         var repoRoot = FindRepoRoot();
@@ -85,13 +83,13 @@ public class XtceLoadEndpointTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-        var tree = body.GetProperty("tree");
-        Assert.Equal("Mission", tree.GetProperty("label").GetString());
-        var children = tree.GetProperty("children");
+        var document = body.GetProperty("document");
+        Assert.Equal("Mission", document.GetProperty("name").GetString());
+        var children = document.GetProperty("children");
         Assert.Equal(2, children.GetArrayLength());
-        Assert.Equal("Bus", children[0].GetProperty("label").GetString());
+        Assert.Equal("Bus", children[0].GetProperty("name").GetString());
         Assert.Equal(2, children[0].GetProperty("children").GetArrayLength());
-        Assert.Equal("Payload", children[1].GetProperty("label").GetString());
+        Assert.Equal("Payload", children[1].GetProperty("name").GetString());
     }
 
     [Test]

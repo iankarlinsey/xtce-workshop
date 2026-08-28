@@ -47,24 +47,32 @@ public class XtcePositionIndexTests
         """;
 
     [Test]
-    public async Task Load_ReturnsPositionsKeyedByValidatorLocationGrammar()
+    public async Task Load_ResolvesIssuePositionsServerSide_WithAncestorFallback()
     {
         var client = _factory.CreateClient();
+        // Line numbers matter: the dangling Parameter sits on line 6.
+        var xml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="Sat">
+              <TelemetryMetaData>
+                <ParameterTypeSet><IntegerParameterType name="T"/></ParameterTypeSet>
+                <ParameterSet>
+                  <Parameter name="Dangling" parameterTypeRef="Missing"/>
+                </ParameterSet>
+              </TelemetryMetaData>
+            </SpaceSystem>
+            """;
 
-        var response = await client.PostAsJsonAsync("/api/xtce/load-text", new { xml = Document });
+        var response = await client.PostAsJsonAsync("/api/xtce/load-text", new { xml });
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        var positions = body.GetProperty("positions");
 
-        // Every location the validator can cite resolves to the exact source line.
-        Assert.Equal(2, positions.GetProperty("Sat").GetProperty("line").GetInt32());
-        Assert.Equal(5, positions.GetProperty("Sat/ParameterTypeSet/T").GetProperty("line").GetInt32());
-        Assert.Equal(8, positions.GetProperty("Sat/ParameterSet/P").GetProperty("line").GetInt32());
-        Assert.Equal(11, positions.GetProperty("Sat/ContainerSet/C").GetProperty("line").GetInt32());
-        Assert.Equal(16, positions.GetProperty("Sat/MessageSet/M").GetProperty("line").GetInt32());
-        Assert.Equal(23, positions.GetProperty("Sat/CommandMetaData/MetaCommandSet/Cmd").GetProperty("line").GetInt32());
-        Assert.Equal(24, positions.GetProperty("Sat/CommandMetaData/MetaCommandSet/Cmd/CommandContainer").GetProperty("line").GetInt32());
-        Assert.Equal(28, positions.GetProperty("Sat/Bus").GetProperty("line").GetInt32());
-        Assert.True(positions.GetProperty("Sat/ParameterSet/P").GetProperty("column").GetInt32() > 0);
+        // #90 item 2: the per-element positions map is gone; every finding carries the
+        // line/column of its cited location (or of the longest recorded ancestor).
+        Assert.False(body.TryGetProperty("positions", out _));
+        var issue = body.GetProperty("validationIssues").EnumerateArray()
+            .First(i => i.GetProperty("location").GetString()!.EndsWith("Dangling"));
+        Assert.Equal(6, issue.GetProperty("line").GetInt32());
+        Assert.True(issue.GetProperty("column").GetInt32() > 0);
     }
 
     [Test]
