@@ -114,6 +114,22 @@ public static class FragmentEnumerator
             {
                 yield return (fragment, $"{commandPath}/MetaCommandSet");
             }
+
+            foreach (var block in commandMetaData.BlockMetaCommands ?? [])
+            {
+                var blockPath = $"{commandPath}/MetaCommandSet/{block.Name}";
+                foreach (var fragment in block.Preserved ?? [])
+                {
+                    yield return (fragment, blockPath);
+                }
+                foreach (var step in block.Steps ?? [])
+                {
+                    foreach (var fragment in step.Preserved ?? [])
+                    {
+                        yield return (fragment, $"{blockPath}/MetaCommandStep");
+                    }
+                }
+            }
             foreach (var metaCommand in commandMetaData.MetaCommands)
             {
                 var metaCommandPath = $"{commandPath}/MetaCommandSet/{metaCommand.Name}";

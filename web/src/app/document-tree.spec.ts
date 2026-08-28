@@ -239,6 +239,7 @@ describe('selectionForLocation', () => {
     },
     commandMetaData: {
       metaCommands: [{ name: 'Reboot' }],
+      blockMetaCommands: [{ name: 'RebootAll', steps: [{ metaCommandRef: 'Reboot' }] }],
       argumentTypeSet: [{ name: 'CmdU8', kind: 'Integer' as const }],
       parameterTypeSet: [{ name: 'CmdApid_Type', kind: 'Integer' as const }],
       parameterSet: [{ name: 'CmdApid', parameterTypeRef: 'CmdApid_Type' }],
@@ -261,6 +262,12 @@ describe('selectionForLocation', () => {
       .toEqual({ systemPath: [], item: { kind: 'metaCommand', index: 0 } });
     expect(selectionForLocation(doc, 'Sat/CommandMetaData/MetaCommandSet/Reboot/CommandContainer'))
       .toEqual({ systemPath: [], item: { kind: 'metaCommand', index: 0 } });
+  });
+
+  it('maps block commands sharing the MetaCommandSet path', () => {
+    expect(selectionForLocation(doc, 'Sat/CommandMetaData/MetaCommandSet/RebootAll'))
+      .toEqual({ systemPath: [], item: { kind: 'blockMetaCommand', index: 0 } });
+    expect(selectionForLocation(doc, 'Sat/CommandMetaData/MetaCommandSet/NoSuchCmd')).toBeNull();
   });
 
   it('maps argument types under CommandMetaData/ArgumentTypeSet', () => {

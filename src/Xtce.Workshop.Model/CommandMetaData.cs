@@ -76,6 +76,63 @@ public sealed record Argument(
 public sealed record ArgumentAssignment(string ArgumentName, string ArgumentValue);
 
 /// <summary>
+/// One MetaCommandStepList entry inside a BlockMetaCommand (issue #116). The XSD's
+/// step-level list element is literally "ArgumentAssigmentList" (sic — missing n); the
+/// reader accepts both spellings and the writer re-emits the typo for schema validity.
+/// </summary>
+public sealed record MetaCommandStep(
+    string MetaCommandRef,
+    IReadOnlyList<ArgumentAssignment>? ArgumentAssignments = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null)
+{
+    public bool Equals(MetaCommandStep? other) =>
+        other is not null
+        && MetaCommandRef == other.MetaCommandRef
+        && Structural.ListEquals(ArgumentAssignments, other.ArgumentAssignments)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(MetaCommandRef);
+        Structural.AddList(ref hash, ArgumentAssignments);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>A BlockMetaCommand: a named sequence of MetaCommand steps (issue #116).</summary>
+public sealed record BlockMetaCommand(
+    string Name,
+    IReadOnlyList<MetaCommandStep>? Steps = null,
+    IReadOnlyList<RawXmlFragment>? Preserved = null,
+    IReadOnlyList<RawAttribute>? PreservedAttributes = null,
+    Description? Description = null)
+{
+    public bool Equals(BlockMetaCommand? other) =>
+        other is not null
+        && Name == other.Name
+        && Structural.ListEquals(Steps, other.Steps)
+        && Structural.ListEquals(Preserved, other.Preserved)
+        && Structural.ListEquals(PreservedAttributes, other.PreservedAttributes)
+        && Equals(Description, other.Description);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Name);
+        Structural.AddList(ref hash, Steps);
+        Structural.AddList(ref hash, Preserved);
+        Structural.AddList(ref hash, PreservedAttributes);
+        hash.Add(Description);
+        return hash.ToHashCode();
+    }
+}
+
+/// <summary>
 /// A MetaCommand in a CommandMetaData's MetaCommandSet — modeled just deeply enough for
 /// verifier-inheritance validation (rule R12): name, abstract flag, the BaseMetaCommand
 /// reference, and the verifier lists. ExecutionVerifiers/CompleteVerifiers are kept as raw
@@ -350,7 +407,9 @@ public sealed record CommandMetaData(
     IReadOnlyList<RawXmlFragment>? PreservedAlgorithms = null,
     IReadOnlyList<CommandContainer>? CommandContainerSet = null,
     IReadOnlyList<RawXmlFragment>? PreservedCommandContainers = null,
-    IReadOnlyList<StreamDefinition>? StreamSet = null)
+    IReadOnlyList<StreamDefinition>? StreamSet = null,
+    IReadOnlyList<BlockMetaCommand>? BlockMetaCommands = null,
+    IReadOnlyList<string>? MetaCommandRefs = null)
 {
     public bool Equals(CommandMetaData? other) =>
         other is not null
@@ -367,7 +426,9 @@ public sealed record CommandMetaData(
         && Structural.ListEquals(PreservedAlgorithms, other.PreservedAlgorithms)
         && Structural.ListEquals(CommandContainerSet, other.CommandContainerSet)
         && Structural.ListEquals(PreservedCommandContainers, other.PreservedCommandContainers)
-        && Structural.ListEquals(StreamSet, other.StreamSet);
+        && Structural.ListEquals(StreamSet, other.StreamSet)
+        && Structural.ListEquals(BlockMetaCommands, other.BlockMetaCommands)
+        && Structural.ListEquals(MetaCommandRefs, other.MetaCommandRefs);
 
     public override int GetHashCode()
     {
@@ -387,6 +448,8 @@ public sealed record CommandMetaData(
         Structural.AddList(ref hash, CommandContainerSet);
         Structural.AddList(ref hash, PreservedCommandContainers);
         Structural.AddList(ref hash, StreamSet);
+        Structural.AddList(ref hash, BlockMetaCommands);
+        Structural.AddList(ref hash, MetaCommandRefs);
         return hash.ToHashCode();
     }
 }

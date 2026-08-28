@@ -21,6 +21,7 @@ CONSTRUCTS = {
     "SequenceContainer": "SequenceContainerType",
     "Message": "MessageType",
     "MetaCommand": "MetaCommandType",
+    "BlockMetaCommand": "BlockMetaCommandType",
     "IntegerParameterType": "IntegerParameterType",
     "FloatParameterType": "FloatParameterType",
     "StringParameterType": "StringParameterType",

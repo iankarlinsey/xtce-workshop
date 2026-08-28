@@ -216,10 +216,20 @@ public sealed class SpaceSystemContext
                     inlineCommandContainerOwners[inlineContainer.Name] = metaCommand;
                 }
             }
+            foreach (var block in commandMetaData.BlockMetaCommands ?? [])
+            {
+                metaCommandNames.Add(block.Name);
+            }
+            foreach (var reference in commandMetaData.MetaCommandRefs ?? [])
+            {
+                var lastSlash = reference.LastIndexOf('/');
+                metaCommandNames.Add(lastSlash < 0 ? reference : reference[(lastSlash + 1)..]);
+            }
             foreach (var fragment in commandMetaData.PreservedEntries ?? [])
             {
                 // BlockMetaCommand defines a name; MetaCommandRef includes one defined
-                // elsewhere under its reference's last segment.
+                // elsewhere under its reference's last segment. Modeled since #116, but
+                // hand-built documents may still carry them as fragments.
                 if (fragment.ElementName == "BlockMetaCommand" &&
                     XmlFragmentInspector.RootAttribute(fragment.OuterXml, "name") is { } blockName)
                 {

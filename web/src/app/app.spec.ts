@@ -1279,6 +1279,13 @@ describe('App', () => {
                 parameterToSets: [{ parameterRef: 'CmdCount', newValue: '0' }],
               },
             ],
+            blockMetaCommands: [{
+              name: 'RebootSeq',
+              steps: [
+                { metaCommandRef: 'Reboot', argumentAssignments: [{ argumentName: 'delay', argumentValue: '5' }] },
+                { metaCommandRef: 'BaseCmd' },
+              ],
+            }],
           },
         },
       });
@@ -1292,7 +1299,7 @@ describe('App', () => {
 
       expandAllGroups(fixture);
       const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
-      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'CmdApid_Type', 'CmdApid', 'CmdU8', 'BaseCmd', 'Reboot', 'SharedHdr']);
+      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'CmdApid_Type', 'CmdApid', 'CmdU8', 'BaseCmd', 'Reboot', 'RebootSeq', 'SharedHdr']);
 
       clickTreeRowByText(fixture, 'OpsMsg');
       expect((compiled.querySelector('#message-containerref') as HTMLInputElement).value).toBe('Packet');
@@ -1358,6 +1365,31 @@ describe('App', () => {
       fixture.componentInstance.onSaveDocument();
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body.commandMetaData.commandContainerSet[0].baseContainerRef).toBe('Packet');
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('block commands open their form and step edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      clickTreeRowByText(fixture, 'RebootSeq');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('BlockMetaCommand');
+      expect(compiled.textContent).toContain('delay=5');
+      const stepInputs = compiled.querySelectorAll('.entry-edit-row input');
+      expect((stepInputs[0] as HTMLInputElement).value).toBe('Reboot');
+      expect((stepInputs[1] as HTMLInputElement).value).toBe('BaseCmd');
+
+      const secondStep = stepInputs[1] as HTMLInputElement;
+      secondStep.value = 'Reboot';
+      secondStep.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.commandMetaData.blockMetaCommands[0].steps.map(
+        (s: { metaCommandRef: string }) => s.metaCommandRef)).toEqual(['Reboot', 'Reboot']);
       req.flush('<SpaceSystem/>');
     }));
 

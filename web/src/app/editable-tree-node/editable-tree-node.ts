@@ -72,6 +72,7 @@ export class EditableTreeNodeComponent {
       { kind: 'commandParameter', label: 'Command Parameters', names: (node.commandMetaData?.parameterSet ?? []).map((p) => p.name) },
       { kind: 'argumentType', label: 'Argument Types', names: (node.commandMetaData?.argumentTypeSet ?? []).map((t) => t.name) },
       { kind: 'metaCommand', label: 'Commands', names: (node.commandMetaData?.metaCommands ?? []).map((m) => m.name) },
+      { kind: 'blockMetaCommand', label: 'Block Commands', names: (node.commandMetaData?.blockMetaCommands ?? []).map((b) => b.name) },
       { kind: 'commandContainer', label: 'Command Containers', names: (node.commandMetaData?.commandContainerSet ?? []).map((c) => c.name) },
       { kind: 'commandAlgorithm', label: 'Command Algorithms', names: (node.commandMetaData?.algorithmSet ?? []).map((a) => a.name) },
     ];

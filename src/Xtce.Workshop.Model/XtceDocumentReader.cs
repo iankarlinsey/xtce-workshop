@@ -378,6 +378,8 @@ public static class XtceDocumentReader
         List<CommandContainer>? commandContainers = null;
         List<RawXmlFragment>? preservedCommandContainers = null;
         List<StreamDefinition>? commandStreams = null;
+        List<BlockMetaCommand>? blockMetaCommands = null;
+        List<string>? metaCommandRefs = null;
         List<RawXmlFragment>? preservedEntries = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
@@ -395,7 +397,8 @@ public static class XtceDocumentReader
             if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MetaCommandSet")
             {
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
-                ReadMetaCommandSet(reader, metaCommands, ref preservedEntries, recovery, path);
+                ReadMetaCommandSet(reader, metaCommands, ref preservedEntries,
+                    ref blockMetaCommands, ref metaCommandRefs, recovery, path);
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ArgumentTypeSet")
             {
@@ -454,7 +457,7 @@ public static class XtceDocumentReader
 
         return new CommandMetaData(metaCommands, preservedEntries, preserved, argumentTypes, preservedArgumentTypes,
             parameterTypes, preservedParameterTypes, parameters, preservedParameters, algorithms, preservedAlgorithms,
-            commandContainers, preservedCommandContainers, commandStreams);
+            commandContainers, preservedCommandContainers, commandStreams, blockMetaCommands, metaCommandRefs);
     }
 
     private static void ReadArgumentTypeSet(
@@ -506,6 +509,7 @@ public static class XtceDocumentReader
 
     private static void ReadMetaCommandSet(
         XmlReader reader, List<MetaCommand> metaCommands, ref List<RawXmlFragment>? preservedEntries,
+        ref List<BlockMetaCommand>? blockMetaCommands, ref List<string>? metaCommandRefs,
         RecoveryContext? recovery = null, string path = "")
     {
         if (reader.IsEmptyElement)
@@ -532,9 +536,29 @@ public static class XtceDocumentReader
                         r => metaCommands.Add(ReadMetaCommand(r, leading, recovery, $"{path}/CommandMetaData/MetaCommandSet")), ref preservedEntries);
                 }
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "BlockMetaCommand"
+                     && reader.GetAttribute("name") is not null)
+            {
+                DrainComments(ref preservedEntries, ref pendingComments, reader.LocalName);
+                (blockMetaCommands ??= new List<BlockMetaCommand>()).Add(ReadBlockMetaCommand(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MetaCommandRef"
+                     && !reader.IsEmptyElement && reader.AttributeCount == 0)
+            {
+                DrainComments(ref preservedEntries, ref pendingComments, reader.LocalName);
+                var outerXml = reader.ReadOuterXml();
+                if (TryReadTextOnlyElement(outerXml, out var reference))
+                {
+                    (metaCommandRefs ??= new List<string>()).Add(reference.Trim());
+                }
+                else
+                {
+                    (preservedEntries ??= new List<RawXmlFragment>()).Add(new RawXmlFragment("MetaCommandRef", outerXml));
+                }
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // MetaCommandRef, BlockMetaCommand — preserved in the set.
+                // Foreign or unmodelable set entries — preserved in the set.
                 DrainComments(ref preservedEntries, ref pendingComments, reader.LocalName);
                 Preserve(ref preservedEntries, reader);
             }
@@ -701,6 +725,184 @@ public static class XtceDocumentReader
             verifiers, preserved, preservedAttributes,
             commandContainer, arguments, preservedArguments, argumentAssignments,
             transmissionConstraints, parameterToSets, defaultSignificance, interlock, description);
+    }
+
+    private static BlockMetaCommand ReadBlockMetaCommand(XmlReader reader)
+    {
+        var name = RequireAttribute(reader, "name", "a BlockMetaCommand");
+        var preservedAttributes = CapturePreservedAttributes(reader, "name");
+
+        List<MetaCommandStep>? steps = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+        Description? description = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element
+                    && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MetaCommandStepList"
+                         && steps is null && HasOnlyAttributes(reader))
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseMetaCommandStepList(outerXml, out var parsedSteps))
+                    {
+                        steps = parsedSteps;
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("MetaCommandStepList", outerXml));
+                    }
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new BlockMetaCommand(name, steps, preserved, preservedAttributes, description);
+    }
+
+    /// <summary>
+    /// Strict parse of a MetaCommandStepList; false means the caller preserves the whole
+    /// list verbatim (partial-parse rollback — a step missing its required metaCommandRef,
+    /// embedded comments, or unmodelable assignment shapes all bail rather than drop).
+    /// </summary>
+    private static bool TryParseMetaCommandStepList(string outerXml, out List<MetaCommandStep> steps)
+    {
+        steps = new List<MetaCommandStep>();
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.Read();
+            if (reader.IsEmptyElement)
+            {
+                return true;
+            }
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "MetaCommandStep"
+                    && reader.GetAttribute("metaCommandRef") is { } metaCommandRef)
+                {
+                    var preservedAttributes = CapturePreservedAttributes(reader, "metaCommandRef");
+                    List<ArgumentAssignment>? assignments = null;
+                    List<RawXmlFragment>? preserved = null;
+
+                    if (reader.IsEmptyElement)
+                    {
+                        reader.Read();
+                    }
+                    else
+                    {
+                        reader.ReadStartElement();
+                        while (reader.NodeType != XmlNodeType.EndElement)
+                        {
+                            // "ArgumentAssigmentList" is the XSD's own typo; accept the
+                            // corrected spelling too. The writer re-emits the typo.
+                            if (reader.NodeType == XmlNodeType.Element
+                                && reader.LocalName is "ArgumentAssigmentList" or "ArgumentAssignmentList"
+                                && assignments is null && HasOnlyAttributes(reader))
+                            {
+                                assignments = new List<ArgumentAssignment>();
+                                if (!TryReadStrictArgumentAssignments(reader, assignments))
+                                {
+                                    return false;
+                                }
+                            }
+                            else if (reader.NodeType == XmlNodeType.Element)
+                            {
+                                Preserve(ref preserved, reader);
+                            }
+                            else if (reader.NodeType is XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                            {
+                                return false;
+                            }
+                            else
+                            {
+                                reader.Read();
+                            }
+                        }
+                        reader.ReadEndElement();
+                    }
+
+                    steps.Add(new MetaCommandStep(metaCommandRef, assignments, preserved, preservedAttributes));
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads an assignment list allowing only empty ArgumentAssignment elements with
+    /// exactly the two required attributes; anything else fails the step-list parse.
+    /// </summary>
+    private static bool TryReadStrictArgumentAssignments(XmlReader reader, List<ArgumentAssignment> assignments)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return true;
+        }
+        reader.ReadStartElement();
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ArgumentAssignment"
+                && reader.IsEmptyElement && reader.AttributeCount == 2
+                && reader.GetAttribute("argumentName") is { } argumentName
+                && reader.GetAttribute("argumentValue") is { } argumentValue)
+            {
+                assignments.Add(new ArgumentAssignment(argumentName, argumentValue));
+                reader.Read();
+            }
+            else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+            {
+                return false;
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+        reader.ReadEndElement();
+        return true;
     }
 
     private static void ReadTransmissionConstraintList(XmlReader reader, List<TransmissionConstraint> constraints)

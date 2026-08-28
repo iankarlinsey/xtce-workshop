@@ -66,6 +66,10 @@ public static class XtceDocumentQuery
             {
                 AddIfMatched(matches, matcher, "MetaCommand", context.Path, metaCommand.Name, metaCommand.Preserved, metaCommand.Description);
             }
+            foreach (var block in context.Node.CommandMetaData?.BlockMetaCommands ?? [])
+            {
+                AddIfMatched(matches, matcher, "BlockMetaCommand", context.Path, block.Name, block.Preserved, block.Description);
+            }
             foreach (var algorithm in telemetry?.AlgorithmSet ?? [])
             {
                 AddIfMatched(matches, matcher, "Algorithm", context.Path, algorithm.Name, algorithm.Preserved, algorithm.Description);

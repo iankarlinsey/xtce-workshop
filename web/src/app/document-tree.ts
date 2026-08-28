@@ -322,8 +322,23 @@ export interface MetaCommandDoc {
   [key: string]: unknown;
 }
 
+export interface MetaCommandStepDoc {
+  metaCommandRef: string;
+  argumentAssignments?: ArgumentAssignmentDoc[] | null;
+  [key: string]: unknown;
+}
+
+export interface BlockMetaCommandDoc {
+  name: string;
+  steps?: MetaCommandStepDoc[] | null;
+  description?: DescriptionDoc | null;
+  [key: string]: unknown;
+}
+
 export interface CommandMetaDataDoc {
   metaCommands: MetaCommandDoc[];
+  blockMetaCommands?: BlockMetaCommandDoc[] | null;
+  metaCommandRefs?: string[] | null;
   argumentTypeSet?: ParameterTypeDoc[] | null;
   parameterTypeSet?: ParameterTypeDoc[] | null;
   parameterSet?: ParameterDoc[] | null;
@@ -365,7 +380,8 @@ export type NodePath = number[];
 export type ItemKind =
   | 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand'
   | 'argumentType' | 'commandParameterType' | 'commandParameter'
-  | 'algorithm' | 'commandAlgorithm' | 'commandContainer' | 'stream' | 'service';
+  | 'algorithm' | 'commandAlgorithm' | 'commandContainer' | 'stream' | 'service'
+  | 'blockMetaCommand';
 
 /**
  * What the user has selected: a SpaceSystem (item undefined), or one telemetry item
@@ -436,7 +452,8 @@ export function deleteNodeAtPath(doc: SpaceSystemDocument, path: NodePath): Spac
   }));
 }
 
-export type TelemetryItem = ParameterTypeDoc | ParameterDoc | SequenceContainerDoc | MessageDoc | MetaCommandDoc;
+export type TelemetryItem =
+  ParameterTypeDoc | ParameterDoc | SequenceContainerDoc | MessageDoc | MetaCommandDoc | BlockMetaCommandDoc;
 
 function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly TelemetryItem[] {
   switch (kind) {
@@ -466,6 +483,8 @@ function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly Telemetr
       return system.telemetryMetaData?.streamSet ?? [];
     case 'service':
       return system.serviceSet ?? [];
+    case 'blockMetaCommand':
+      return system.commandMetaData?.blockMetaCommands ?? [];
   }
 }
 
@@ -528,6 +547,10 @@ function withUpdatedList(
       return { ...system, telemetryMetaData: { ...telemetry, streamSet: update(telemetry.streamSet ?? []) as StreamDoc[] } };
     case 'service':
       return { ...system, serviceSet: update(system.serviceSet ?? []) as ServiceDoc[] };
+    case 'blockMetaCommand': {
+      const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
+      return { ...system, commandMetaData: { ...commandMetaData, blockMetaCommands: update(commandMetaData.blockMetaCommands ?? []) as BlockMetaCommandDoc[] } };
+    }
   }
 }
 
@@ -587,9 +610,12 @@ export function collectContainerNames(doc: SpaceSystemDocument): string[] {
   return collectNames(doc, (t) => t.telemetryMetaData?.containerSet);
 }
 
-/** Every MetaCommand name in the document — datalist fodder for metaCommandRef inputs. */
+/** Every MetaCommand and BlockMetaCommand name — datalist fodder for metaCommandRef inputs. */
 export function collectMetaCommandNames(doc: SpaceSystemDocument): string[] {
-  return collectNames(doc, (t) => t.commandMetaData?.metaCommands);
+  return collectNames(doc, (t) => [
+    ...(t.commandMetaData?.metaCommands ?? []),
+    ...(t.commandMetaData?.blockMetaCommands ?? []),
+  ]);
 }
 
 /** Every argument-type name in the document — datalist fodder for argumentTypeRef inputs. */
@@ -657,8 +683,18 @@ export function selectionForLocation(doc: SpaceSystemDocument, location: string)
       items = itemLists[segment].items;
       nameIndex = i + 1;
     } else if (segment === 'CommandMetaData' && segments[i + 1] === 'MetaCommandSet') {
-      kind = 'metaCommand';
-      items = node.commandMetaData?.metaCommands ?? [];
+      // MetaCommands and BlockMetaCommands share the set (and its namespace).
+      const setName = segments[i + 2];
+      const metaCommands = node.commandMetaData?.metaCommands ?? [];
+      const blocks = node.commandMetaData?.blockMetaCommands ?? [];
+      if (setName !== undefined && !metaCommands.some((m) => m.name === setName)
+          && blocks.some((b) => b.name === setName)) {
+        kind = 'blockMetaCommand';
+        items = blocks;
+      } else {
+        kind = 'metaCommand';
+        items = metaCommands;
+      }
       nameIndex = i + 2;
     } else if (segment === 'CommandMetaData' && segments[i + 1] === 'ArgumentTypeSet') {
       kind = 'argumentType';

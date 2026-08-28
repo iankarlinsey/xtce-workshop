@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="BlockDemo">
+  <CommandMetaData>
+    <ArgumentTypeSet>
+      <IntegerArgumentType name="ChannelType" signed="false" sizeInBits="8"/>
+    </ArgumentTypeSet>
+    <MetaCommandSet>
+      <MetaCommand name="Arm">
+        <ArgumentList>
+          <Argument name="Channel" argumentTypeRef="ChannelType"/>
+        </ArgumentList>
+      </MetaCommand>
+      <MetaCommand name="Fire"/>
+      <MetaCommandRef>Payload/Deploy</MetaCommandRef>
+      <BlockMetaCommand name="ArmAndFire">
+        <LongDescription>Arms the selected channel, then fires.</LongDescription>
+        <MetaCommandStepList>
+          <MetaCommandStep metaCommandRef="Arm">
+            <ArgumentAssigmentList>
+              <ArgumentAssignment argumentName="Channel" argumentValue="3"/>
+            </ArgumentAssigmentList>
+          </MetaCommandStep>
+          <MetaCommandStep metaCommandRef="Fire"/>
+        </MetaCommandStepList>
+      </BlockMetaCommand>
+    </MetaCommandSet>
+  </CommandMetaData>
+</SpaceSystem>

@@ -346,6 +346,11 @@ public static class XtceDocumentWriter
         writer.WriteEndElement();
     }
 
+    private static readonly string[] BlockMetaCommandChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet", "MetaCommandStepList",
+    ];
+
     private static readonly string[] CommandMetaDataChildOrder =
     [
         "ParameterTypeSet", "ParameterSet", "ArgumentTypeSet", "MetaCommandSet",
@@ -440,7 +445,10 @@ public static class XtceDocumentWriter
             }));
         }
 
-        if (commandMetaData.MetaCommands.Count > 0 || commandMetaData.PreservedEntries is { Count: > 0 })
+        if (commandMetaData.MetaCommands.Count > 0
+            || commandMetaData.BlockMetaCommands is { Count: > 0 }
+            || commandMetaData.MetaCommandRefs is { Count: > 0 }
+            || commandMetaData.PreservedEntries is { Count: > 0 })
         {
             slots.Add(("MetaCommandSet", () =>
             {
@@ -449,6 +457,16 @@ public static class XtceDocumentWriter
                 {
                     WriteMetaCommand(writer, metaCommand);
                 }
+                foreach (var reference in commandMetaData.MetaCommandRefs ?? [])
+                {
+                    writer.WriteStartElement("MetaCommandRef", XtceNamespace);
+                    writer.WriteString(reference);
+                    writer.WriteEndElement();
+                }
+                foreach (var block in commandMetaData.BlockMetaCommands ?? [])
+                {
+                    WriteBlockMetaCommand(writer, block);
+                }
                 WriteFragments(writer, commandMetaData.PreservedEntries);
                 writer.WriteEndElement();
             }));
@@ -456,6 +474,51 @@ public static class XtceDocumentWriter
 
         EmitInSchemaOrder(CommandMetaDataChildOrder, slots);
 
+        writer.WriteEndElement();
+    }
+
+    private static void WriteBlockMetaCommand(XmlWriter writer, BlockMetaCommand block)
+    {
+        writer.WriteStartElement("BlockMetaCommand", XtceNamespace);
+        writer.WriteAttributeString("name", block.Name);
+        WritePreservedAttributes(writer, block.PreservedAttributes);
+
+        var slots = new List<(string Name, Action Emit)>();
+        AddDescriptionSlots(writer, block.Description, slots);
+
+        if (block.Steps is { } steps)
+        {
+            slots.Add(("MetaCommandStepList", () =>
+            {
+                writer.WriteStartElement("MetaCommandStepList", XtceNamespace);
+                foreach (var step in steps)
+                {
+                    writer.WriteStartElement("MetaCommandStep", XtceNamespace);
+                    writer.WriteAttributeString("metaCommandRef", step.MetaCommandRef);
+                    WritePreservedAttributes(writer, step.PreservedAttributes);
+                    if (step.ArgumentAssignments is { } assignments)
+                    {
+                        // "ArgumentAssigmentList" (sic) is the XSD's spelling of the
+                        // step-level list; the corrected spelling does not validate here.
+                        writer.WriteStartElement("ArgumentAssigmentList", XtceNamespace);
+                        foreach (var assignment in assignments)
+                        {
+                            writer.WriteStartElement("ArgumentAssignment", XtceNamespace);
+                            writer.WriteAttributeString("argumentName", assignment.ArgumentName);
+                            writer.WriteAttributeString("argumentValue", assignment.ArgumentValue);
+                            writer.WriteEndElement();
+                        }
+                        writer.WriteEndElement();
+                    }
+                    WriteFragments(writer, step.Preserved);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }));
+        }
+
+        AddPreservedSlots(slots, writer, block.Preserved);
+        EmitInSchemaOrder(BlockMetaCommandChildOrder, slots);
         writer.WriteEndElement();
     }
 

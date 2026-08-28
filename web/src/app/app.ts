@@ -23,6 +23,8 @@ import {
   RestrictionCriteriaDoc,
   MessageDoc,
   MetaCommandDoc,
+  BlockMetaCommandDoc,
+  MetaCommandStepDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -332,6 +334,15 @@ export class App {
     return getItemAtSelection(doc, selection) as CommandContainerDoc | null;
   });
 
+  protected readonly selectedBlockMetaCommand = computed(() => {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection || selection.item?.kind !== 'blockMetaCommand') {
+      return null;
+    }
+    return getItemAtSelection(doc, selection) as BlockMetaCommandDoc | null;
+  });
+
   protected readonly selectedMetaCommand = computed(() => {
     const doc = this.currentDocument();
     const selection = this.selection();
@@ -413,6 +424,8 @@ export class App {
         return XTCE_REFERENCE['Message'] ?? null;
       case 'metaCommand':
         return XTCE_REFERENCE['MetaCommand'] ?? null;
+      case 'blockMetaCommand':
+        return XTCE_REFERENCE['BlockMetaCommand'] ?? null;
     }
   });
 
@@ -1152,6 +1165,16 @@ export class App {
     this.creating.set(null);
   }
 
+  onBlockStepRefInput(index: number, event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const block = item as BlockMetaCommandDoc;
+      const steps = [...(block.steps ?? [])];
+      steps[index] = { ...steps[index], metaCommandRef: value };
+      return { ...block, steps };
+    });
+  }
+
   onCreateMetaCommand(nameInput: HTMLInputElement): void {
     const name = nameInput.value.trim();
     if (!name) {
@@ -1723,6 +1746,13 @@ export class App {
   }
 
   /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */
+  /** "Channel=3, Mode=SAFE" for a block step's argument assignments; '' when none. */
+  protected stepAssignmentSummary(step: MetaCommandStepDoc): string {
+    return (step.argumentAssignments ?? [])
+      .map((a) => `${a.argumentName}=${a.argumentValue}`)
+      .join(', ');
+  }
+
   protected entryMechanics(entry: SequenceEntryDoc): string {
     const parts: string[] = [];
     if (entry.location) {
@@ -1895,6 +1925,7 @@ export class App {
       Container: { kind: 'container', items: node.telemetryMetaData?.containerSet ?? undefined },
       Message: { kind: 'message', items: node.telemetryMetaData?.messageSet?.messages },
       MetaCommand: { kind: 'metaCommand', items: node.commandMetaData?.metaCommands },
+      BlockMetaCommand: { kind: 'blockMetaCommand', items: node.commandMetaData?.blockMetaCommands ?? undefined },
       ArgumentType: { kind: 'argumentType', items: node.commandMetaData?.argumentTypeSet ?? undefined },
       CommandParameterType: { kind: 'commandParameterType', items: node.commandMetaData?.parameterTypeSet ?? undefined },
       CommandParameter: { kind: 'commandParameter', items: node.commandMetaData?.parameterSet ?? undefined },

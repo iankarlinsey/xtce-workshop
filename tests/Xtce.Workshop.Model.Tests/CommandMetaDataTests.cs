@@ -74,7 +74,9 @@ public class CommandMetaDataTests
         var argumentType = Assert.Single(loaded.CommandMetaData!.ArgumentTypeSet ?? []);
         Assert.Equal(("ArgT", ParameterTypeKind.Integer), (argumentType.Name, argumentType.Kind));
         Assert.Null(loaded.CommandMetaData.Preserved);
-        Assert.Equal(["BlockMetaCommand"], loaded.CommandMetaData.PreservedEntries!.Select(f => f.ElementName).ToList());
+        // BlockMetaCommand is modeled since #116 — no longer a preserved set entry.
+        Assert.Null(loaded.CommandMetaData.PreservedEntries);
+        Assert.Equal("Block", Assert.Single(loaded.CommandMetaData.BlockMetaCommands!).Name);
 
         var written = XtceDocumentWriter.Write(loaded);
         var reloaded = XtceDocumentReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(written)));

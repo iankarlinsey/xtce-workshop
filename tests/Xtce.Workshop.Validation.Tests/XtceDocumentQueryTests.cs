@@ -46,6 +46,20 @@ public class XtceDocumentQueryTests
     }
 
     [Test]
+    public void Search_FindsBlockMetaCommands()
+    {
+        var tree = new SpaceSystem("Root", [], CommandMetaData: new CommandMetaData(
+            [new MetaCommand("Arm")],
+            BlockMetaCommands: [new BlockMetaCommand("ArmAndFire", [new MetaCommandStep("Arm")])]));
+
+        var matches = XtceDocumentQuery.Search(tree, "ArmAndFire");
+
+        var match = Assert.Single(matches);
+        Assert.Equal("BlockMetaCommand", match.Kind);
+        Assert.Equal("Root", match.SystemPath);
+    }
+
+    [Test]
     public void Search_GlobRequiresFullMatch()
     {
         var matches = XtceDocumentQuery.Search(SampleTree(), "B*age");

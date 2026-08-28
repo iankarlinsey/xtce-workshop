@@ -919,6 +919,34 @@
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
+      } @else if (selectedBlockMetaCommand(); as block) {
+        <div class="node-title">
+          <span>{{ block.name }}</span>
+          <span class="type-badge">BlockMetaCommand</span>
+        </div>
+        <div class="form-field">
+          <label for="block-name">Name</label>
+          <input id="block-name" [value]="block.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        @if ((block.steps ?? []).length === 0) {
+          <p class="meta-text">No steps.</p>
+        } @else {
+          <div class="form-field entry-editor">
+            <label>Steps <span class="hint">(executed in order)</span></label>
+            @for (step of block.steps ?? []; track $index) {
+              <div class="entry-edit-row">
+                <input list="known-metacommand-names" [value]="step.metaCommandRef" (input)="onBlockStepRefInput($index, $event)" />
+                @if (stepAssignmentSummary(step); as assignments) {
+                  <span class="meta-text">{{ assignments }}</span>
+                }
+              </div>
+            }
+          </div>
+        }
+        <app-preserved-xml [item]="block" />
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
       } @else if (selectedStream(); as stream) {
         <div class="node-title">
           <span>{{ stream.name }}</span>

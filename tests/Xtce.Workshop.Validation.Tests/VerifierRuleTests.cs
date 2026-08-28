@@ -99,6 +99,23 @@ public class VerifierRuleTests
     }
 
     [Test]
+    public void ModeledBlockAndRefNames_ResolveBaseMetaCommandRefs()
+    {
+        // BlockMetaCommands define command names; MetaCommandRefs include one under the
+        // reference's last segment (both modeled since #116).
+        var issues = XtceValidator.Validate(new SpaceSystem("S", [],
+            CommandMetaData: new CommandMetaData(
+                [
+                    new MetaCommand("OnBlock", BaseMetaCommandRef: "TwoStep"),
+                    new MetaCommand("OnIncluded", BaseMetaCommandRef: "Included"),
+                ],
+                BlockMetaCommands: [new BlockMetaCommand("TwoStep", [])],
+                MetaCommandRefs: ["Other/Included"])));
+
+        Assert.DoesNotContain(issues, i => i.RuleId == R11);
+    }
+
+    [Test]
     public void BaseInParentSpaceSystem_IsResolvedForTheMerge()
     {
         var shared = Verifier("CompleteVerifier", "1");
