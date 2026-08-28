@@ -1,4 +1,4 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
 import {
   SpaceSystemDocument,
   NodePath,
@@ -84,17 +84,36 @@ export class EditableTreeNodeComponent {
   /** Groups the user explicitly opened; everything starts collapsed. */
   private readonly expandedGroups = signal<ReadonlySet<ItemKind>>(new Set());
 
+  /** The selection this node last reacted to — auto-expansion fires once per change. */
+  private lastSeenSelection: Selection | null = null;
+
+  constructor() {
+    // A selection ARRIVING in this node (finding/search navigation) must not hide
+    // inside a collapsed group, so its group auto-expands — once per selection change.
+    // An explicit header click afterwards still collapses it (issue #99): the click
+    // isn't fought by a standing pin, because this reacts to selection changes only.
+    effect(() => {
+      const selection = this.selection();
+      untracked(() => {
+        if (selectionsEqual(selection, this.lastSeenSelection)) {
+          return;
+        }
+        this.lastSeenSelection = selection;
+        if (
+          selection?.item &&
+          selection.systemPath.length === this.path().length &&
+          selection.systemPath.every((index, i) => index === this.path()[i]) &&
+          !this.expandedGroups().has(selection.item.kind)
+        ) {
+          this.expandedGroups.set(new Set([...this.expandedGroups(), selection.item.kind]));
+        }
+      });
+    });
+  }
+
   protected isGroupExpanded(kind: ItemKind): boolean {
     if (this.searchTerm().trim()) {
       return true; // searching shows the matches, not the collapse state
-    }
-    const selection = this.selection();
-    if (
-      selection?.item?.kind === kind &&
-      selection.systemPath.length === this.path().length &&
-      selection.systemPath.every((index, i) => index === this.path()[i])
-    ) {
-      return true; // the selected item must never hide inside a collapsed group
     }
     return this.expandedGroups().has(kind);
   }

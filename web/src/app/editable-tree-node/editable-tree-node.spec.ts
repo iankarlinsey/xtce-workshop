@@ -96,6 +96,36 @@ describe('EditableTreeNodeComponent', () => {
     expect(labels).toEqual(['Frame']); // only the selected item's group is open
   });
 
+  it('an explicit header click collapses the group even while the selection is inside it (issue #99)', () => {
+    const fixture = render(withTelemetry(), [], { systemPath: [], item: { kind: 'container', index: 0 } });
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.item-row')).not.toBeNull(); // auto-shown for the selection
+
+    (Array.from(compiled.querySelectorAll('.group-row')).find((r) =>
+      r.textContent?.includes('Containers')) as HTMLElement).click();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.item-row')).toBeNull(); // the user's collapse wins
+  });
+
+  it('a selection arriving from outside re-expands a group the user had collapsed', () => {
+    const fixture = render(withTelemetry(), [], { systemPath: [], item: { kind: 'container', index: 0 } });
+    const compiled = fixture.nativeElement as HTMLElement;
+    (Array.from(compiled.querySelectorAll('.group-row')).find((r) =>
+      r.textContent?.includes('Containers')) as HTMLElement).click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('.item-row')).toBeNull();
+
+    // A finding/search jump moves the selection elsewhere, then back into the group.
+    fixture.componentRef.setInput('selection', { systemPath: [], item: { kind: 'parameter', index: 0 } });
+    fixture.detectChanges();
+    fixture.componentRef.setInput('selection', { systemPath: [], item: { kind: 'container', index: 0 } });
+    fixture.detectChanges();
+
+    const labels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
+    expect(labels).toContain('Frame');
+  });
+
   it('emits an item selection when an item row is clicked', () => {
     const fixture = render(withTelemetry());
     let emitted: Selection | undefined;
