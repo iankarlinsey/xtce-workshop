@@ -22,6 +22,7 @@ import {
   RestrictionCriteriaDoc,
   MessageDoc,
   MetaCommandDoc,
+  CommandContainerDoc,
   CommandVerifierDoc,
   TransmissionConstraintDoc,
   AlgorithmDoc,
@@ -301,6 +302,15 @@ export class App {
     return getItemAtSelection(doc, selection) as AlgorithmDoc | null;
   });
 
+  protected readonly selectedCommandContainer = computed(() => {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection || selection.item?.kind !== 'commandContainer') {
+      return null;
+    }
+    return getItemAtSelection(doc, selection) as CommandContainerDoc | null;
+  });
+
   protected readonly selectedMetaCommand = computed(() => {
     const doc = this.currentDocument();
     const selection = this.selection();
@@ -364,6 +374,8 @@ export class App {
       }
       case 'commandParameter':
         return XTCE_REFERENCE['Parameter'] ?? null;
+      case 'commandContainer':
+        return XTCE_REFERENCE['SequenceContainer'] ?? null;
       case 'algorithm':
       case 'commandAlgorithm': {
         const algorithm = this.selectedAlgorithm();
@@ -1849,6 +1861,7 @@ export class App {
       CommandParameter: { kind: 'commandParameter', items: node.commandMetaData?.parameterSet ?? undefined },
       Algorithm: { kind: 'algorithm', items: node.telemetryMetaData?.algorithmSet ?? undefined },
       CommandAlgorithm: { kind: 'commandAlgorithm', items: node.commandMetaData?.algorithmSet ?? undefined },
+      CommandContainer: { kind: 'commandContainer', items: node.commandMetaData?.commandContainerSet ?? undefined },
     };
     const target = lists[match.kind];
     const itemIndex = target.items?.findIndex((item) => item.name === match.name) ?? -1;

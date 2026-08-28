@@ -116,8 +116,9 @@ public class CommandMetaDataTests
         Assert.Equal((ParameterTypeKind.Integer, 11L), (type.Kind, type.DataEncoding!.SizeInBits!.Value));
         var parameter = Assert.Single(commandMetaData.ParameterSet ?? []);
         Assert.Equal(("CMD_APID", "CMD_APID_Type"), (parameter.Name, parameter.ParameterTypeRef));
-        // CommandContainerSet stays a fragment.
-        Assert.Equal(["CommandContainerSet"], commandMetaData.Preserved!.Select(f => f.ElementName).ToList());
+        // CommandContainerSet is modeled since #111.
+        Assert.Null(commandMetaData.Preserved);
+        Assert.Equal("Shared", commandMetaData.CommandContainerSet!.Single().Name);
 
         var written = XtceDocumentWriter.Write(loaded);
         Assert.Equal(loaded, XtceDocumentReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(written))));

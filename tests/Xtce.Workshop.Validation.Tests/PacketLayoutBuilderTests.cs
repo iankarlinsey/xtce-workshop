@@ -385,4 +385,40 @@ public class PacketLayoutBuilderTests
         Assert.Equal("\u00d74 repeat", layout.Rows[1].Note);
         Assert.Equal(56, layout.TotalSizeInBits);
     }
+
+    [Test]
+    public void StandaloneCommandContainer_LaysOut_AndServesAsABase()
+    {
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <CommandMetaData>
+                <ArgumentTypeSet>
+                  <IntegerArgumentType name="U8"><IntegerDataEncoding sizeInBits="8"/></IntegerArgumentType>
+                </ArgumentTypeSet>
+                <CommandContainerSet>
+                  <CommandContainer name="SharedHeader">
+                    <EntryList><FixedValueEntry binaryValue="1ACF" sizeInBits="16"/></EntryList>
+                  </CommandContainer>
+                </CommandContainerSet>
+                <MetaCommandSet>
+                  <MetaCommand name="Cmd">
+                    <ArgumentList><Argument name="opcode" argumentTypeRef="U8"/></ArgumentList>
+                    <CommandContainer name="CmdFrame">
+                      <EntryList><ArgumentRefEntry argumentRef="opcode"/></EntryList>
+                      <BaseContainer containerRef="SharedHeader"/>
+                    </CommandContainer>
+                  </MetaCommand>
+                </MetaCommandSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """;
+        var root = XtceDocumentReader.Load(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        var standalone = PacketLayoutBuilder.Build(root, [], "SharedHeader")!;
+        Assert.Equal(16, standalone.TotalSizeInBits);
+
+        var full = PacketLayoutBuilder.Build(root, [], "CmdFrame")!;
+        Assert.Equal([16L, 8L], full.Rows.Select(r => r.SizeInBits).ToList());
+        Assert.Equal(24, full.TotalSizeInBits);
+    }
 }

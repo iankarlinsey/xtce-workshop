@@ -882,6 +882,42 @@
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
+      } @else if (selectedCommandContainer(); as standaloneContainer) {
+        <div class="node-title">
+          <span>{{ standaloneContainer.name }}</span>
+          <span class="type-badge">CommandContainer</span>
+        </div>
+
+        <div class="form-field">
+          <label for="cc-name">Name</label>
+          <input id="cc-name" [value]="standaloneContainer.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        <div class="form-field">
+          <label for="cc-baseref">Base container ref <span class="hint">(inheritance, optional)</span></label>
+          <input id="cc-baseref" list="known-container-names" [value]="standaloneContainer.baseContainerRef ?? ''" (input)="onItemFieldInput('baseContainerRef', $event)" />
+        </div>
+        @if ((standaloneContainer.entryList ?? []).length === 0) {
+          <p class="meta-text">No entries.</p>
+        } @else {
+          <div class="form-field entry-editor">
+            <label>Entry list <span class="hint">(order is the packet layout)</span></label>
+            @for (entry of standaloneContainer.entryList ?? []; track $index) {
+              <div class="entry-edit-row">
+                <span class="entry-kind">{{ entryLabel(entry) }}</span>
+                <span class="meta-text">{{ entry.ref ?? entry.binaryValue ?? entry.rawXml?.elementName }}</span>
+                @if (entryMechanics(entry); as mechanics) {
+                  <span class="meta-text">{{ mechanics }}</span>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <app-preserved-xml [item]="standaloneContainer" />
+
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
       } @else if (selectedAlgorithm(); as algorithm) {
         <div class="node-title">
           <span>{{ algorithm.name }}</span>

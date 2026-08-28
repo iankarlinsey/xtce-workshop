@@ -368,6 +368,8 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preservedParameters = null;
         List<Algorithm>? algorithms = null;
         List<RawXmlFragment>? preservedAlgorithms = null;
+        List<CommandContainer>? commandContainers = null;
+        List<RawXmlFragment>? preservedCommandContainers = null;
         List<RawXmlFragment>? preservedEntries = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
@@ -414,10 +416,16 @@ public static class XtceDocumentReader
                 algorithms = new List<Algorithm>();
                 ReadAlgorithmSet(reader, algorithms, ref preservedAlgorithms);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CommandContainerSet"
+                     && commandContainers is null)
+            {
+                DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                commandContainers = new List<CommandContainer>();
+                ReadCommandContainerSet(reader, commandContainers, ref preservedCommandContainers);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // CommandContainerSet, StreamSet — whole fragments; their definitions
-                // still feed the reference namespaces via SpaceSystemContext's scanning.
+                // StreamSet — a whole fragment.
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                 Preserve(ref preserved, reader);
             }
@@ -431,7 +439,8 @@ public static class XtceDocumentReader
         reader.ReadEndElement();
 
         return new CommandMetaData(metaCommands, preservedEntries, preserved, argumentTypes, preservedArgumentTypes,
-            parameterTypes, preservedParameterTypes, parameters, preservedParameters, algorithms, preservedAlgorithms);
+            parameterTypes, preservedParameterTypes, parameters, preservedParameters, algorithms, preservedAlgorithms,
+            commandContainers, preservedCommandContainers);
     }
 
     private static void ReadArgumentTypeSet(
@@ -902,6 +911,37 @@ public static class XtceDocumentReader
                 reader.Read();
             }
         }
+        reader.ReadEndElement();
+    }
+
+    private static void ReadCommandContainerSet(
+        XmlReader reader, List<CommandContainer> containers, ref List<RawXmlFragment>? preservedContainers)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "CommandContainer"
+                && reader.GetAttribute("name") is not null)
+            {
+                containers.Add(ReadCommandContainer(reader));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                Preserve(ref preservedContainers, reader);
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
         reader.ReadEndElement();
     }
 

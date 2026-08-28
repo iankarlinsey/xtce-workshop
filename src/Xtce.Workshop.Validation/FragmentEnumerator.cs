@@ -68,6 +68,37 @@ public static class FragmentEnumerator
             {
                 yield return pair;
             }
+            foreach (var fragment in commandMetaData.PreservedCommandContainers ?? [])
+            {
+                yield return (fragment, $"{commandPath}/CommandContainerSet");
+            }
+            foreach (var container in commandMetaData.CommandContainerSet ?? [])
+            {
+                var standalonePath = $"{commandPath}/CommandContainerSet/{container.Name}";
+                foreach (var fragment in container.Preserved ?? [])
+                {
+                    yield return (fragment, standalonePath);
+                }
+                foreach (var fragment in container.BaseContainerPreserved ?? [])
+                {
+                    yield return (fragment, standalonePath);
+                }
+                foreach (var entry in container.EntryList ?? [])
+                {
+                    if (entry.RawXml is { } rawEntry)
+                    {
+                        yield return (rawEntry, standalonePath);
+                    }
+                    foreach (var fragment in entry.Preserved ?? [])
+                    {
+                        yield return (fragment, standalonePath);
+                    }
+                    foreach (var fragment in entry.IncludeCondition?.Preserved ?? [])
+                    {
+                        yield return (fragment, standalonePath);
+                    }
+                }
+            }
             foreach (var fragment in commandMetaData.PreservedEntries ?? [])
             {
                 yield return (fragment, $"{commandPath}/MetaCommandSet");

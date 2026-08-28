@@ -70,6 +70,7 @@ export class EditableTreeNodeComponent {
       { kind: 'commandParameter', label: 'Command Parameters', names: (node.commandMetaData?.parameterSet ?? []).map((p) => p.name) },
       { kind: 'argumentType', label: 'Argument Types', names: (node.commandMetaData?.argumentTypeSet ?? []).map((t) => t.name) },
       { kind: 'metaCommand', label: 'Commands', names: (node.commandMetaData?.metaCommands ?? []).map((m) => m.name) },
+      { kind: 'commandContainer', label: 'Command Containers', names: (node.commandMetaData?.commandContainerSet ?? []).map((c) => c.name) },
       { kind: 'commandAlgorithm', label: 'Command Algorithms', names: (node.commandMetaData?.algorithmSet ?? []).map((a) => a.name) },
     ];
     return sources
@@ -170,6 +171,7 @@ function matchesOrHasMatch(node: SpaceSystemDocument, lowerCaseTerm: string): bo
     ...(telemetry?.messageSet?.messages ?? []).map((m) => m.name),
     ...(telemetry?.algorithmSet ?? []).map((a) => a.name),
     ...(node.commandMetaData?.algorithmSet ?? []).map((a) => a.name),
+    ...(node.commandMetaData?.commandContainerSet ?? []).map((c) => c.name),
     ...(node.commandMetaData?.parameterTypeSet ?? []).map((t) => t.name),
     ...(node.commandMetaData?.parameterSet ?? []).map((p) => p.name),
     ...(node.commandMetaData?.argumentTypeSet ?? []).map((t) => t.name),

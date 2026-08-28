@@ -306,6 +306,7 @@ export interface CommandMetaDataDoc {
   parameterTypeSet?: ParameterTypeDoc[] | null;
   parameterSet?: ParameterDoc[] | null;
   algorithmSet?: AlgorithmDoc[] | null;
+  commandContainerSet?: CommandContainerDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -333,7 +334,7 @@ export type NodePath = number[];
 export type ItemKind =
   | 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand'
   | 'argumentType' | 'commandParameterType' | 'commandParameter'
-  | 'algorithm' | 'commandAlgorithm';
+  | 'algorithm' | 'commandAlgorithm' | 'commandContainer';
 
 /**
  * What the user has selected: a SpaceSystem (item undefined), or one telemetry item
@@ -428,6 +429,8 @@ function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly Telemetr
       return system.telemetryMetaData?.algorithmSet ?? [];
     case 'commandAlgorithm':
       return system.commandMetaData?.algorithmSet ?? [];
+    case 'commandContainer':
+      return system.commandMetaData?.commandContainerSet ?? [];
   }
 }
 
@@ -481,6 +484,10 @@ function withUpdatedList(
     case 'commandAlgorithm': {
       const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
       return { ...system, commandMetaData: { ...commandMetaData, algorithmSet: update(commandMetaData.algorithmSet ?? []) as AlgorithmDoc[] } };
+    }
+    case 'commandContainer': {
+      const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
+      return { ...system, commandMetaData: { ...commandMetaData, commandContainerSet: update(commandMetaData.commandContainerSet ?? []) as CommandContainerDoc[] } };
     }
   }
 }
@@ -627,6 +634,10 @@ export function selectionForLocation(doc: SpaceSystemDocument, location: string)
     } else if (segment === 'CommandMetaData' && segments[i + 1] === 'AlgorithmSet') {
       kind = 'commandAlgorithm';
       items = node.commandMetaData?.algorithmSet ?? [];
+      nameIndex = i + 2;
+    } else if (segment === 'CommandMetaData' && segments[i + 1] === 'CommandContainerSet') {
+      kind = 'commandContainer';
+      items = node.commandMetaData?.commandContainerSet ?? [];
       nameIndex = i + 2;
     }
     if (kind !== null) {

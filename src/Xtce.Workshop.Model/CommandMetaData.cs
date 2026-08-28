@@ -282,7 +282,9 @@ public sealed record CommandMetaData(
     IReadOnlyList<Parameter>? ParameterSet = null,
     IReadOnlyList<RawXmlFragment>? PreservedParameters = null,
     IReadOnlyList<Algorithm>? AlgorithmSet = null,
-    IReadOnlyList<RawXmlFragment>? PreservedAlgorithms = null)
+    IReadOnlyList<RawXmlFragment>? PreservedAlgorithms = null,
+    IReadOnlyList<CommandContainer>? CommandContainerSet = null,
+    IReadOnlyList<RawXmlFragment>? PreservedCommandContainers = null)
 {
     public bool Equals(CommandMetaData? other) =>
         other is not null
@@ -296,7 +298,9 @@ public sealed record CommandMetaData(
         && Structural.ListEquals(ParameterSet, other.ParameterSet)
         && Structural.ListEquals(PreservedParameters, other.PreservedParameters)
         && Structural.ListEquals(AlgorithmSet, other.AlgorithmSet)
-        && Structural.ListEquals(PreservedAlgorithms, other.PreservedAlgorithms);
+        && Structural.ListEquals(PreservedAlgorithms, other.PreservedAlgorithms)
+        && Structural.ListEquals(CommandContainerSet, other.CommandContainerSet)
+        && Structural.ListEquals(PreservedCommandContainers, other.PreservedCommandContainers);
 
     public override int GetHashCode()
     {
@@ -313,6 +317,8 @@ public sealed record CommandMetaData(
         Structural.AddList(ref hash, PreservedParameters);
         Structural.AddList(ref hash, AlgorithmSet);
         Structural.AddList(ref hash, PreservedAlgorithms);
+        Structural.AddList(ref hash, CommandContainerSet);
+        Structural.AddList(ref hash, PreservedCommandContainers);
         return hash.ToHashCode();
     }
 }

@@ -357,6 +357,20 @@ public static class XtceDocumentWriter
             slots.Add(("AlgorithmSet", () => WriteAlgorithmSet(writer, algorithms, commandMetaData.PreservedAlgorithms)));
         }
 
+        if (commandMetaData.CommandContainerSet is { } commandContainers)
+        {
+            slots.Add(("CommandContainerSet", () =>
+            {
+                writer.WriteStartElement("CommandContainerSet", XtceNamespace);
+                foreach (var container in commandContainers)
+                {
+                    WriteCommandContainerElement(writer, container);
+                }
+                WriteFragments(writer, commandMetaData.PreservedCommandContainers);
+                writer.WriteEndElement();
+            }));
+        }
+
         if (commandMetaData.MetaCommands.Count > 0 || commandMetaData.PreservedEntries is { Count: > 0 })
         {
             slots.Add(("MetaCommandSet", () =>
@@ -438,40 +452,7 @@ public static class XtceDocumentWriter
 
         if (metaCommand.CommandContainer is { } commandContainer)
         {
-            slots.Add(("CommandContainer", () =>
-            {
-                writer.WriteStartElement("CommandContainer", XtceNamespace);
-                writer.WriteAttributeString("name", commandContainer.Name);
-                WritePreservedAttributes(writer, commandContainer.PreservedAttributes);
-
-                var containerSlots = new List<(string Name, Action Emit)>();
-                AddPreservedSlots(containerSlots, writer, commandContainer.Preserved);
-                if (commandContainer.EntryList is { } entryList)
-                {
-                    containerSlots.Add(("EntryList", () =>
-                    {
-                        writer.WriteStartElement("EntryList", XtceNamespace);
-                        foreach (var entry in entryList)
-                        {
-                            WriteSequenceEntry(writer, entry);
-                        }
-                        writer.WriteEndElement();
-                    }));
-                }
-                if (commandContainer.BaseContainerRef is { } baseRef)
-                {
-                    containerSlots.Add(("BaseContainer", () =>
-                    {
-                        writer.WriteStartElement("BaseContainer", XtceNamespace);
-                        writer.WriteAttributeString("containerRef", baseRef);
-                        WriteFragments(writer, commandContainer.BaseContainerPreserved);
-                        writer.WriteEndElement();
-                    }));
-                }
-                EmitInSchemaOrder(SequenceContainerChildOrder, containerSlots);
-
-                writer.WriteEndElement();
-            }));
+            slots.Add(("CommandContainer", () => WriteCommandContainerElement(writer, commandContainer)));
         }
 
         if (metaCommand.TransmissionConstraints is { } transmissionConstraints)
@@ -674,6 +655,41 @@ public static class XtceDocumentWriter
         }
         AddPreservedSlots(slots, writer, verifier.Preserved);
         EmitInSchemaOrder(VerifierChildOrder, slots);
+
+        writer.WriteEndElement();
+    }
+
+    private static void WriteCommandContainerElement(XmlWriter writer, CommandContainer commandContainer)
+    {
+        writer.WriteStartElement("CommandContainer", XtceNamespace);
+        writer.WriteAttributeString("name", commandContainer.Name);
+        WritePreservedAttributes(writer, commandContainer.PreservedAttributes);
+
+        var containerSlots = new List<(string Name, Action Emit)>();
+        AddPreservedSlots(containerSlots, writer, commandContainer.Preserved);
+        if (commandContainer.EntryList is { } entryList)
+        {
+            containerSlots.Add(("EntryList", () =>
+            {
+                writer.WriteStartElement("EntryList", XtceNamespace);
+                foreach (var entry in entryList)
+                {
+                    WriteSequenceEntry(writer, entry);
+                }
+                writer.WriteEndElement();
+            }));
+        }
+        if (commandContainer.BaseContainerRef is { } baseRef)
+        {
+            containerSlots.Add(("BaseContainer", () =>
+            {
+                writer.WriteStartElement("BaseContainer", XtceNamespace);
+                writer.WriteAttributeString("containerRef", baseRef);
+                WriteFragments(writer, commandContainer.BaseContainerPreserved);
+                writer.WriteEndElement();
+            }));
+        }
+        EmitInSchemaOrder(SequenceContainerChildOrder, containerSlots);
 
         writer.WriteEndElement();
     }

@@ -52,6 +52,9 @@ public sealed class SpaceSystemContext
     /// <summary>Inline MetaCommand/CommandContainer names → owning MetaCommand (rule R21).</summary>
     public required IReadOnlyDictionary<string, MetaCommand> InlineCommandContainerOwners { get; init; }
 
+    /// <summary>CommandContainerSet's standalone containers by name (issue #111).</summary>
+    public required IReadOnlyDictionary<string, CommandContainer> StandaloneCommandContainers { get; init; }
+
     public SpaceSystemContext Root => Parent?.Root ?? this;
 
     public IReadOnlySet<string> NamesOf(NamedItemKind kind) => kind switch
@@ -91,6 +94,7 @@ public sealed class SpaceSystemContext
         var argumentTypeNames = new HashSet<string>();
         var modeledArgumentTypes = new Dictionary<string, ParameterTypeDefinition>();
         var inlineCommandContainerOwners = new Dictionary<string, MetaCommand>();
+        var standaloneCommandContainers = new Dictionary<string, CommandContainer>();
 
         if (node.TelemetryMetaData is { } telemetry)
         {
@@ -188,6 +192,18 @@ public sealed class SpaceSystemContext
                     argumentTypeNames.Add(name);
                 }
             }
+            foreach (var container in commandMetaData.CommandContainerSet ?? [])
+            {
+                containerNames.Add(container.Name);
+                standaloneCommandContainers[container.Name] = container;
+            }
+            foreach (var fragment in commandMetaData.PreservedCommandContainers ?? [])
+            {
+                if (XmlFragmentInspector.RootAttribute(fragment.OuterXml, "name") is { } containerName)
+                {
+                    containerNames.Add(containerName);
+                }
+            }
             foreach (var metaCommand in commandMetaData.MetaCommands)
             {
                 metaCommandNames.Add(metaCommand.Name);
@@ -244,6 +260,7 @@ public sealed class SpaceSystemContext
             ArgumentTypeNames = argumentTypeNames,
             ModeledArgumentTypes = modeledArgumentTypes,
             InlineCommandContainerOwners = inlineCommandContainerOwners,
+            StandaloneCommandContainers = standaloneCommandContainers,
         };
 
         foreach (var child in node.Children)

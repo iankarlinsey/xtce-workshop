@@ -74,6 +74,10 @@ public static class XtceDocumentQuery
             {
                 AddIfMatched(matches, matcher, "CommandAlgorithm", context.Path, algorithm.Name, algorithm.Preserved);
             }
+            foreach (var container in context.Node.CommandMetaData?.CommandContainerSet ?? [])
+            {
+                AddIfMatched(matches, matcher, "CommandContainer", context.Path, container.Name, container.Preserved);
+            }
         }
 
         return matches;

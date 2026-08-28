@@ -1225,6 +1225,13 @@ describe('App', () => {
             },
           },
           commandMetaData: {
+            commandContainerSet: [{
+              name: 'SharedHdr',
+              entryList: [
+                { kind: 'FixedValue', binaryValue: '1ACF', sizeInBits: 16, repeat: { fixedCount: 2 } },
+                { kind: 'Raw', rawXml: { elementName: 'ArrayArgumentRefEntry', outerXml: '<ArrayArgumentRefEntry/>' } },
+              ],
+            }],
             parameterTypeSet: [{ name: 'CmdApid_Type', kind: 'Integer', dataEncoding: { kind: 'Integer', sizeInBits: 11 } }],
             parameterSet: [{ name: 'CmdApid', parameterTypeRef: 'CmdApid_Type' }],
             argumentTypeSet: [{ name: 'CmdU8', kind: 'Integer', signed: false, sizeInBits: 8 }],
@@ -1259,7 +1266,7 @@ describe('App', () => {
 
       expandAllGroups(fixture);
       const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
-      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'CmdApid_Type', 'CmdApid', 'CmdU8', 'BaseCmd', 'Reboot']);
+      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'CmdApid_Type', 'CmdApid', 'CmdU8', 'BaseCmd', 'Reboot', 'SharedHdr']);
 
       clickTreeRowByText(fixture, 'OpsMsg');
       expect((compiled.querySelector('#message-containerref') as HTMLInputElement).value).toBe('Packet');
@@ -1300,6 +1307,29 @@ describe('App', () => {
       const req = httpMock.expectOne('/api/xtce/save');
       expect(req.request.body.commandMetaData.parameterSet)
         .toEqual([{ name: 'CmdApid', parameterTypeRef: 'CmdApid_Type', initialValue: '42' }]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('standalone command containers open their form and edits flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      clickTreeRowByText(fixture, 'SharedHdr');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('CommandContainer');
+      expect(compiled.textContent).toContain('1ACF');
+      expect(compiled.textContent).toContain('×2');
+      expect(compiled.textContent).toContain('ArrayArgumentRefEntry');
+
+      const baseRef = compiled.querySelector('#cc-baseref') as HTMLInputElement;
+      baseRef.value = 'Packet';
+      baseRef.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.commandMetaData.commandContainerSet[0].baseContainerRef).toBe('Packet');
       req.flush('<SpaceSystem/>');
     }));
 

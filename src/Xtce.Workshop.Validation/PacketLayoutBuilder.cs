@@ -57,12 +57,21 @@ public static class PacketLayoutBuilder
             return new PacketLayout(rows, offset);
         }
 
+        // Standalone CommandContainerSet containers (#111): no owning command, so
+        // argument refs stay unresolved, but parameters and fixed values lay out.
+        if (context.StandaloneCommandContainers.TryGetValue(containerName, out var standalone))
+        {
+            AppendCommandContainer(context, null, standalone,
+                new HashSet<CommandContainer>(ReferenceEqualityComparer.Instance), rows, ref offset);
+            return new PacketLayout(rows, offset);
+        }
+
         return null;
     }
 
     private static void AppendCommandContainer(
         SpaceSystemContext context,
-        MetaCommand owner,
+        MetaCommand? owner,
         CommandContainer container,
         HashSet<CommandContainer> visited,
         List<PacketLayoutRow> rows,
@@ -82,7 +91,9 @@ public static class PacketLayoutBuilder
                 "base container exists but isn't statically inspectable");
         }
 
-        var mergedArguments = ModeledArguments.Merged(context, owner);
+        var mergedArguments = owner is null
+            ? (IReadOnlyList<ModeledArguments.Scoped>)[]
+            : ModeledArguments.Merged(context, owner);
 
         foreach (var entry in container.EntryList ?? [])
         {
@@ -155,7 +166,7 @@ public static class PacketLayoutBuilder
     /// </summary>
     private static void AppendContainerByRef(
         SpaceSystemContext context,
-        MetaCommand owner,
+        MetaCommand? owner,
         string sourceContainer,
         string containerRef,
         HashSet<CommandContainer> visited,
@@ -177,6 +188,13 @@ public static class PacketLayoutBuilder
             && innerOwner.CommandContainer is { } innerContainer)
         {
             AppendCommandContainer(definedIn, innerOwner, innerContainer, visited, rows, ref offset);
+            return;
+        }
+        if (resolution.DefinedIn is { } standaloneScope
+            && standaloneScope.StandaloneCommandContainers.TryGetValue(localName, out var standalone))
+        {
+            // Extending a standalone base keeps the CHILD's argument scope (owner).
+            AppendCommandContainer(standaloneScope, owner, standalone, visited, rows, ref offset);
             return;
         }
         rows.Add(new PacketLayoutRow(containerRef, "container", sourceContainer, offset, null, false,
