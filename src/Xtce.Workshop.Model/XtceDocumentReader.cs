@@ -370,6 +370,7 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preservedAlgorithms = null;
         List<CommandContainer>? commandContainers = null;
         List<RawXmlFragment>? preservedCommandContainers = null;
+        List<StreamDefinition>? commandStreams = null;
         List<RawXmlFragment>? preservedEntries = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
@@ -423,9 +424,15 @@ public static class XtceDocumentReader
                 commandContainers = new List<CommandContainer>();
                 ReadCommandContainerSet(reader, commandContainers, ref preservedCommandContainers);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "StreamSet"
+                     && commandStreams is null)
+            {
+                DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                commandStreams = new List<StreamDefinition>();
+                ReadStreamSet(reader, commandStreams);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // StreamSet — a whole fragment.
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                 Preserve(ref preserved, reader);
             }
@@ -440,7 +447,7 @@ public static class XtceDocumentReader
 
         return new CommandMetaData(metaCommands, preservedEntries, preserved, argumentTypes, preservedArgumentTypes,
             parameterTypes, preservedParameterTypes, parameters, preservedParameters, algorithms, preservedAlgorithms,
-            commandContainers, preservedCommandContainers);
+            commandContainers, preservedCommandContainers, commandStreams);
     }
 
     private static void ReadArgumentTypeSet(
@@ -1232,6 +1239,7 @@ public static class XtceDocumentReader
         List<RawXmlFragment>? preserved = null;
         List<Algorithm>? algorithms = null;
         List<RawXmlFragment>? preservedAlgorithms = null;
+        List<StreamDefinition>? streams = null;
 
         if (reader.IsEmptyElement)
         {
@@ -1270,10 +1278,13 @@ public static class XtceDocumentReader
                 algorithms = new List<Algorithm>();
                 ReadAlgorithmSet(reader, algorithms, ref preservedAlgorithms);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "StreamSet" && streams is null)
+            {
+                streams = new List<StreamDefinition>();
+                ReadStreamSet(reader, streams);
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // Unmodeled sibling (StreamSet) — preserved verbatim, re-emitted in XSD
-                // sequence order on save.
                 Preserve(ref preserved, reader);
             }
             else if (!TryCaptureComment(reader, ref pendingComments))
@@ -1287,7 +1298,102 @@ public static class XtceDocumentReader
 
         return new TelemetryMetaData(
             parameterTypes, parameters, preservedTypes, preservedParameters, preserved, containers, messageSet,
-            preservedContainers, algorithms, preservedAlgorithms);
+            preservedContainers, algorithms, preservedAlgorithms, streams);
+    }
+
+    private static readonly IReadOnlyDictionary<string, StreamKind> StreamElementKinds =
+        new Dictionary<string, StreamKind>
+        {
+            ["FixedFrameStream"] = StreamKind.FixedFrame,
+            ["VariableFrameStream"] = StreamKind.VariableFrame,
+            ["CustomStream"] = StreamKind.Custom,
+        };
+
+    private static void ReadStreamSet(XmlReader reader, List<StreamDefinition> streams)
+    {
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+            return;
+        }
+
+        reader.ReadStartElement();
+
+        while (reader.NodeType != XmlNodeType.EndElement)
+        {
+            if (reader.NodeType == XmlNodeType.Element
+                && StreamElementKinds.TryGetValue(reader.LocalName, out var kind)
+                && reader.GetAttribute("name") is { } name)
+            {
+                streams.Add(ReadStream(reader, name, kind));
+            }
+            else if (reader.NodeType == XmlNodeType.Element)
+            {
+                var elementName = reader.LocalName;
+                streams.Add(new StreamDefinition(elementName, StreamKind.Custom,
+                    RawXml: new RawXmlFragment(elementName, reader.ReadOuterXml())));
+            }
+            else
+            {
+                reader.Read();
+            }
+        }
+
+        reader.ReadEndElement();
+    }
+
+    private static StreamDefinition ReadStream(XmlReader reader, string name, StreamKind kind)
+    {
+        var frameLengthInBits = reader.GetAttribute("frameLengthInBits");
+        var bitRateInBps = reader.GetAttribute("bitRateInBPS");
+        var preservedAttributes = CapturePreservedAttributes(reader, ["name", "frameLengthInBits", "bitRateInBPS"]);
+
+        string? containerRef = null;
+        List<RawXmlFragment>? preserved = null;
+        List<string>? pendingComments = null;
+        Description? description = null;
+
+        if (reader.IsEmptyElement)
+        {
+            reader.Read();
+        }
+        else
+        {
+            reader.ReadStartElement();
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element
+                    && TryReadDescriptionChild(reader, ref description, ref preserved, ref pendingComments))
+                {
+                    // description-trio child handled
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ContainerRef"
+                         && containerRef is null && reader.GetAttribute("containerRef") is not null
+                         && reader.IsEmptyElement)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    containerRef = reader.GetAttribute("containerRef");
+                    reader.Read();
+                }
+                else if (reader.NodeType == XmlNodeType.Element)
+                {
+                    // SyncStrategy, ServiceRef, StreamRef, encodings — preserved verbatim.
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    Preserve(ref preserved, reader);
+                }
+                else if (!TryCaptureComment(reader, ref pendingComments))
+                {
+                    reader.Read();
+                }
+            }
+
+            DrainComments(ref preserved, ref pendingComments, null);
+            reader.ReadEndElement();
+        }
+
+        return new StreamDefinition(name, kind, containerRef, frameLengthInBits, bitRateInBps,
+            preserved, preservedAttributes, description);
     }
 
     private static void ReadAlgorithmSet(XmlReader reader, List<Algorithm> algorithms, ref List<RawXmlFragment>? preservedAlgorithms)

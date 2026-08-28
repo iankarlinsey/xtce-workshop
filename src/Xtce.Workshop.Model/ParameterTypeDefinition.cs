@@ -520,7 +520,8 @@ public sealed record TelemetryMetaData(
     MessageSet? MessageSet = null,
     IReadOnlyList<RawXmlFragment>? PreservedContainerEntries = null,
     IReadOnlyList<Algorithm>? AlgorithmSet = null,
-    IReadOnlyList<RawXmlFragment>? PreservedAlgorithms = null)
+    IReadOnlyList<RawXmlFragment>? PreservedAlgorithms = null,
+    IReadOnlyList<StreamDefinition>? StreamSet = null)
 {
     public bool Equals(TelemetryMetaData? other) =>
         other is not null
@@ -533,7 +534,8 @@ public sealed record TelemetryMetaData(
         && Equals(MessageSet, other.MessageSet)
         && Structural.ListEquals(PreservedContainerEntries, other.PreservedContainerEntries)
         && Structural.ListEquals(AlgorithmSet, other.AlgorithmSet)
-        && Structural.ListEquals(PreservedAlgorithms, other.PreservedAlgorithms);
+        && Structural.ListEquals(PreservedAlgorithms, other.PreservedAlgorithms)
+        && Structural.ListEquals(StreamSet, other.StreamSet);
 
     public override int GetHashCode()
     {
@@ -554,6 +556,7 @@ public sealed record TelemetryMetaData(
         Structural.AddList(ref hash, PreservedContainerEntries);
         Structural.AddList(ref hash, AlgorithmSet);
         Structural.AddList(ref hash, PreservedAlgorithms);
+        Structural.AddList(ref hash, StreamSet);
         return hash.ToHashCode();
     }
 }

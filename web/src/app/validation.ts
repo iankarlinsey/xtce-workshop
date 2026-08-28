@@ -78,7 +78,7 @@ export interface DocumentMetrics {
 
 export interface SearchMatch {
   kind: 'Parameter' | 'ParameterType' | 'Container' | 'Message' | 'MetaCommand' | 'ArgumentType'
-    | 'CommandParameter' | 'CommandParameterType' | 'Algorithm' | 'CommandAlgorithm' | 'CommandContainer';
+    | 'CommandParameter' | 'CommandParameterType' | 'Algorithm' | 'CommandAlgorithm' | 'CommandContainer' | 'Stream';
   systemPath: string;
   name: string;
   matchedAlias: string | null;

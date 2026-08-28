@@ -225,6 +225,11 @@ public static class XtceDocumentWriter
             slots.Add(("AlgorithmSet", () => WriteAlgorithmSet(writer, algorithms, telemetryMetaData.PreservedAlgorithms)));
         }
 
+        if (telemetryMetaData.StreamSet is { } streams)
+        {
+            slots.Add(("StreamSet", () => WriteStreamSet(writer, streams)));
+        }
+
         AddPreservedSlots(slots, writer, telemetryMetaData.Preserved);
         EmitInSchemaOrder(TelemetryMetaDataChildOrder, slots);
 
@@ -356,6 +361,11 @@ public static class XtceDocumentWriter
         if (commandMetaData.AlgorithmSet is { } algorithms)
         {
             slots.Add(("AlgorithmSet", () => WriteAlgorithmSet(writer, algorithms, commandMetaData.PreservedAlgorithms)));
+        }
+
+        if (commandMetaData.StreamSet is { } commandStreams)
+        {
+            slots.Add(("StreamSet", () => WriteStreamSet(writer, commandStreams)));
         }
 
         if (commandMetaData.CommandContainerSet is { } commandContainers)
@@ -1266,6 +1276,59 @@ public static class XtceDocumentWriter
         "LongDescription", "AliasSet", "AncillaryDataSet",
         "AlgorithmText", "ExternalAlgorithmSet", "InputSet", "OutputSet", "TriggerSet", "MathOperation",
     ];
+
+    // FrameStream order: NameDescription trio, the content choice, StreamRef, SyncStrategy last.
+    private static readonly string[] StreamChildOrder =
+    [
+        "LongDescription", "AliasSet", "AncillaryDataSet",
+        "ContainerRef", "ServiceRef", "StreamRef", "SyncStrategy",
+    ];
+
+    private static void WriteStreamSet(XmlWriter writer, IReadOnlyList<StreamDefinition> streams)
+    {
+        writer.WriteStartElement("StreamSet", XtceNamespace);
+        foreach (var stream in streams)
+        {
+            if (stream.RawXml is { } rawXml)
+            {
+                WriteFragmentXml(writer, rawXml.OuterXml);
+                continue;
+            }
+            var elementName = stream.Kind switch
+            {
+                StreamKind.FixedFrame => "FixedFrameStream",
+                StreamKind.VariableFrame => "VariableFrameStream",
+                _ => "CustomStream",
+            };
+            writer.WriteStartElement(elementName, XtceNamespace);
+            writer.WriteAttributeString("name", stream.Name);
+            if (stream.BitRateInBps is not null)
+            {
+                writer.WriteAttributeString("bitRateInBPS", stream.BitRateInBps);
+            }
+            if (stream.FrameLengthInBits is not null)
+            {
+                writer.WriteAttributeString("frameLengthInBits", stream.FrameLengthInBits);
+            }
+            WritePreservedAttributes(writer, stream.PreservedAttributes);
+
+            var slots = new List<(string Name, Action Emit)>();
+            AddDescriptionSlots(writer, stream.Description, slots);
+            if (stream.ContainerRef is { } containerRef)
+            {
+                slots.Add(("ContainerRef", () =>
+                {
+                    writer.WriteStartElement("ContainerRef", XtceNamespace);
+                    writer.WriteAttributeString("containerRef", containerRef);
+                    writer.WriteEndElement();
+                }));
+            }
+            AddPreservedSlots(slots, writer, stream.Preserved);
+            EmitInSchemaOrder(StreamChildOrder, slots);
+            writer.WriteEndElement();
+        }
+        writer.WriteEndElement();
+    }
 
     private static void WriteAlgorithmSet(
         XmlWriter writer, IReadOnlyList<Algorithm> algorithms, IReadOnlyList<RawXmlFragment>? preservedAlgorithms)

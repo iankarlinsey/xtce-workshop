@@ -68,6 +68,17 @@ public static class FragmentEnumerator
             {
                 yield return pair;
             }
+            foreach (var stream in commandMetaData.StreamSet ?? [])
+            {
+                if (stream.RawXml is { } rawStream)
+                {
+                    yield return (rawStream, $"{commandPath}/StreamSet");
+                }
+                foreach (var fragment in stream.Preserved ?? [])
+                {
+                    yield return (fragment, $"{commandPath}/StreamSet/{stream.Name}");
+                }
+            }
             foreach (var fragment in commandMetaData.PreservedCommandContainers ?? [])
             {
                 yield return (fragment, $"{commandPath}/CommandContainerSet");
@@ -261,6 +272,18 @@ public static class FragmentEnumerator
         foreach (var pair in EnumerateAlgorithms(telemetry.AlgorithmSet, telemetry.PreservedAlgorithms, $"{path}/AlgorithmSet"))
         {
             yield return pair;
+        }
+
+        foreach (var stream in telemetry.StreamSet ?? [])
+        {
+            if (stream.RawXml is { } rawStream)
+            {
+                yield return (rawStream, $"{path}/StreamSet");
+            }
+            foreach (var fragment in stream.Preserved ?? [])
+            {
+                yield return (fragment, $"{path}/StreamSet/{stream.Name}");
+            }
         }
 
         if (telemetry.MessageSet is { } messageSet)

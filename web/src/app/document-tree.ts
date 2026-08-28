@@ -240,12 +240,22 @@ export interface AlgorithmDoc {
   [key: string]: unknown;
 }
 
+export interface StreamDoc {
+  name: string;
+  kind: 'FixedFrame' | 'VariableFrame' | 'Custom';
+  containerRef?: string | null;
+  frameLengthInBits?: string | null;
+  bitRateInBps?: string | null;
+  [key: string]: unknown;
+}
+
 export interface TelemetryMetaDataDoc {
   parameterTypeSet: ParameterTypeDoc[];
   parameterSet: ParameterDoc[];
   containerSet?: SequenceContainerDoc[] | null;
   messageSet?: MessageSetDoc | null;
   algorithmSet?: AlgorithmDoc[] | null;
+  streamSet?: StreamDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -319,6 +329,7 @@ export interface CommandMetaDataDoc {
   parameterSet?: ParameterDoc[] | null;
   algorithmSet?: AlgorithmDoc[] | null;
   commandContainerSet?: CommandContainerDoc[] | null;
+  streamSet?: StreamDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -346,7 +357,7 @@ export type NodePath = number[];
 export type ItemKind =
   | 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand'
   | 'argumentType' | 'commandParameterType' | 'commandParameter'
-  | 'algorithm' | 'commandAlgorithm' | 'commandContainer';
+  | 'algorithm' | 'commandAlgorithm' | 'commandContainer' | 'stream';
 
 /**
  * What the user has selected: a SpaceSystem (item undefined), or one telemetry item
@@ -443,6 +454,8 @@ function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly Telemetr
       return system.commandMetaData?.algorithmSet ?? [];
     case 'commandContainer':
       return system.commandMetaData?.commandContainerSet ?? [];
+    case 'stream':
+      return system.telemetryMetaData?.streamSet ?? [];
   }
 }
 
@@ -501,6 +514,8 @@ function withUpdatedList(
       const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
       return { ...system, commandMetaData: { ...commandMetaData, commandContainerSet: update(commandMetaData.commandContainerSet ?? []) as CommandContainerDoc[] } };
     }
+    case 'stream':
+      return { ...system, telemetryMetaData: { ...telemetry, streamSet: update(telemetry.streamSet ?? []) as StreamDoc[] } };
   }
 }
 
@@ -619,6 +634,7 @@ export function selectionForLocation(doc: SpaceSystemDocument, location: string)
       ContainerSet: { kind: 'container', items: node.telemetryMetaData?.containerSet ?? [] },
       MessageSet: { kind: 'message', items: node.telemetryMetaData?.messageSet?.messages ?? [] },
       AlgorithmSet: { kind: 'algorithm', items: node.telemetryMetaData?.algorithmSet ?? [] },
+      StreamSet: { kind: 'stream', items: node.telemetryMetaData?.streamSet ?? [] },
     };
     let kind: ItemKind | null = null;
     let items: { name: string }[] = [];

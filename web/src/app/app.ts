@@ -24,6 +24,7 @@ import {
   MessageDoc,
   MetaCommandDoc,
   CommandContainerDoc,
+  StreamDoc,
   CommandVerifierDoc,
   TransmissionConstraintDoc,
   AlgorithmDoc,
@@ -303,6 +304,15 @@ export class App {
     return getItemAtSelection(doc, selection) as AlgorithmDoc | null;
   });
 
+  protected readonly selectedStream = computed(() => {
+    const doc = this.currentDocument();
+    const selection = this.selection();
+    if (!doc || !selection || selection.item?.kind !== 'stream') {
+      return null;
+    }
+    return getItemAtSelection(doc, selection) as StreamDoc | null;
+  });
+
   protected readonly selectedCommandContainer = computed(() => {
     const doc = this.currentDocument();
     const selection = this.selection();
@@ -377,6 +387,8 @@ export class App {
         return XTCE_REFERENCE['Parameter'] ?? null;
       case 'commandContainer':
         return XTCE_REFERENCE['SequenceContainer'] ?? null;
+      case 'stream':
+        return null;
       case 'algorithm':
       case 'commandAlgorithm': {
         const algorithm = this.selectedAlgorithm();
@@ -1878,6 +1890,7 @@ export class App {
       Algorithm: { kind: 'algorithm', items: node.telemetryMetaData?.algorithmSet ?? undefined },
       CommandAlgorithm: { kind: 'commandAlgorithm', items: node.commandMetaData?.algorithmSet ?? undefined },
       CommandContainer: { kind: 'commandContainer', items: node.commandMetaData?.commandContainerSet ?? undefined },
+      Stream: { kind: 'stream', items: node.telemetryMetaData?.streamSet ?? undefined },
     };
     const target = lists[match.kind];
     const itemIndex = target.items?.findIndex((item) => item.name === match.name) ?? -1;

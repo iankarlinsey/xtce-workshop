@@ -900,6 +900,26 @@
         <div class="node-actions">
           <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
         </div>
+      } @else if (selectedStream(); as stream) {
+        <div class="node-title">
+          <span>{{ stream.name }}</span>
+          <span class="type-badge">{{ stream.kind }}Stream</span>
+        </div>
+        <div class="form-field">
+          <label for="stream-name">Name</label>
+          <input id="stream-name" [value]="stream.name" (input)="onItemFieldInput('name', $event)" />
+        </div>
+        <div class="form-field">
+          <label for="stream-containerref">Container ref</label>
+          <input id="stream-containerref" list="known-container-names" [value]="stream.containerRef ?? ''" (input)="onItemFieldInput('containerRef', $event)" />
+        </div>
+        @if (stream.frameLengthInBits) {
+          <p class="meta-text">Frame length: {{ stream.frameLengthInBits }} bits{{ stream.bitRateInBps ? ' — ' + stream.bitRateInBps + ' bps' : '' }}</p>
+        }
+        <app-preserved-xml [item]="stream" />
+        <div class="node-actions">
+          <button type="button" class="btn btn-danger" (click)="onDeleteSelectedItem()">Delete</button>
+        </div>
       } @else if (selectedCommandContainer(); as standaloneContainer) {
         <div class="node-title">
           <span>{{ standaloneContainer.name }}</span>

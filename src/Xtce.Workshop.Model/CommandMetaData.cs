@@ -349,7 +349,8 @@ public sealed record CommandMetaData(
     IReadOnlyList<Algorithm>? AlgorithmSet = null,
     IReadOnlyList<RawXmlFragment>? PreservedAlgorithms = null,
     IReadOnlyList<CommandContainer>? CommandContainerSet = null,
-    IReadOnlyList<RawXmlFragment>? PreservedCommandContainers = null)
+    IReadOnlyList<RawXmlFragment>? PreservedCommandContainers = null,
+    IReadOnlyList<StreamDefinition>? StreamSet = null)
 {
     public bool Equals(CommandMetaData? other) =>
         other is not null
@@ -365,7 +366,8 @@ public sealed record CommandMetaData(
         && Structural.ListEquals(AlgorithmSet, other.AlgorithmSet)
         && Structural.ListEquals(PreservedAlgorithms, other.PreservedAlgorithms)
         && Structural.ListEquals(CommandContainerSet, other.CommandContainerSet)
-        && Structural.ListEquals(PreservedCommandContainers, other.PreservedCommandContainers);
+        && Structural.ListEquals(PreservedCommandContainers, other.PreservedCommandContainers)
+        && Structural.ListEquals(StreamSet, other.StreamSet);
 
     public override int GetHashCode()
     {
@@ -384,6 +386,7 @@ public sealed record CommandMetaData(
         Structural.AddList(ref hash, PreservedAlgorithms);
         Structural.AddList(ref hash, CommandContainerSet);
         Structural.AddList(ref hash, PreservedCommandContainers);
+        Structural.AddList(ref hash, StreamSet);
         return hash.ToHashCode();
     }
 }
