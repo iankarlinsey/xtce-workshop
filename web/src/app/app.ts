@@ -1873,6 +1873,69 @@ export class App {
   }
 
 
+  /** Flattened rows of an expression tree: junction headers and editable Condition leaves. */
+  protected expressionRows(root: BooleanExpressionNodeDoc):
+    { junction?: string; depth: number; node?: BooleanExpressionNodeDoc; leafIndex: number }[] {
+    const rows: { junction?: string; depth: number; node?: BooleanExpressionNodeDoc; leafIndex: number }[] = [];
+    let leafIndex = 0;
+    const walk = (node: BooleanExpressionNodeDoc, depth: number) => {
+      if (node.kind === 'Condition') {
+        rows.push({ depth, node, leafIndex: leafIndex++ });
+        return;
+      }
+      rows.push({ junction: node.kind === 'And' ? 'all of (AND):' : 'any of (OR):', depth, leafIndex: -1 });
+      for (const child of node.children ?? []) {
+        walk(child, depth + 1);
+      }
+    };
+    walk(root, 0);
+    return rows;
+  }
+
+  /** Replaces the nth Condition leaf of the tree, keeping the structure intact. */
+  private static updateExpressionLeaf(
+    root: BooleanExpressionNodeDoc, targetLeaf: number,
+    update: (leaf: BooleanExpressionNodeDoc) => BooleanExpressionNodeDoc
+  ): BooleanExpressionNodeDoc {
+    let leafIndex = 0;
+    const walk = (node: BooleanExpressionNodeDoc): BooleanExpressionNodeDoc => {
+      if (node.kind === 'Condition') {
+        return leafIndex++ === targetLeaf ? update(node) : node;
+      }
+      return { ...node, children: (node.children ?? []).map(walk) };
+    };
+    return walk(root);
+  }
+
+  onMessageExpressionLeafInput(leafIndex: number, field: 'parameterRef' | 'operator' | 'rhs', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateSelectedItem((item) => {
+      const message = item as MessageDoc;
+      const expression = message.matchCriteria?.booleanExpression;
+      if (!expression) {
+        return message;
+      }
+      const updated = App.updateExpressionLeaf(expression, leafIndex, (leaf) => {
+        switch (field) {
+          case 'parameterRef':
+            return { ...leaf, left: { ...(leaf.left ?? { parameterRef: '' }), parameterRef: value } };
+          case 'operator':
+            return { ...leaf, operator: value };
+          default:
+            // RHS keeps its form: a parameter-to-parameter condition edits the ref,
+            // otherwise the literal Value.
+            return leaf.right
+              ? { ...leaf, right: { ...leaf.right, parameterRef: value } }
+              : { ...leaf, value };
+        }
+      });
+      return {
+        ...message,
+        matchCriteria: { ...message.matchCriteria, booleanExpression: updated },
+      };
+    });
+  }
+
   /** "Apid != 101", "(A and B)", "(A or B or C)" for a modeled expression tree. */
   protected expressionText(node: BooleanExpressionNodeDoc): string {
     if (node.kind === 'Condition') {

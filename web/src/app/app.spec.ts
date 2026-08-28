@@ -773,6 +773,60 @@ describe('App', () => {
       expect(compiled.textContent).toContain('entry preserved as XML');
     });
 
+    it('message expression leaves are editable in place and flow into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      const file = new File(['<xml/>'], 'expr.xml', { type: 'application/xml' });
+      fixture.componentInstance.onFileSelected({ target: { files: [file] } } as unknown as Event);
+      flushLoadIntoTree(fixture, {
+        name: 'Sat',
+        document: {
+          name: 'Sat',
+          children: [],
+          telemetryMetaData: {
+            parameterTypeSet: [],
+            parameterSet: [{ name: 'Apid', parameterTypeRef: 'T' }, { name: 'Mode', parameterTypeRef: 'T' }],
+            containerSet: [{ name: 'Frame', entryList: [] }],
+            messageSet: { messages: [{
+              name: 'OpsMsg', containerRef: 'Frame',
+              matchCriteria: { booleanExpression: { kind: 'And', children: [
+                { kind: 'Condition', left: { parameterRef: 'Apid' }, operator: '==', value: '101' },
+                { kind: 'Condition', left: { parameterRef: 'Mode' }, operator: '==', right: { parameterRef: 'Apid' } },
+              ] } },
+            }] },
+          },
+        },
+      });
+      clickTreeRowByText(fixture, 'OpsMsg');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(compiled.textContent).toContain('all of (AND):');
+
+      const literal = compiled.querySelector('input[aria-label="Expression leaf 0 rhs"]') as HTMLInputElement;
+      expect(literal.value).toBe('101');
+      literal.value = '102';
+      literal.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      const operatorInput = compiled.querySelector('input[aria-label="Expression leaf 1 operator"]') as HTMLInputElement;
+      operatorInput.value = '!=';
+      operatorInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      const rhsRef = compiled.querySelector('input[aria-label="Expression leaf 1 rhs"]') as HTMLInputElement;
+      expect(rhsRef.value).toBe('Apid');
+      rhsRef.value = 'Mode';
+      rhsRef.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      const expression = req.request.body.telemetryMetaData.messageSet.messages[0].matchCriteria.booleanExpression;
+      expect(expression.children[0]).toEqual({ kind: 'Condition', left: { parameterRef: 'Apid' }, operator: '==', value: '102' });
+      expect(expression.children[1]).toEqual({ kind: 'Condition', left: { parameterRef: 'Mode' }, operator: '!=', right: { parameterRef: 'Mode' } });
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('units render on the type form and edits flow into Save', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);

@@ -951,7 +951,21 @@
             <input id="message-matchvalue" [value]="match.value" (input)="onMessageMatchInput('value', $event)" />
           </div>
         } @else if (message.matchCriteria?.booleanExpression; as messageExpression) {
-          <p class="meta-text">Match expression: {{ expressionText(messageExpression) }}</p>
+          <div class="form-field entry-editor">
+            <label>Match expression <span class="hint">(structure fixed; edit conditions in place)</span></label>
+            @for (row of expressionRows(messageExpression); track $index) {
+              @if (row.junction) {
+                <p class="meta-text" [style.padding-left.px]="row.depth * 16">{{ row.junction }}</p>
+              } @else {
+                <div class="enum-row" [style.padding-left.px]="row.depth * 16">
+                  <input class="member-typeref" list="known-parameter-names" [value]="row.node?.left?.parameterRef ?? ''" (input)="onMessageExpressionLeafInput(row.leafIndex, 'parameterRef', $event)" [attr.aria-label]="'Expression leaf ' + row.leafIndex + ' parameter ref'" />
+                  <input class="enum-value" [value]="row.node?.operator ?? ''" (input)="onMessageExpressionLeafInput(row.leafIndex, 'operator', $event)" placeholder="==" [attr.aria-label]="'Expression leaf ' + row.leafIndex + ' operator'" />
+                  <input class="enum-value" [attr.list]="row.node?.right ? 'known-parameter-names' : null" [value]="row.node?.right?.parameterRef ?? row.node?.value ?? ''" (input)="onMessageExpressionLeafInput(row.leafIndex, 'rhs', $event)" placeholder="value" [attr.aria-label]="'Expression leaf ' + row.leafIndex + ' rhs'" />
+                </div>
+              }
+            }
+            <p class="meta-text">{{ expressionText(messageExpression) }}</p>
+          </div>
         } @else if (message.matchCriteria) {
           <p class="meta-text">Match criteria uses a form beyond a single comparison (preserved as XML).</p>
         }
