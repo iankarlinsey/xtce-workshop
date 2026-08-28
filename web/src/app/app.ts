@@ -234,12 +234,12 @@ export class App {
     () => this.selection()?.item?.kind ?? null
   );
 
-  /** Parameter- OR argument-type selection — the XSD mirrors the two attribute-for-attribute, so one form serves both. */
+  /** Any type-definition selection — telemetry/command parameter types and argument types all share the form. */
   protected readonly selectedParameterType = computed(() => {
     const doc = this.currentDocument();
     const selection = this.selection();
     const kind = selection?.item?.kind;
-    if (!doc || !selection || (kind !== 'parameterType' && kind !== 'argumentType')) {
+    if (!doc || !selection || (kind !== 'parameterType' && kind !== 'argumentType' && kind !== 'commandParameterType')) {
       return null;
     }
     return getItemAtSelection(doc, selection) as ParameterTypeDoc | null;
@@ -260,7 +260,8 @@ export class App {
   protected readonly selectedParameter = computed(() => {
     const doc = this.currentDocument();
     const selection = this.selection();
-    if (!doc || !selection || selection.item?.kind !== 'parameter') {
+    const kind = selection?.item?.kind;
+    if (!doc || !selection || (kind !== 'parameter' && kind !== 'commandParameter')) {
       return null;
     }
     return getItemAtSelection(doc, selection) as ParameterDoc | null;
@@ -341,6 +342,12 @@ export class App {
         const type = this.selectedParameterType();
         return type ? XTCE_REFERENCE[`${type.kind}ArgumentType`] ?? null : null;
       }
+      case 'commandParameterType': {
+        const type = this.selectedParameterType();
+        return type ? XTCE_REFERENCE[`${type.kind}ParameterType`] ?? null : null;
+      }
+      case 'commandParameter':
+        return XTCE_REFERENCE['Parameter'] ?? null;
       case 'parameter':
         return XTCE_REFERENCE['Parameter'] ?? null;
       case 'container':
@@ -1532,6 +1539,8 @@ export class App {
       Message: { kind: 'message', items: node.telemetryMetaData?.messageSet?.messages },
       MetaCommand: { kind: 'metaCommand', items: node.commandMetaData?.metaCommands },
       ArgumentType: { kind: 'argumentType', items: node.commandMetaData?.argumentTypeSet ?? undefined },
+      CommandParameterType: { kind: 'commandParameterType', items: node.commandMetaData?.parameterTypeSet ?? undefined },
+      CommandParameter: { kind: 'commandParameter', items: node.commandMetaData?.parameterSet ?? undefined },
     };
     const target = lists[match.kind];
     const itemIndex = target.items?.findIndex((item) => item.name === match.name) ?? -1;

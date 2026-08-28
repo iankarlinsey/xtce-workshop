@@ -148,6 +148,34 @@ public sealed class SpaceSystemContext
 
         if (node.CommandMetaData is { } commandMetaData)
         {
+            // The command side's own parameter/parameter-type sets share the telemetry
+            // side's reference namespaces (issue #98 modeled them; the fragment scan
+            // below still covers CommandContainerSet and hand-built documents).
+            foreach (var type in commandMetaData.ParameterTypeSet ?? [])
+            {
+                parameterTypeNames.Add(type.Name);
+                modeledTypes[type.Name] = type;
+            }
+            foreach (var fragment in commandMetaData.PreservedParameterTypes ?? [])
+            {
+                if (XmlFragmentInspector.RootAttribute(fragment.OuterXml, "name") is { } name)
+                {
+                    parameterTypeNames.Add(name);
+                }
+            }
+            foreach (var parameter in commandMetaData.ParameterSet ?? [])
+            {
+                parameterNames.Add(parameter.Name);
+                modeledParameters[parameter.Name] = parameter;
+            }
+            foreach (var fragment in commandMetaData.PreservedParameters ?? [])
+            {
+                if (XmlFragmentInspector.RootAttribute(fragment.OuterXml, "parameterRef") is { } reference)
+                {
+                    var lastSlash = reference.LastIndexOf('/');
+                    parameterNames.Add(lastSlash < 0 ? reference : reference[(lastSlash + 1)..]);
+                }
+            }
             foreach (var argumentType in commandMetaData.ArgumentTypeSet ?? [])
             {
                 argumentTypeNames.Add(argumentType.Name);

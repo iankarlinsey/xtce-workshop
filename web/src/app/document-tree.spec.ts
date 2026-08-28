@@ -240,6 +240,8 @@ describe('selectionForLocation', () => {
     commandMetaData: {
       metaCommands: [{ name: 'Reboot' }],
       argumentTypeSet: [{ name: 'CmdU8', kind: 'Integer' as const }],
+      parameterTypeSet: [{ name: 'CmdApid_Type', kind: 'Integer' as const }],
+      parameterSet: [{ name: 'CmdApid', parameterTypeRef: 'CmdApid_Type' }],
     },
   };
 
@@ -265,6 +267,13 @@ describe('selectionForLocation', () => {
     expect(selectionForLocation(doc, 'Sat/CommandMetaData/ArgumentTypeSet/CmdU8'))
       .toEqual({ systemPath: [], item: { kind: 'argumentType', index: 0 } });
     expect(selectionForLocation(doc, 'Sat/CommandMetaData/ArgumentTypeSet/NoSuch')).toBeNull();
+  });
+
+  it('maps the command-side parameter sets under CommandMetaData', () => {
+    expect(selectionForLocation(doc, 'Sat/CommandMetaData/ParameterTypeSet/CmdApid_Type'))
+      .toEqual({ systemPath: [], item: { kind: 'commandParameterType', index: 0 } });
+    expect(selectionForLocation(doc, 'Sat/CommandMetaData/ParameterSet/CmdApid'))
+      .toEqual({ systemPath: [], item: { kind: 'commandParameter', index: 0 } });
   });
 
   it('maps bare system paths and returns null for the unmappable', () => {

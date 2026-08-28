@@ -973,6 +973,8 @@ describe('App', () => {
             },
           },
           commandMetaData: {
+            parameterTypeSet: [{ name: 'CmdApid_Type', kind: 'Integer', dataEncoding: { kind: 'Integer', sizeInBits: 11 } }],
+            parameterSet: [{ name: 'CmdApid', parameterTypeRef: 'CmdApid_Type' }],
             argumentTypeSet: [{ name: 'CmdU8', kind: 'Integer', signed: false, sizeInBits: 8 }],
             metaCommands: [
               { name: 'BaseCmd', abstract: true },
@@ -1003,7 +1005,7 @@ describe('App', () => {
 
       expandAllGroups(fixture);
       const itemLabels = Array.from(compiled.querySelectorAll('.item-row .label')).map((el) => el.textContent?.trim());
-      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'CmdU8', 'BaseCmd', 'Reboot']);
+      expect(itemLabels).toEqual(['Packet', 'OpsMsg', 'CmdApid_Type', 'CmdApid', 'CmdU8', 'BaseCmd', 'Reboot']);
 
       clickTreeRowByText(fixture, 'OpsMsg');
       expect((compiled.querySelector('#message-containerref') as HTMLInputElement).value).toBe('Packet');
@@ -1013,6 +1015,36 @@ describe('App', () => {
       expect(compiled.textContent).toContain('1 complete');
       expect((compiled.querySelector('input[aria-label="Argument 0 type ref"]') as HTMLInputElement).value).toBe('CmdU8');
     });
+
+    it('command-side parameters and types open the shared forms and edits land in commandMetaData', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadMessagingDocument(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      clickTreeRowByText(fixture, 'CmdApid_Type');
+      expect(compiled.querySelector('.type-badge')?.textContent?.trim()).toBe('IntegerParameterType');
+      expect((compiled.querySelector('#enc-size') as HTMLInputElement).value).toBe('11');
+
+      // clickTreeRowByText matches substrings and would hit CmdApid_Type again.
+      expandAllGroups(fixture);
+      (Array.from(compiled.querySelectorAll('.item-row .label'))
+        .find((el) => el.textContent?.trim() === 'CmdApid')!
+        .closest('.item-row') as HTMLElement).click();
+      fixture.detectChanges();
+      const refInput = compiled.querySelector('#param-typeref') as HTMLInputElement;
+      expect(refInput.value).toBe('CmdApid_Type');
+      const initialInput = compiled.querySelector('#param-initial') as HTMLInputElement;
+      initialInput.value = '42';
+      initialInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.commandMetaData.parameterSet)
+        .toEqual([{ name: 'CmdApid', parameterTypeRef: 'CmdApid_Type', initialValue: '42' }]);
+      req.flush('<SpaceSystem/>');
+    }));
 
     it('argument types open the shared type form under their ArgumentType element name', () => {
       const fixture = createAppAndFlushHealth();

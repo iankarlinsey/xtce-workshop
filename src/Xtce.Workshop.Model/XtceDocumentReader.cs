@@ -355,6 +355,10 @@ public static class XtceDocumentReader
         var metaCommands = new List<MetaCommand>();
         List<ParameterTypeDefinition>? argumentTypes = null;
         List<RawXmlFragment>? preservedArgumentTypes = null;
+        List<ParameterTypeDefinition>? parameterTypes = null;
+        List<RawXmlFragment>? preservedParameterTypes = null;
+        List<Parameter>? parameters = null;
+        List<RawXmlFragment>? preservedParameters = null;
         List<RawXmlFragment>? preservedEntries = null;
         List<RawXmlFragment>? preserved = null;
         List<string>? pendingComments = null;
@@ -380,11 +384,26 @@ public static class XtceDocumentReader
                 argumentTypes ??= new List<ParameterTypeDefinition>();
                 ReadArgumentTypeSet(reader, argumentTypes, ref preservedArgumentTypes, recovery, path);
             }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterTypeSet")
+            {
+                // The command side's own parameter types — same element content as the
+                // telemetry set, so the same reader runs with a CommandMetaData-scoped
+                // recovery path.
+                DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                parameterTypes ??= new List<ParameterTypeDefinition>();
+                ReadParameterTypeSet(reader, parameterTypes, ref preservedParameterTypes, recovery, $"{path}/CommandMetaData");
+            }
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ParameterSet")
+            {
+                DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                parameters ??= new List<Parameter>();
+                ReadParameterSet(reader, parameters, ref preservedParameters, recovery, $"{path}/CommandMetaData");
+            }
             else if (reader.NodeType == XmlNodeType.Element)
             {
-                // ParameterTypeSet, ParameterSet, CommandContainerSet, StreamSet,
-                // AlgorithmSet — whole fragments; their definitions still feed the
-                // reference namespaces via SpaceSystemContext's scanning.
+                // CommandContainerSet, StreamSet, AlgorithmSet — whole fragments; their
+                // definitions still feed the reference namespaces via
+                // SpaceSystemContext's scanning.
                 DrainComments(ref preserved, ref pendingComments, reader.LocalName);
                 Preserve(ref preserved, reader);
             }
@@ -397,7 +416,8 @@ public static class XtceDocumentReader
         DrainComments(ref preserved, ref pendingComments, null);
         reader.ReadEndElement();
 
-        return new CommandMetaData(metaCommands, preservedEntries, preserved, argumentTypes, preservedArgumentTypes);
+        return new CommandMetaData(metaCommands, preservedEntries, preserved, argumentTypes, preservedArgumentTypes,
+            parameterTypes, preservedParameterTypes, parameters, preservedParameters);
     }
 
     private static void ReadArgumentTypeSet(

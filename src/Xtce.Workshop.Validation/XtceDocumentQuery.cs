@@ -54,6 +54,14 @@ public static class XtceDocumentQuery
             {
                 AddIfMatched(matches, matcher, "ArgumentType", context.Path, argumentType.Name, argumentType.Preserved);
             }
+            foreach (var type in context.Node.CommandMetaData?.ParameterTypeSet ?? [])
+            {
+                AddIfMatched(matches, matcher, "CommandParameterType", context.Path, type.Name, type.Preserved);
+            }
+            foreach (var parameter in context.Node.CommandMetaData?.ParameterSet ?? [])
+            {
+                AddIfMatched(matches, matcher, "CommandParameter", context.Path, parameter.Name, parameter.Preserved);
+            }
             foreach (var metaCommand in context.Node.CommandMetaData?.MetaCommands ?? [])
             {
                 AddIfMatched(matches, matcher, "MetaCommand", context.Path, metaCommand.Name, metaCommand.Preserved);

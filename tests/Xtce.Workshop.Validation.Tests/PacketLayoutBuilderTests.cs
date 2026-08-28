@@ -279,4 +279,44 @@ public class PacketLayoutBuilderTests
         Assert.Equal([16L, 8L, 16L], layout.Rows.Select(r => r.SizeInBits).ToList());
         Assert.Equal(40, layout.TotalSizeInBits);
     }
+
+    [Test]
+    public void CommandContainer_ParameterEntries_ResolveThroughCommandSideParameterSet()
+    {
+        // The #98 case: command header parameters live in CommandMetaData's own
+        // ParameterSet — the layout must resolve them like telemetry parameters.
+        var xml = $"""
+            <SpaceSystem xmlns="{Ns}" name="S">
+              <CommandMetaData>
+                <ParameterTypeSet>
+                  <IntegerParameterType name="Apid_Type" signed="false"><IntegerDataEncoding sizeInBits="11"/></IntegerParameterType>
+                </ParameterTypeSet>
+                <ParameterSet>
+                  <Parameter name="APID" parameterTypeRef="Apid_Type"/>
+                </ParameterSet>
+                <ArgumentTypeSet>
+                  <IntegerArgumentType name="U8"><IntegerDataEncoding sizeInBits="8"/></IntegerArgumentType>
+                </ArgumentTypeSet>
+                <MetaCommandSet>
+                  <MetaCommand name="Cmd">
+                    <ArgumentList><Argument name="opcode" argumentTypeRef="U8"/></ArgumentList>
+                    <CommandContainer name="Frame">
+                      <EntryList>
+                        <ParameterRefEntry parameterRef="APID"/>
+                        <ArgumentRefEntry argumentRef="opcode"/>
+                      </EntryList>
+                    </CommandContainer>
+                  </MetaCommand>
+                </MetaCommandSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """;
+        var root = XtceDocumentReader.Load(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml)));
+
+        var layout = PacketLayoutBuilder.Build(root, [], "Frame")!;
+
+        Assert.Equal([11L, 8L], layout.Rows.Select(r => r.SizeInBits).ToList());
+        Assert.Equal([null, null], layout.Rows.Select(r => r.Note).ToList());
+        Assert.Equal(19, layout.TotalSizeInBits);
+    }
 }

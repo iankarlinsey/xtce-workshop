@@ -85,4 +85,48 @@ public class CommandMetaDataTests
         Assert.True(written.IndexOf("<ArgumentTypeSet", StringComparison.Ordinal)
                     < written.IndexOf("<MetaCommandSet", StringComparison.Ordinal));
     }
+
+    [Test]
+    public void Load_ModelsCommandSideParameterSets_AndRoundTripsThem()
+    {
+        var xml = """
+            <SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" name="S">
+              <CommandMetaData>
+                <ParameterTypeSet>
+                  <IntegerParameterType name="CMD_APID_Type" signed="false">
+                    <IntegerDataEncoding sizeInBits="11"/>
+                  </IntegerParameterType>
+                </ParameterTypeSet>
+                <ParameterSet>
+                  <Parameter name="CMD_APID" parameterTypeRef="CMD_APID_Type"/>
+                </ParameterSet>
+                <MetaCommandSet>
+                  <MetaCommand name="Cmd"/>
+                </MetaCommandSet>
+                <CommandContainerSet>
+                  <CommandContainer name="Shared"><EntryList/></CommandContainer>
+                </CommandContainerSet>
+              </CommandMetaData>
+            </SpaceSystem>
+            """;
+        var loaded = XtceDocumentReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(xml)));
+        var commandMetaData = loaded.CommandMetaData!;
+
+        var type = Assert.Single(commandMetaData.ParameterTypeSet ?? []);
+        Assert.Equal((ParameterTypeKind.Integer, 11L), (type.Kind, type.DataEncoding!.SizeInBits!.Value));
+        var parameter = Assert.Single(commandMetaData.ParameterSet ?? []);
+        Assert.Equal(("CMD_APID", "CMD_APID_Type"), (parameter.Name, parameter.ParameterTypeRef));
+        // CommandContainerSet stays a fragment.
+        Assert.Equal(["CommandContainerSet"], commandMetaData.Preserved!.Select(f => f.ElementName).ToList());
+
+        var written = XtceDocumentWriter.Write(loaded);
+        Assert.Equal(loaded, XtceDocumentReader.Load(new MemoryStream(Encoding.UTF8.GetBytes(written))));
+        var errors = XsdValidation.Validate(written);
+        Assert.True(errors.Count == 0, "Writer output failed XSD validation:\n" + string.Join("\n", errors));
+        // CommandMetaDataType sequence: ParameterTypeSet, ParameterSet, MetaCommandSet, CommandContainerSet.
+        var indexes = new[] { "<ParameterTypeSet", "<ParameterSet", "<MetaCommandSet", "<CommandContainerSet" }
+            .Select(tag => written.IndexOf(tag, StringComparison.Ordinal)).ToList();
+        Assert.True(indexes.All(i => i >= 0) && indexes.SequenceEqual(indexes.OrderBy(i => i)),
+            "CommandMetaData children out of schema order: " + string.Join(", ", indexes));
+    }
 }

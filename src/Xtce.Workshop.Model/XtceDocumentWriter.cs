@@ -269,6 +269,34 @@ public static class XtceDocumentWriter
         var slots = new List<(string Name, Action Emit)>();
         AddPreservedSlots(slots, writer, commandMetaData.Preserved);
 
+        if (commandMetaData.ParameterTypeSet is { Count: > 0 } || commandMetaData.PreservedParameterTypes is { Count: > 0 })
+        {
+            slots.Add(("ParameterTypeSet", () =>
+            {
+                writer.WriteStartElement("ParameterTypeSet", XtceNamespace);
+                foreach (var parameterType in commandMetaData.ParameterTypeSet ?? [])
+                {
+                    WriteParameterType(writer, parameterType);
+                }
+                WriteFragments(writer, commandMetaData.PreservedParameterTypes);
+                writer.WriteEndElement();
+            }));
+        }
+
+        if (commandMetaData.ParameterSet is { Count: > 0 } || commandMetaData.PreservedParameters is { Count: > 0 })
+        {
+            slots.Add(("ParameterSet", () =>
+            {
+                writer.WriteStartElement("ParameterSet", XtceNamespace);
+                foreach (var parameter in commandMetaData.ParameterSet ?? [])
+                {
+                    WriteParameter(writer, parameter);
+                }
+                WriteFragments(writer, commandMetaData.PreservedParameters);
+                writer.WriteEndElement();
+            }));
+        }
+
         if (commandMetaData.ArgumentTypeSet is { Count: > 0 } || commandMetaData.PreservedArgumentTypes is { Count: > 0 })
         {
             slots.Add(("ArgumentTypeSet", () =>

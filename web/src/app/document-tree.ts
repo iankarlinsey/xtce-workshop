@@ -163,6 +163,8 @@ export interface MetaCommandDoc {
 export interface CommandMetaDataDoc {
   metaCommands: MetaCommandDoc[];
   argumentTypeSet?: ParameterTypeDoc[] | null;
+  parameterTypeSet?: ParameterTypeDoc[] | null;
+  parameterSet?: ParameterDoc[] | null;
   [key: string]: unknown;
 }
 
@@ -177,7 +179,9 @@ export interface SpaceSystemDocument {
 /** A path is a list of child indices from the root; [] is the root itself. */
 export type NodePath = number[];
 
-export type ItemKind = 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand' | 'argumentType';
+export type ItemKind =
+  | 'parameterType' | 'parameter' | 'container' | 'message' | 'metaCommand'
+  | 'argumentType' | 'commandParameterType' | 'commandParameter';
 
 /**
  * What the user has selected: a SpaceSystem (item undefined), or one telemetry item
@@ -264,6 +268,10 @@ function itemsOf(system: SpaceSystemDocument, kind: ItemKind): readonly Telemetr
       return system.commandMetaData?.metaCommands ?? [];
     case 'argumentType':
       return system.commandMetaData?.argumentTypeSet ?? [];
+    case 'commandParameterType':
+      return system.commandMetaData?.parameterTypeSet ?? [];
+    case 'commandParameter':
+      return system.commandMetaData?.parameterSet ?? [];
   }
 }
 
@@ -304,6 +312,14 @@ function withUpdatedList(
       const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
       return { ...system, commandMetaData: { ...commandMetaData, argumentTypeSet: update(commandMetaData.argumentTypeSet ?? []) as ParameterTypeDoc[] } };
     }
+    case 'commandParameterType': {
+      const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
+      return { ...system, commandMetaData: { ...commandMetaData, parameterTypeSet: update(commandMetaData.parameterTypeSet ?? []) as ParameterTypeDoc[] } };
+    }
+    case 'commandParameter': {
+      const commandMetaData: CommandMetaDataDoc = system.commandMetaData ?? { metaCommands: [] };
+      return { ...system, commandMetaData: { ...commandMetaData, parameterSet: update(commandMetaData.parameterSet ?? []) as ParameterDoc[] } };
+    }
   }
 }
 
@@ -342,14 +358,20 @@ export function deleteItemAtSelection(doc: SpaceSystemDocument, selection: Selec
     withUpdatedList(system, item.kind, (list) => list.filter((_, i) => i !== item.index)));
 }
 
-/** Every parameter-type name in the document — datalist fodder for parameterTypeRef inputs. */
+/** Every parameter-type name in the document (telemetry and command sides share the namespace). */
 export function collectParameterTypeNames(doc: SpaceSystemDocument): string[] {
-  return collectNames(doc, (t) => t.telemetryMetaData?.parameterTypeSet);
+  return collectNames(doc, (t) => [
+    ...(t.telemetryMetaData?.parameterTypeSet ?? []),
+    ...(t.commandMetaData?.parameterTypeSet ?? []),
+  ]);
 }
 
-/** Every parameter name in the document — datalist fodder for parameterRef inputs. */
+/** Every parameter name in the document (telemetry and command sides share the namespace). */
 export function collectParameterNames(doc: SpaceSystemDocument): string[] {
-  return collectNames(doc, (t) => t.telemetryMetaData?.parameterSet);
+  return collectNames(doc, (t) => [
+    ...(t.telemetryMetaData?.parameterSet ?? []),
+    ...(t.commandMetaData?.parameterSet ?? []),
+  ]);
 }
 
 /** Every container name in the document — datalist fodder for containerRef inputs. */
@@ -430,6 +452,14 @@ export function selectionForLocation(doc: SpaceSystemDocument, location: string)
     } else if (segment === 'CommandMetaData' && segments[i + 1] === 'ArgumentTypeSet') {
       kind = 'argumentType';
       items = node.commandMetaData?.argumentTypeSet ?? [];
+      nameIndex = i + 2;
+    } else if (segment === 'CommandMetaData' && segments[i + 1] === 'ParameterTypeSet') {
+      kind = 'commandParameterType';
+      items = node.commandMetaData?.parameterTypeSet ?? [];
+      nameIndex = i + 2;
+    } else if (segment === 'CommandMetaData' && segments[i + 1] === 'ParameterSet') {
+      kind = 'commandParameter';
+      items = node.commandMetaData?.parameterSet ?? [];
       nameIndex = i + 2;
     }
     if (kind !== null) {

@@ -38,6 +38,28 @@ public static class FragmentEnumerator
                     yield return pair;
                 }
             }
+            foreach (var fragment in commandMetaData.PreservedParameterTypes ?? [])
+            {
+                yield return (fragment, $"{commandPath}/ParameterTypeSet");
+            }
+            foreach (var type in commandMetaData.ParameterTypeSet ?? [])
+            {
+                foreach (var pair in EnumerateType(type, $"{commandPath}/ParameterTypeSet/{type.Name}"))
+                {
+                    yield return pair;
+                }
+            }
+            foreach (var fragment in commandMetaData.PreservedParameters ?? [])
+            {
+                yield return (fragment, $"{commandPath}/ParameterSet");
+            }
+            foreach (var parameter in commandMetaData.ParameterSet ?? [])
+            {
+                foreach (var fragment in parameter.Preserved ?? [])
+                {
+                    yield return (fragment, $"{commandPath}/ParameterSet/{parameter.Name}");
+                }
+            }
             foreach (var fragment in commandMetaData.PreservedEntries ?? [])
             {
                 yield return (fragment, $"{commandPath}/MetaCommandSet");
