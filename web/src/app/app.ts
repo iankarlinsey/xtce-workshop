@@ -30,6 +30,7 @@ import {
   NonNumericAlarmDoc,
   ContextNonNumericAlarmDoc,
   ContextSignificanceDoc,
+  ReferenceTimeDoc,
   CommandContainerDoc,
   StreamDoc,
   ServiceDoc,
@@ -1861,6 +1862,22 @@ export class App {
     const level = significance?.consequenceLevel ?? 'normal';
     const reason = significance?.reasonForWarning ? ` — ${significance.reasonForWarning}` : '';
     return `when ${condition} → ${level}${reason}`;
+  }
+
+  /** "epoch TAI" or "offset from Seconds (instance -1, raw)" for a time type's ReferenceTime. */
+  protected referenceTimeSummary(referenceTime: ReferenceTimeDoc): string {
+    if (referenceTime.offsetFromParameterRef) {
+      const details: string[] = [];
+      if (referenceTime.offsetFromInstance != null) {
+        details.push(`instance ${referenceTime.offsetFromInstance}`);
+      }
+      if (referenceTime.offsetFromUseCalibratedValue === false) {
+        details.push('raw');
+      }
+      const suffix = details.length > 0 ? ` (${details.join(', ')})` : '';
+      return `offset from ${referenceTime.offsetFromParameterRef}${suffix}`;
+    }
+    return `epoch ${referenceTime.epoch}`;
   }
 
   /** Compact annotation for modeled entry mechanics (#109): location / repeat / condition. */

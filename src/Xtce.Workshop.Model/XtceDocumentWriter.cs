@@ -1336,6 +1336,36 @@ public static class XtceDocumentWriter
         {
             slots.Add(("Encoding", () => WriteTimeEncoding(writer, timeEncoding)));
         }
+        if (parameterType.ReferenceTime is { } referenceTime)
+        {
+            // Added before the preserved slots: the reader models the first occurrence.
+            slots.Add(("ReferenceTime", () =>
+            {
+                writer.WriteStartElement("ReferenceTime", XtceNamespace);
+                if (referenceTime.OffsetFromParameterRef is { } offsetRef)
+                {
+                    writer.WriteStartElement("OffsetFrom", XtceNamespace);
+                    writer.WriteAttributeString("parameterRef", offsetRef);
+                    if (referenceTime.OffsetFromInstance is { } instance)
+                    {
+                        writer.WriteAttributeString("instance", XmlConvert.ToString(instance));
+                    }
+                    if (referenceTime.OffsetFromUseCalibratedValue is { } useCalibrated)
+                    {
+                        writer.WriteAttributeString("useCalibratedValue", XmlConvert.ToString(useCalibrated));
+                    }
+                    WritePreservedAttributes(writer, referenceTime.OffsetFromPreservedAttributes);
+                    writer.WriteEndElement();
+                }
+                else if (referenceTime.Epoch is { } epoch)
+                {
+                    writer.WriteStartElement("Epoch", XtceNamespace);
+                    writer.WriteString(epoch);
+                    writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+            }));
+        }
         if (parameterType.DataEncoding is { } dataEncoding)
         {
             // Added before the preserved slots: the reader models the FIRST encoding it

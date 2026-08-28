@@ -516,6 +516,12 @@
           } @else {
             <p class="meta-text">No Encoding element — a time data type must have one (rule R14).</p>
           }
+          @if (type.referenceTime; as referenceTime) {
+            <div class="form-field">
+              <label>Reference time</label>
+              <p class="meta-text">{{ referenceTimeSummary(referenceTime) }}</p>
+            </div>
+          }
         }
         @if (canHaveEncoding(type.kind)) {
           <div class="form-field enum-editor">

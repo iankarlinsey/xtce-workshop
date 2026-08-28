@@ -3038,6 +3038,7 @@ public static class XtceDocumentReader
         NumericAlarm? defaultAlarm = null;
         List<ContextNumericAlarm>? contextAlarms = null;
         NonNumericAlarm? nonNumericAlarm = null;
+        ReferenceTime? referenceTime = null;
         List<ContextNonNumericAlarm>? nonNumericContextAlarms = null;
         Description? description = null;
 
@@ -3078,6 +3079,22 @@ public static class XtceDocumentReader
                          && kind is ParameterTypeKind.AbsoluteTime or ParameterTypeKind.RelativeTime)
                 {
                     timeEncoding = ReadTimeEncoding(reader);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "ReferenceTime"
+                         && referenceTime is null && HasOnlyAttributes(reader)
+                         && kind is ParameterTypeKind.AbsoluteTime or ParameterTypeKind.RelativeTime)
+                {
+                    DrainComments(ref preserved, ref pendingComments, reader.LocalName);
+                    var outerXml = reader.ReadOuterXml();
+                    if (TryParseReferenceTime(outerXml, out referenceTime))
+                    {
+                        // modeled
+                    }
+                    else
+                    {
+                        (preserved ??= new List<RawXmlFragment>()).Add(
+                            new RawXmlFragment("ReferenceTime", outerXml));
+                    }
                 }
                 else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "UnitSet" && unitSet is null)
                 {
@@ -3180,7 +3197,8 @@ public static class XtceDocumentReader
             description,
             contextAlarms,
             nonNumericAlarm,
-            nonNumericContextAlarms);
+            nonNumericContextAlarms,
+            referenceTime);
     }
 
     private static NonNumericAlarm ReadNonNumericAlarm(XmlReader reader, ParameterTypeKind kind) =>
@@ -3703,6 +3721,77 @@ public static class XtceDocumentReader
         }
 
         return new TimeEncoding(units, scale, offset, dataEncoding, preserved, preservedAttributes);
+    }
+
+    /// <summary>
+    /// Strict parse of a ReferenceTime: exactly one Epoch (text only) or one empty-shaped
+    /// OffsetFrom. Comments, unknown children, or both halves fail the parse and the
+    /// caller preserves the whole element.
+    /// </summary>
+    private static bool TryParseReferenceTime(string outerXml, out ReferenceTime? referenceTime)
+    {
+        referenceTime = null;
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(outerXml),
+                new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            reader.MoveToContent();
+            if (reader.IsEmptyElement)
+            {
+                return false; // the XSD requires the choice
+            }
+            reader.ReadStartElement();
+
+            string? epoch = null;
+            string? offsetRef = null;
+            long? offsetInstance = null;
+            bool? offsetUseCalibrated = null;
+            IReadOnlyList<RawAttribute>? offsetPreserved = null;
+
+            while (reader.NodeType != XmlNodeType.EndElement)
+            {
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Epoch"
+                    && epoch is null && offsetRef is null && !reader.IsEmptyElement
+                    && reader.AttributeCount == 0)
+                {
+                    if (!TryReadTextOnlyElement(reader.ReadOuterXml(), out var text))
+                    {
+                        return false;
+                    }
+                    epoch = text.Trim();
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "OffsetFrom"
+                         && offsetRef is null && epoch is null && reader.IsEmptyElement
+                         && reader.GetAttribute("parameterRef") is { } parameterRef)
+                {
+                    offsetRef = parameterRef;
+                    offsetInstance = ParseLong(reader, "instance");
+                    offsetUseCalibrated = ParseBool(reader, "useCalibratedValue");
+                    offsetPreserved = CapturePreservedAttributes(reader,
+                        ["parameterRef", "instance", "useCalibratedValue"]);
+                    reader.Read();
+                }
+                else if (reader.NodeType is XmlNodeType.Element or XmlNodeType.Comment or XmlNodeType.ProcessingInstruction)
+                {
+                    return false;
+                }
+                else
+                {
+                    reader.Read();
+                }
+            }
+
+            if (epoch is null && offsetRef is null)
+            {
+                return false;
+            }
+            referenceTime = new ReferenceTime(epoch, offsetRef, offsetInstance, offsetUseCalibrated, offsetPreserved);
+            return true;
+        }
+        catch (XmlException)
+        {
+            return false;
+        }
     }
 
     private static DataEncoding ReadDataEncoding(XmlReader reader, DataEncodingKind kind)

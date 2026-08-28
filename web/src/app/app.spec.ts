@@ -418,7 +418,8 @@ describe('App', () => {
                 name: 'Mode_Type', kind: 'Enumerated', enumerations: [{ value: 0, label: 'IDLE' }],
                 description: { longDescription: 'Operating mode.', aliases: [{ nameSpace: 'ops', alias: 'MODE' }] },
               },
-              { name: 'Uptime_Type', kind: 'RelativeTime', timeEncoding: { units: 'seconds', dataEncoding: { kind: 'Integer', sizeInBits: 32 } } },
+              { name: 'Uptime_Type', kind: 'RelativeTime', timeEncoding: { units: 'seconds', dataEncoding: { kind: 'Integer', sizeInBits: 32 } }, referenceTime: { offsetFromParameterRef: 'BusVoltage', offsetFromInstance: -1, offsetFromUseCalibratedValue: false } },
+              { name: 'Mission_Type', kind: 'AbsoluteTime', timeEncoding: { units: 'seconds', dataEncoding: { kind: 'Integer', sizeInBits: 32 } }, referenceTime: { epoch: 'TAI' } },
             ],
             parameterSet: [{
               name: 'BusVoltage', parameterTypeRef: 'Volt_Type', initialValue: '28.5',
@@ -781,6 +782,11 @@ describe('App', () => {
 
       expect((compiled.querySelector('#time-units') as HTMLInputElement).value).toBe('seconds');
       expect(compiled.textContent).toContain('Inner encoding: IntegerDataEncoding, 32 bits');
+      expect(compiled.textContent).toContain('offset from BusVoltage (instance -1, raw)');
+
+      clickTreeRowByText(fixture, 'Mission_Type');
+      expect(compiled.textContent).toContain('epoch TAI');
+      clickTreeRowByText(fixture, 'Uptime_Type');
 
       const unitsInput = compiled.querySelector('#time-units') as HTMLInputElement;
       unitsInput.value = 'picoSeconds';
@@ -1057,7 +1063,7 @@ describe('App', () => {
 
       fixture.componentInstance.onSaveDocument();
       const req = httpMock.expectOne('/api/xtce/save');
-      const added = req.request.body.telemetryMetaData.parameterTypeSet[3];
+      const added = req.request.body.telemetryMetaData.parameterTypeSet[4];
       expect(added).toEqual({ name: 'Flag_Type', kind: 'Boolean' });
       req.flush('<SpaceSystem/>');
     }));

@@ -203,6 +203,24 @@ public class XtceDocumentQueryTests
     }
 
     [Test]
+    public void FindParameterUsages_SeesModeledReferenceTimeOffsets()
+    {
+        var tree = new SpaceSystem("Root", [], new TelemetryMetaData(
+            [
+                new ParameterTypeDefinition("SecondsType", ParameterTypeKind.Integer),
+                new ParameterTypeDefinition("MissionTimeType", ParameterTypeKind.AbsoluteTime,
+                    ReferenceTime: new ReferenceTime(OffsetFromParameterRef: "Seconds")),
+            ],
+            [new Parameter("Seconds", "SecondsType")]));
+
+        var usages = XtceDocumentQuery.FindParameterUsages(tree, "Root", "Seconds");
+
+        var usage = Assert.Single(usages);
+        Assert.Equal("OffsetFrom", usage.Kind);
+        Assert.Contains("MissionTimeType", usage.Location);
+    }
+
+    [Test]
     public void FindParameterUsages_DoesNotMatchASameNamedParameterElsewhere()
     {
         var tree = new SpaceSystem("Root",

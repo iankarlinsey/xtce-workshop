@@ -234,6 +234,40 @@ public sealed record ContextNumericAlarm(
     MatchCriteria? Context = null,
     RawXmlFragment? RawXml = null);
 
+/// <summary>
+/// A time type's ReferenceTime (issue #122): exactly one of Epoch (the text verbatim —
+/// a date, dateTime, or TAI/J2000/UNIX/GPS) or OffsetFrom (a parameter-instance ref;
+/// instance/useCalibratedValue stay null when absent, XSD defaults 0/true applied by
+/// consumers). Anything else — comments, unknown children, both halves — keeps the whole
+/// ReferenceTime element as a preserved fragment on the type.
+/// </summary>
+public sealed record ReferenceTime(
+    string? Epoch = null,
+    string? OffsetFromParameterRef = null,
+    long? OffsetFromInstance = null,
+    bool? OffsetFromUseCalibratedValue = null,
+    IReadOnlyList<RawAttribute>? OffsetFromPreservedAttributes = null)
+{
+    public bool Equals(ReferenceTime? other) =>
+        other is not null
+        && Epoch == other.Epoch
+        && OffsetFromParameterRef == other.OffsetFromParameterRef
+        && OffsetFromInstance == other.OffsetFromInstance
+        && OffsetFromUseCalibratedValue == other.OffsetFromUseCalibratedValue
+        && Structural.ListEquals(OffsetFromPreservedAttributes, other.OffsetFromPreservedAttributes);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Epoch);
+        hash.Add(OffsetFromParameterRef);
+        hash.Add(OffsetFromInstance);
+        hash.Add(OffsetFromUseCalibratedValue);
+        Structural.AddList(ref hash, OffsetFromPreservedAttributes);
+        return hash.ToHashCode();
+    }
+}
+
 /// <summary>One EnumerationAlarm row: an alarm level for an enumeration label.</summary>
 public sealed record EnumerationAlarmLevel(
     string AlarmLevel,
@@ -538,7 +572,8 @@ public sealed record ParameterTypeDefinition(
     Description? Description = null,
     IReadOnlyList<ContextNumericAlarm>? ContextAlarms = null,
     NonNumericAlarm? NonNumericDefaultAlarm = null,
-    IReadOnlyList<ContextNonNumericAlarm>? NonNumericContextAlarms = null)
+    IReadOnlyList<ContextNonNumericAlarm>? NonNumericContextAlarms = null,
+    ReferenceTime? ReferenceTime = null)
 {
     public bool Equals(ParameterTypeDefinition? other) =>
         other is not null
@@ -563,7 +598,8 @@ public sealed record ParameterTypeDefinition(
         && Equals(Description, other.Description)
         && Structural.ListEquals(ContextAlarms, other.ContextAlarms)
         && Equals(NonNumericDefaultAlarm, other.NonNumericDefaultAlarm)
-        && Structural.ListEquals(NonNumericContextAlarms, other.NonNumericContextAlarms);
+        && Structural.ListEquals(NonNumericContextAlarms, other.NonNumericContextAlarms)
+        && Equals(ReferenceTime, other.ReferenceTime);
 
     public override int GetHashCode()
     {
@@ -590,6 +626,7 @@ public sealed record ParameterTypeDefinition(
         Structural.AddList(ref hash, ContextAlarms);
         hash.Add(NonNumericDefaultAlarm);
         Structural.AddList(ref hash, NonNumericContextAlarms);
+        hash.Add(ReferenceTime);
         return hash.ToHashCode();
     }
 }

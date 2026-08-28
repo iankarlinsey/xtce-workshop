@@ -193,6 +193,11 @@ public static class XtceDocumentQuery
                         }
                     }
                 }
+                if (type.ReferenceTime?.OffsetFromParameterRef is { } offsetRef
+                    && ResolvesToTarget(context, offsetRef, systemPath, parameterName))
+                {
+                    usages.Add(new UsageMatch("OffsetFrom", typeLocation, offsetRef));
+                }
             }
 
             foreach (var (fragment, location) in FragmentEnumerator.EnumerateNode(context))

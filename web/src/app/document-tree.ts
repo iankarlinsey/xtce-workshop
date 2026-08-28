@@ -147,6 +147,14 @@ export interface ContextNonNumericAlarmDoc {
   [key: string]: unknown;
 }
 
+export interface ReferenceTimeDoc {
+  epoch?: string | null;
+  offsetFromParameterRef?: string | null;
+  offsetFromInstance?: number | null;
+  offsetFromUseCalibratedValue?: boolean | null;
+  [key: string]: unknown;
+}
+
 export interface ContextNumericAlarmDoc {
   alarm?: NumericAlarmDoc | null;
   context?: MatchCriteriaDoc | null;
@@ -180,6 +188,7 @@ export interface ParameterTypeDoc {
   contextAlarms?: ContextNumericAlarmDoc[] | null;
   nonNumericDefaultAlarm?: NonNumericAlarmDoc | null;
   nonNumericContextAlarms?: ContextNonNumericAlarmDoc[] | null;
+  referenceTime?: ReferenceTimeDoc | null;
   description?: DescriptionDoc | null;
   [key: string]: unknown;
 }

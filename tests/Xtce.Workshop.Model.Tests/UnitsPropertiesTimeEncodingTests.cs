@@ -59,8 +59,9 @@ public class UnitsPropertiesTimeEncodingTests
         var timeEncoding = mission.TimeEncoding!;
         Assert.Equal(("seconds", "0.001", "1.5"), (timeEncoding.Units, timeEncoding.Scale, timeEncoding.Offset));
         Assert.Equal((DataEncodingKind.Integer, 64L), (timeEncoding.DataEncoding!.Kind, timeEncoding.DataEncoding.SizeInBits));
-        // ReferenceTime stays a preserved fragment on the type.
-        Assert.Equal(["ReferenceTime"], mission.Preserved!.Select(f => f.ElementName).ToList());
+        // ReferenceTime is modeled since #122.
+        Assert.Null(mission.Preserved);
+        Assert.Equal("TAI", mission.ReferenceTime!.Epoch);
 
         var parameter = document.TelemetryMetaData.ParameterSet.Single();
         var properties = parameter.Properties!;
