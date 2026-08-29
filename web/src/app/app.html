@@ -7,6 +7,9 @@
     @if (currentDocument(); as doc) {
       <div class="header-divider"></div>
       <span class="doc-name">{{ doc.name }}</span>
+    } @else if (documentSession(); as session) {
+      <div class="header-divider"></div>
+      <span class="doc-name">{{ session.name }}</span>
     }
     <div class="toolbar header-toolbar">
       <label class="btn file-btn">
@@ -14,13 +17,13 @@
         <input type="file" accept=".xtce,.xml" (change)="onFileSelected($event)" />
       </label>
       <rux-button secondary (click)="onNewDocument()">New</rux-button>
-      <rux-button secondary (click)="onSaveDocument()" [disabled]="!currentDocument() && !sourceText()">Save</rux-button>
+      <rux-button secondary (click)="onSaveDocument()" [disabled]="!currentDocument() && !sourceText() && !documentSession()">Save</rux-button>
     </div>
     <div class="spacer"></div>
-    @if (currentDocument() || sourceText()) {
+    @if (currentDocument() || sourceText() || documentSession()) {
       <div class="view-toggle" role="group" aria-label="Document view">
-        <rux-button [secondary]="viewMode() !== 'source'" [disabled]="documentSession() !== null" (click)="onShowSource()">Source</rux-button>
-        <rux-button [secondary]="viewMode() !== 'tree'" [disabled]="!currentDocument()"
+        <rux-button [secondary]="viewMode() !== 'source'" (click)="onShowSource()">Source</rux-button>
+        <rux-button [secondary]="viewMode() !== 'tree'" [disabled]="!currentDocument() && !documentSession()"
                     (click)="onShowTree()">Tree</rux-button>
       </div>
     }
@@ -70,7 +73,7 @@
             <p class="fallback-title">This document is too large to open in the browser.</p>
             <p class="meta-text">It parsed and validated successfully on the server. You can continue with the
               document held server-side: the tree loads as you expand it, forms edit one item at a time on the
-              server, and Save streams the XML back down. Source view is unavailable in that mode.</p>
+              server, and Save streams the XML back down. Source view loads on demand.</p>
             <div class="fallback-actions">
               <rux-button (click)="onConfirmSessionFallback()">Continue on the server</rux-button>
               <rux-button secondary (click)="onDeclineSessionFallback()">Cancel</rux-button>

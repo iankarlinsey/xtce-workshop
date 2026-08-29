@@ -266,6 +266,89 @@ describe('App', () => {
       expect(compiled.querySelector('.loading-overlay')).toBeNull();
     });
 
+    it('Source view loads on demand in session mode and Tree switches back without a re-parse', () => {
+      const fixture = createAppAndFlushHealth();
+      openSession(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      fixture.componentInstance.onShowSource();
+      const fetch = httpMock.expectOne('/api/xtce/sessions/sess1/save');
+      expect(fetch.request.responseType).toBe('text');
+      fetch.flush('<SpaceSystem name="Sat"/>');
+      fixture.detectChanges();
+      expect((fixture.componentInstance as unknown as { viewMode: () => string }).viewMode()).toBe('source');
+      expect((fixture.componentInstance as unknown as { sourceText: () => string }).sourceText())
+        .toContain('SpaceSystem');
+
+      // Back to the tree: the session is the state — no jobs/text re-parse fires.
+      fixture.componentInstance.onShowTree();
+      fixture.detectChanges();
+      expect((fixture.componentInstance as unknown as { viewMode: () => string }).viewMode()).toBe('tree');
+      expect(compiled.textContent).toContain('Server-held document');
+
+      // A second Source visit reuses the fetched text (no new request expected).
+      fixture.componentInstance.onShowSource();
+      fixture.detectChanges();
+      expect((fixture.componentInstance as unknown as { viewMode: () => string }).viewMode()).toBe('source');
+      httpMock.verify();
+    });
+
+    it('an expired session surfaces an honest error when fetching source', () => {
+      const fixture = createAppAndFlushHealth();
+      openSession(fixture);
+
+      fixture.componentInstance.onShowSource();
+      httpMock.expectOne('/api/xtce/sessions/sess1/save')
+        .flush({ error: 'Unknown or expired document session.' }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      expect((fixture.componentInstance as unknown as { loadError: () => string | null }).loadError())
+        .toContain('session expired');
+      expect((fixture.componentInstance as unknown as { viewMode: () => string }).viewMode()).toBe('tree');
+    });
+
+    it('a session item edit invalidates the fetched source text', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      openSession(fixture);
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      // Fetch the source once.
+      fixture.componentInstance.onShowSource();
+      httpMock.expectOne('/api/xtce/sessions/sess1/save').flush('<SpaceSystem name="Sat"/>');
+      fixture.componentInstance.onShowTree();
+      fixture.detectChanges();
+
+      // Open and edit an item.
+      (Array.from(compiled.querySelectorAll('.session-group .label'))
+        .find((el) => el.textContent?.trim() === 'Parameter Types')!
+        .closest('.session-group') as HTMLElement).click();
+      httpMock.expectOne((r) => r.url === '/api/xtce/sessions/sess1/items').flush({
+        total: 1, offset: 0, names: ['Volt_Type'],
+      });
+      fixture.detectChanges();
+      (Array.from(compiled.querySelectorAll('.session-item .label'))
+        .find((el) => el.textContent?.trim() === 'Volt_Type')!
+        .closest('.session-item') as HTMLElement).click();
+      httpMock.expectOne((r) => r.url === '/api/xtce/sessions/sess1/item').flush({
+        name: 'Volt_Type', kind: 'Integer', sizeInBits: 16,
+      });
+      fixture.detectChanges();
+      const sizeInput = compiled.querySelector('#type-size') as HTMLInputElement;
+      sizeInput.value = '32';
+      sizeInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      tick(App.revalidateDelayMs);
+      httpMock.expectOne((r) => r.method === 'PUT').flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne('/api/xtce/sessions/sess1/validate').flush({ validationIssues: [] });
+
+      // The next Source visit refetches — the held model changed under the old text.
+      fixture.componentInstance.onShowSource();
+      httpMock.expectOne('/api/xtce/sessions/sess1/save').flush('<SpaceSystem name="Sat" edited="true"/>');
+      fixture.detectChanges();
+      expect((fixture.componentInstance as unknown as { sourceText: () => string }).sourceText())
+        .toContain('edited');
+    }));
+
     it('Save streams the server-held XML as a blob download', () => {
       const fixture = createAppAndFlushHealth();
       openSession(fixture);

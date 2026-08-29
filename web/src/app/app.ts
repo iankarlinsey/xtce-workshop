@@ -198,6 +198,8 @@ export class App {
   protected readonly expandedSessionGroups = signal<ReadonlySet<string>>(new Set());
   /** The real coordinates of the item open in the form panel, for PUT-backed edits. */
   private sessionItemRef: { path: string; kind: string; index: number } | null = null;
+  /** False once a session item edit lands — the next Source view refetches the XML. */
+  private sessionSourceFresh = false;
   /** Set when the browser could not hold a load response: the mode switch awaits Ian's OK. */
   protected readonly sessionFallbackPrompt = signal<{ jobId: string } | null>(null);
   private sessionFallbackHandlers: {
@@ -824,6 +826,7 @@ export class App {
       this.expandedSessionSystems.set(new Set(['']));
       this.expandedSessionGroups.set(new Set());
       this.sessionItemRef = null;
+      this.sessionSourceFresh = false;
       this.validationIssues.set(result.validationIssues ?? []);
       this.conformanceReport.set(null);
       this.loadDiagnostics.set(result.diagnostics ?? []);
@@ -882,8 +885,29 @@ export class App {
     if (this.viewMode() === 'source') {
       return;
     }
-    if (this.documentSession()) {
-      return; // a server-held document's text never came down to show
+    const session = this.documentSession();
+    if (session) {
+      // On-demand source (#129): the text never came down with the load — stream the
+      // server's serialization of the held model (the same bytes Save would produce).
+      if (this.sourceText() !== '' && this.sessionSourceFresh) {
+        this.viewMode.set('source');
+        return;
+      }
+      this.startLoading(`Fetching ${session.name} source`, session.inputByteCount);
+      this.advanceTo('download');
+      this.http.get(`/api/xtce/sessions/${session.id}/save`, { responseType: 'text' }).subscribe({
+        next: (xmlText) => {
+          this.closeLoading();
+          this.sourceText.set(xmlText);
+          this.sessionSourceFresh = true;
+          this.viewMode.set('source');
+        },
+        error: () => {
+          this.closeLoading();
+          this.loadError.set('The server-held document session expired — reload the file.');
+        },
+      });
+      return;
     }
     const doc = this.currentDocument();
     if (!doc) {
@@ -949,8 +973,16 @@ export class App {
   /** Leaving source view IS the re-parse: the editor text becomes the document, or the
    *  view stays put with positioned diagnostics when it can't. */
   onShowTree(): void {
+    if (this.viewMode() === 'tree') {
+      return;
+    }
+    if (this.documentSession()) {
+      // The session tree IS the state — switching back must not re-parse the text.
+      this.viewMode.set('tree');
+      return;
+    }
     // rux-button hosts still emit clicks when [disabled]; the tree needs a parsed document.
-    if (this.viewMode() === 'tree' || !this.currentDocument()) {
+    if (!this.currentDocument()) {
       return;
     }
     this.rescanSource('switch');
@@ -2706,6 +2738,7 @@ export class App {
       { params: { path: ref.path, kind: ref.kind, index: ref.index } }
     ).subscribe({
       next: () => {
+        this.sessionSourceFresh = false; // the held model changed under the fetched text
         // A rename must show in the lazy tree row immediately.
         this.sessionNames.update((names) => {
           const key = `${ref.path}|${ref.kind}`;
