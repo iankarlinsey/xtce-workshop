@@ -1165,13 +1165,67 @@ describe('App', () => {
       req.flush('<SpaceSystem/>');
     }));
 
+    it('aliases add, edit, and remove through the row editor into Save', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Mode_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      // Edit the existing alias's name.
+      const aliasInput = compiled.querySelector('input[aria-label="Alias 0 alias"]') as HTMLInputElement;
+      aliasInput.value = 'SC_MODE';
+      aliasInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      // Add a second alias.
+      (Array.from(compiled.querySelectorAll('rux-button, button')).find(
+        (b) => b.textContent?.trim() === '+ Add alias'
+      ) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const newNamespace = compiled.querySelector('input[aria-label="Alias 1 namespace"]') as HTMLInputElement;
+      newNamespace.value = 'gnd';
+      newNamespace.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      const newAlias = compiled.querySelector('input[aria-label="Alias 1 alias"]') as HTMLInputElement;
+      newAlias.value = 'GND_MODE';
+      newAlias.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      flushRevalidate();
+
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[1].description.aliases).toEqual([
+        { nameSpace: 'ops', alias: 'SC_MODE' },
+        { nameSpace: 'gnd', alias: 'GND_MODE' },
+      ]);
+      req.flush('<SpaceSystem/>');
+    }));
+
+    it('removing the last alias nulls the list so no empty AliasSet is emitted', fakeAsync(() => {
+      const fixture = createAppAndFlushHealth();
+      loadTelemetryDocument(fixture);
+      clickTreeRowByText(fixture, 'Mode_Type');
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      (compiled.querySelector('button[aria-label="Remove alias"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      flushRevalidate();
+
+      expect(compiled.querySelector('input[aria-label="Alias 0 namespace"]')).toBeNull();
+      fixture.componentInstance.onSaveDocument();
+      const req = httpMock.expectOne('/api/xtce/save');
+      expect(req.request.body.telemetryMetaData.parameterTypeSet[1].description.aliases).toBeNull();
+      req.flush('<SpaceSystem/>');
+    }));
+
     it('long descriptions edit and aliases display on the type form', fakeAsync(() => {
       const fixture = createAppAndFlushHealth();
       loadTelemetryDocument(fixture);
       clickTreeRowByText(fixture, 'Mode_Type');
       const compiled = fixture.nativeElement as HTMLElement;
 
-      expect(compiled.textContent).toContain('Aliases: ops: MODE');
+      expect((compiled.querySelector('input[aria-label="Alias 0 namespace"]') as HTMLInputElement).value).toBe('ops');
+      expect((compiled.querySelector('input[aria-label="Alias 0 alias"]') as HTMLInputElement).value).toBe('MODE');
       const textArea = compiled.querySelector('#type-longdesc') as HTMLTextAreaElement;
       expect(textArea.value).toBe('Operating mode.');
       textArea.value = 'Spacecraft operating mode.';

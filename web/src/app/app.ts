@@ -1221,8 +1221,37 @@ export class App {
     });
   }
 
-  protected aliasSummary(description: DescriptionDoc | null | undefined): string {
-    return (description?.aliases ?? []).map((a) => `${a.nameSpace}: ${a.alias}`).join(', ');
+  // --- Alias editing (#131) --------------------------------------------------------------
+
+  private mutateAliases(
+    update: (aliases: { nameSpace: string; alias: string }[]) => { nameSpace: string; alias: string }[]
+  ): void {
+    this.mutateSelectedItem((item) => {
+      const current = item as { description?: DescriptionDoc | null };
+      const updated = update([...(current.description?.aliases ?? [])]);
+      return {
+        ...current,
+        // null, never []: the writer emits an <AliasSet> for any non-null list, and an
+        // element that was never there must not appear when the last alias is removed.
+        description: { ...(current.description ?? {}), aliases: updated.length > 0 ? updated : null },
+      };
+    });
+  }
+
+  onAliasFieldInput(index: number, field: 'nameSpace' | 'alias', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.mutateAliases((aliases) => {
+      aliases[index] = { ...aliases[index], [field]: value };
+      return aliases;
+    });
+  }
+
+  onAddAlias(): void {
+    this.mutateAliases((aliases) => [...aliases, { nameSpace: '', alias: '' }]);
+  }
+
+  onRemoveAlias(index: number): void {
+    this.mutateAliases((aliases) => aliases.filter((_, i) => i !== index));
   }
 
   // --- Header editing --------------------------------------------------------------------

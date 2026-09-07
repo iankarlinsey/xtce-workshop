@@ -414,11 +414,17 @@
           <label for="type-longdesc">Long description</label>
           <textarea id="type-longdesc" class="algorithm-text" rows="3" [value]="type.description?.longDescription ?? ''" (input)="onLongDescriptionInput($event)"></textarea>
         </div>
-        @if (aliasSummary(type.description); as aliases) {
-          @if (aliases) {
-            <p class="meta-text">Aliases: {{ aliases }}</p>
+        <div class="form-field enum-editor">
+          <label>Aliases <span class="hint">(namespace &rarr; alias; searchable)</span></label>
+          @for (aliasEntry of type.description?.aliases ?? []; track $index; let i = $index) {
+            <div class="enum-row">
+              <input class="member-name" [value]="aliasEntry.nameSpace" (input)="onAliasFieldInput(i, 'nameSpace', $event)" placeholder="namespace" [attr.aria-label]="'Alias ' + i + ' namespace'" />
+              <input class="enum-value" [value]="aliasEntry.alias" (input)="onAliasFieldInput(i, 'alias', $event)" placeholder="alias" [attr.aria-label]="'Alias ' + i + ' alias'" />
+              <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveAlias(i)" aria-label="Remove alias">&times;</button>
+            </div>
           }
-        }
+          <rux-button secondary (click)="onAddAlias()">+ Add alias</rux-button>
+        </div>
 
         @if (type.kind === 'Integer') {
           <div class="form-field checkbox-field">
@@ -737,11 +743,17 @@
           <label for="param-longdesc">Long description</label>
           <textarea id="param-longdesc" class="algorithm-text" rows="3" [value]="parameter.description?.longDescription ?? ''" (input)="onLongDescriptionInput($event)"></textarea>
         </div>
-        @if (aliasSummary(parameter.description); as aliases) {
-          @if (aliases) {
-            <p class="meta-text">Aliases: {{ aliases }}</p>
+        <div class="form-field enum-editor">
+          <label>Aliases <span class="hint">(namespace &rarr; alias; searchable)</span></label>
+          @for (aliasEntry of parameter.description?.aliases ?? []; track $index; let i = $index) {
+            <div class="enum-row">
+              <input class="member-name" [value]="aliasEntry.nameSpace" (input)="onAliasFieldInput(i, 'nameSpace', $event)" placeholder="namespace" [attr.aria-label]="'Alias ' + i + ' namespace'" />
+              <input class="enum-value" [value]="aliasEntry.alias" (input)="onAliasFieldInput(i, 'alias', $event)" placeholder="alias" [attr.aria-label]="'Alias ' + i + ' alias'" />
+              <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveAlias(i)" aria-label="Remove alias">&times;</button>
+            </div>
           }
-        }
+          <rux-button secondary (click)="onAddAlias()">+ Add alias</rux-button>
+        </div>
         <div class="form-field">
           <label for="param-datasource">Data source</label>
           <select id="param-datasource" class="kind-select" [value]="parameter.properties?.dataSource ?? ''" (change)="onParameterPropertyChange('dataSource', $event)">
@@ -1198,11 +1210,17 @@
           <label for="command-longdesc">Long description</label>
           <textarea id="command-longdesc" class="algorithm-text" rows="3" [value]="metaCommand.description?.longDescription ?? ''" (input)="onLongDescriptionInput($event)"></textarea>
         </div>
-        @if (aliasSummary(metaCommand.description); as aliases) {
-          @if (aliases) {
-            <p class="meta-text">Aliases: {{ aliases }}</p>
+        <div class="form-field enum-editor">
+          <label>Aliases <span class="hint">(namespace &rarr; alias; searchable)</span></label>
+          @for (aliasEntry of metaCommand.description?.aliases ?? []; track $index; let i = $index) {
+            <div class="enum-row">
+              <input class="member-name" [value]="aliasEntry.nameSpace" (input)="onAliasFieldInput(i, 'nameSpace', $event)" placeholder="namespace" [attr.aria-label]="'Alias ' + i + ' namespace'" />
+              <input class="enum-value" [value]="aliasEntry.alias" (input)="onAliasFieldInput(i, 'alias', $event)" placeholder="alias" [attr.aria-label]="'Alias ' + i + ' alias'" />
+              <button type="button" class="btn btn-danger enum-remove" (click)="onRemoveAlias(i)" aria-label="Remove alias">&times;</button>
+            </div>
           }
-        }
+          <rux-button secondary (click)="onAddAlias()">+ Add alias</rux-button>
+        </div>
         <div class="form-field enum-editor">
           <label>Arguments</label>
           @for (argument of metaCommand.arguments ?? []; track $index; let i = $index) {
